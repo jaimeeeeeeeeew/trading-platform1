@@ -1,15 +1,16 @@
 import { useEffect, useRef } from 'react';
-import { createChart, IChartApi, HistogramData } from 'lightweight-charts';
+import { createChart, ColorType, Time } from 'lightweight-charts';
+import type { IChartApi, SeriesOptionsCommon } from 'lightweight-charts';
 
 export default function Chart() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<IChartApi>();
+  const chart = useRef<IChartApi | null>(null);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
     // Create the chart
-    const chart = createChart(chartContainerRef.current, {
+    const chartInstance = createChart(chartContainerRef.current, {
       layout: {
         background: { color: '#1a1a1a' },
         textColor: 'white',
@@ -26,8 +27,11 @@ export default function Chart() {
       },
     });
 
-    // Create candlestick series
-    const candlestickSeries = chart.addCandlestickSeries({
+    // Store the chart instance in the ref
+    chart.current = chartInstance;
+
+    // Create series
+    const candleSeries = chartInstance.addCandlestickSeries({
       upColor: '#26a69a',
       downColor: '#ef5350',
       borderVisible: false,
@@ -36,7 +40,7 @@ export default function Chart() {
     });
 
     // Create volume series
-    const volumeSeries = chart.addHistogramSeries({
+    const volumeSeries = chartInstance.addHistogramSeries({
       color: '#26a69a',
       priceFormat: {
         type: 'volume',
@@ -48,15 +52,13 @@ export default function Chart() {
       },
     });
 
-    // Create order profile series (vertical histogram)
-    const orderProfileSeries = chart.addHistogramSeries({
+    // Create order profile series
+    const orderProfileSeries = chartInstance.addHistogramSeries({
       color: '#4CAF50',
       priceFormat: {
         type: 'volume',
       },
-      priceScaleId: 'orderProfile',
-      base: 0,
-      overlay: true,
+      priceScaleId: 'order-profile',
       scaleMargins: {
         top: 0.1,
         bottom: 0.1,
@@ -65,32 +67,31 @@ export default function Chart() {
 
     // Sample data
     const candlestickData = [
-      { time: '2024-02-01', open: 45000, high: 46000, low: 44000, close: 45500 },
-      { time: '2024-02-02', open: 45500, high: 47000, low: 45000, close: 46800 },
+      { time: '2024-02-01' as Time, open: 45000, high: 46000, low: 44000, close: 45500 },
+      { time: '2024-02-02' as Time, open: 45500, high: 47000, low: 45000, close: 46800 },
     ];
 
     const volumeData = [
-      { time: '2024-02-01', value: 1000, color: '#26a69a' },
-      { time: '2024-02-02', value: 2000, color: '#ef5350' },
+      { time: '2024-02-01' as Time, value: 1000, color: '#26a69a' },
+      { time: '2024-02-02' as Time, value: 2000, color: '#ef5350' },
     ];
 
-    // Order profile data - will be updated in real-time
-    const orderProfileData: HistogramData[] = [
-      { time: 45000, value: 100, color: '#4CAF50' },
-      { time: 45500, value: 200, color: '#4CAF50' },
-      { time: 46000, value: 150, color: '#ef5350' },
-      { time: 46500, value: 300, color: '#ef5350' },
+    const orderProfileData = [
+      { time: '2024-02-01' as Time, value: 100, color: '#4CAF50' },
+      { time: '2024-02-02' as Time, value: 200, color: '#4CAF50' },
+      { time: '2024-02-01' as Time, value: 150, color: '#ef5350' },
+      { time: '2024-02-02' as Time, value: 300, color: '#ef5350' },
     ];
 
     // Set the data
-    candlestickSeries.setData(candlestickData);
+    candleSeries.setData(candlestickData);
     volumeSeries.setData(volumeData);
     orderProfileSeries.setData(orderProfileData);
 
     // Handle resize
     const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({
+      if (chartContainerRef.current && chart.current) {
+        chart.current.applyOptions({
           width: chartContainerRef.current.clientWidth,
           height: chartContainerRef.current.clientHeight,
         });
@@ -98,11 +99,12 @@ export default function Chart() {
     };
 
     window.addEventListener('resize', handleResize);
-    chartRef.current = chart;
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      chart.remove();
+      if (chart.current) {
+        chart.current.remove();
+      }
     };
   }, []);
 
