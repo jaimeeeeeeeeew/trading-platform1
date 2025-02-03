@@ -42,9 +42,12 @@ export function setupAuth(app: Express) {
     cookie: {
       secure: false, // Cambiado a false para desarrollo
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: 'lax' // Cambiado a lax para permitir conexiones WebSocket
+      sameSite: 'lax', // Cambiado a lax para permitir conexiones WebSocket
+      path: '/', // Asegurarse que la cookie está disponible en toda la aplicación
+      httpOnly: true
     },
     store: storage.sessionStore,
+    name: 'connect.sid' // Nombre explícito de la cookie
   };
 
   if (app.get("env") === "production") {

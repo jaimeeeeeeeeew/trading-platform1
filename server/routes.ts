@@ -41,47 +41,38 @@ export function registerRoutes(app: Express): Server {
   const server = createServer(app);
   setupAuth(app);
 
-  // Configuración del WebSocket con manejo de sesión
   const wss = new WebSocketServer({ 
     server,
     path: "/ws",
-    verifyClient: (info, callback) => {
-      const cookies = parseCookie(info.req.headers.cookie || '');
-      const sessionId = cookies['connect.sid'];
-
-      if (!sessionId) {
-        callback(false, 401, 'Unauthorized');
-        return;
-      }
-
-      callback(true);
-    }
+    clientTracking: true,
+    verifyClient: () => true // Desactivar verificación temporalmente
   });
 
-  wss.on('connection', (ws: WebSocket) => {
-    console.log('Cliente conectado al WebSocket');
-    let isAlive = true;
+  wss.on('error', (error) => {
+    console.error('Error del servidor WebSocket:', error);
+  });
 
-    // Enviar datos iniciales
-    const initialData = generateData();
-    ws.send(JSON.stringify(initialData));
+  wss.on('connection', (ws: WebSocket, req) => {
+    console.log('Nueva conexión WebSocket iniciada');
 
-    // Mantener la conexión viva
-    const pingInterval = setInterval(() => {
-      if (!isAlive) {
-        ws.terminate();
-        return;
-      }
+    try {
+      const cookies = parseCookie(req.headers.cookie || '');
+      const sessionId = cookies['connect.sid'];
+      console.log('Cookie de sesión encontrada:', !!sessionId);
+    } catch (error) {
+      console.error('Error al procesar cookies:', error);
+    }
 
-      isAlive = false;
-      ws.ping();
-    }, 30000);
+    // Enviar datos iniciales inmediatamente
+    try {
+      const initialData = generateData();
+      ws.send(JSON.stringify(initialData));
+      console.log('Datos iniciales enviados correctamente');
+    } catch (error) {
+      console.error('Error al enviar datos iniciales:', error);
+    }
 
-    ws.on('pong', () => {
-      isAlive = true;
-    });
-
-    // Intervalo para enviar datos
+    // Intervalo para enviar datos actualizados
     const dataInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         try {
@@ -89,20 +80,21 @@ export function registerRoutes(app: Express): Server {
           ws.send(JSON.stringify(data));
         } catch (error) {
           console.error('Error al enviar datos:', error);
+          clearInterval(dataInterval);
         }
+      } else {
+        console.log('WebSocket no está abierto, estado actual:', ws.readyState);
       }
     }, 1000);
 
-    ws.on('close', () => {
-      console.log('Cliente desconectado del WebSocket');
+    ws.on('close', (code, reason) => {
+      console.log('Cliente desconectado del WebSocket:', code, reason || 'sin razón especificada');
       clearInterval(dataInterval);
-      clearInterval(pingInterval);
     });
 
     ws.on('error', (error) => {
-      console.error('Error de WebSocket:', error);
+      console.error('Error de conexión WebSocket:', error);
       clearInterval(dataInterval);
-      clearInterval(pingInterval);
     });
   });
 

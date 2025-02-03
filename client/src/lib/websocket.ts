@@ -18,6 +18,7 @@ export function useWebSocket({
 
   useEffect(() => {
     if (!enabled) {
+      console.log('WebSocket deshabilitado');
       return;
     }
 
@@ -26,21 +27,21 @@ export function useWebSocket({
 
     const connect = () => {
       try {
-        // Asegurarnos de usar la misma base URL que el navegador
+        // Usar el protocolo correcto basado en la página
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws`;
-        console.log('Intentando conectar a:', wsUrl);
 
+        console.log('Intentando conectar WebSocket a:', wsUrl);
         ws = new WebSocket(wsUrl);
 
         ws.addEventListener('open', () => {
-          console.log('WebSocket Conectado');
+          console.log('Conexión WebSocket establecida exitosamente');
           setAttempts(0);
           setSocket(ws);
         });
 
-        ws.addEventListener('close', () => {
-          console.log('WebSocket Desconectado');
+        ws.addEventListener('close', (event) => {
+          console.log(`WebSocket cerrado: código ${event.code}${event.reason ? `, razón: ${event.reason}` : ''}`);
           setSocket(null);
 
           if (attempts < retryAttempts) {
@@ -50,28 +51,27 @@ export function useWebSocket({
               connect();
             }, retryDelay);
           } else {
-            console.log('Máximo de intentos alcanzado');
+            console.log('Máximo número de intentos de reconexión alcanzado');
             onError?.();
           }
         });
 
         ws.addEventListener('error', (error) => {
           console.error('Error de WebSocket:', error);
+          // No cerrar la conexión aquí, dejar que el evento 'close' maneje la reconexión
         });
 
-        // Mantener la conexión viva respondiendo a pings
-        ws.addEventListener('ping', () => {
-          if (ws?.readyState === WebSocket.OPEN) {
-            try {
-              ws.send('pong');
-            } catch (error) {
-              console.error('Error al enviar pong:', error);
-            }
+        ws.addEventListener('message', (event) => {
+          try {
+            JSON.parse(event.data); // Validar que los datos son JSON válido
+            console.log('Datos recibidos correctamente');
+          } catch (error) {
+            console.error('Error al procesar datos recibidos:', error);
           }
         });
 
       } catch (error) {
-        console.error('Error al crear WebSocket:', error);
+        console.error('Error al crear conexión WebSocket:', error);
         onError?.();
       }
     };
@@ -79,6 +79,7 @@ export function useWebSocket({
     connect();
 
     return () => {
+      console.log('Limpiando recursos del WebSocket');
       clearTimeout(reconnectTimeout);
       if (ws) {
         ws.close();
