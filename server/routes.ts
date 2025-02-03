@@ -1,52 +1,58 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
+import fs from 'fs/promises';
+import path from 'path';
+import { parse } from 'csv-parse';
 
-function getRandomInt(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+// Función para leer el último dato del CSV
+async function readLatestData() {
+  try {
+    const csvPath = path.join(process.cwd(), 'market_data.csv');
+    const fileContent = await fs.readFile(csvPath, 'utf-8');
 
-function generateData() {
-  const basePrice = 68500;
-  const volatility = 0.002; // 0.2% volatilidad
-  const priceChange = basePrice * volatility * (Math.random() * 2 - 1);
-  const currentPrice = basePrice + priceChange;
+    return new Promise((resolve, reject) => {
+      parse(fileContent, {
+        columns: true,
+        skip_empty_lines: true
+      }, (err, records) => {
+        if (err) reject(err);
 
-  const dominanciaTotal = 10000;
-  const dominanciaLeft = getRandomInt(dominanciaTotal * 0.4, dominanciaTotal * 0.6);
-  const dominanciaRight = dominanciaTotal - dominanciaLeft;
+        // Tomamos el último registro
+        const lastRecord = records[records.length - 1];
 
-  // Generar valores positivos y negativos para los deltas
-  const deltaFuturosTotal = 600;
-  const deltaFuturosPositivo = getRandomInt(deltaFuturosTotal * 0.3, deltaFuturosTotal * 0.7);
-  const deltaFuturosNegativo = deltaFuturosTotal - deltaFuturosPositivo;
+        // Convertimos los strings a números donde corresponda
+        const data = {
+          direccion: Number(lastRecord.direccion),
+          dominancia: {
+            left: Number(lastRecord.dominancia_left),
+            right: Number(lastRecord.dominancia_right)
+          },
+          delta_futuros: {
+            positivo: Number(lastRecord.delta_futuros_positivo),
+            negativo: Number(lastRecord.delta_futuros_negativo)
+          },
+          delta_spot: {
+            positivo: Number(lastRecord.delta_spot_positivo),
+            negativo: Number(lastRecord.delta_spot_negativo)
+          },
+          transacciones: JSON.parse(lastRecord.transacciones || '[]')
+        };
 
-  const deltaSpotTotal = 300;
-  const deltaSpotPositivo = getRandomInt(deltaSpotTotal * 0.3, deltaSpotTotal * 0.7);
-  const deltaSpotNegativo = deltaSpotTotal - deltaSpotPositivo;
-
-  return {
-    direccion: Math.round(currentPrice),
-    dominancia: {
-      left: dominanciaLeft,
-      right: dominanciaRight
-    },
-    delta_futuros: {
-      positivo: deltaFuturosPositivo,
-      negativo: deltaFuturosNegativo
-    },
-    delta_spot: {
-      positivo: deltaSpotPositivo,
-      negativo: deltaSpotNegativo
-    },
-    transacciones: Array.from({ length: getRandomInt(3, 7) }, () => {
-      const transactionPrice = currentPrice * (1 + (Math.random() * 0.001 - 0.0005));
-      return {
-        volume: `${getRandomInt(50, 500)}K`,
-        price: transactionPrice.toFixed(2)
-      };
-    })
-  };
+        resolve(data);
+      });
+    });
+  } catch (error) {
+    console.error('Error leyendo datos del CSV:', error);
+    // Si hay error, retornamos datos de fallback
+    return {
+      direccion: 0,
+      dominancia: { left: 50, right: 50 },
+      delta_futuros: { positivo: 0, negativo: 0 },
+      delta_spot: { positivo: 0, negativo: 0 },
+      transacciones: []
+    };
+  }
 }
 
 export function registerRoutes(app: Express): Server {
@@ -54,21 +60,25 @@ export function registerRoutes(app: Express): Server {
   setupAuth(app);
 
   // Ruta para SSE
-  app.get('/api/market-data', (req, res) => {
+  app.get('/api/market-data', async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
     // Enviar datos iniciales
-    const initialData = generateData();
+    const initialData = await readLatestData();
     res.write(`data: ${JSON.stringify(initialData)}\n\n`);
 
     // Configurar el intervalo para enviar actualizaciones
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       if (!res.writableEnded) {
-        const data = generateData();
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
+        try {
+          const data = await readLatestData();
+          res.write(`data: ${JSON.stringify(data)}\n\n`);
+        } catch (error) {
+          console.error('Error enviando datos:', error);
+        }
       }
     }, 1000);
 
