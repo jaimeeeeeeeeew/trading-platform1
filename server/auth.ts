@@ -22,6 +22,12 @@ async function hashPassword(password: string) {
 }
 
 async function comparePasswords(supplied: string, stored: string) {
+  // Si la contraseña almacenada no tiene un formato hash.salt
+  if (!stored.includes('.')) {
+    // Comparación directa para contraseñas legacy
+    return supplied === stored;
+  }
+
   const [hashed, salt] = stored.split(".");
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
