@@ -15,6 +15,14 @@ interface MetricsPanelProps {
 }
 
 export default function MetricsPanel({ metrics, className = '' }: MetricsPanelProps) {
+  // Calcular el total para los porcentajes de dominancia
+  const dominanciaTotal = metrics.dominancia.left + metrics.dominancia.right;
+  const leftPercentage = (metrics.dominancia.left / dominanciaTotal) * 100;
+  const rightPercentage = (metrics.dominancia.right / dominanciaTotal) * 100;
+
+  // Precio base para comparar la dirección (podríamos obtenerlo de la API)
+  const precioBase = 68500;
+
   return (
     <Card className={`p-4 flex flex-col ${className}`}>
       <div className="space-y-4 flex-1">
@@ -23,41 +31,70 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
             label="Dirección"
             value={metrics.direccion.toLocaleString()}
             icon={<Activity className="h-4 w-4" />}
+            valueClassName={metrics.direccion > precioBase ? 'text-primary' : 'text-destructive'}
           />
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Dominancia</label>
-            <div className="flex gap-2 items-center">
-              <div className="flex-1 bg-primary/10 rounded-lg p-2 text-center">
-                <span className="text-sm text-primary">
+            <div className="h-8 w-full rounded-lg overflow-hidden flex">
+              <div 
+                className="bg-primary h-full transition-all duration-300"
+                style={{ width: `${leftPercentage}%` }}
+              >
+                <span className="text-xs text-primary-foreground flex items-center justify-center h-full">
                   {metrics.dominancia.left.toLocaleString()}
                 </span>
               </div>
-              <div className="flex-1 bg-destructive/10 rounded-lg p-2 text-center">
-                <span className="text-sm text-destructive">
+              <div 
+                className="bg-destructive h-full transition-all duration-300"
+                style={{ width: `${rightPercentage}%` }}
+              >
+                <span className="text-xs text-destructive-foreground flex items-center justify-center h-full">
                   {metrics.dominancia.right.toLocaleString()}
                 </span>
               </div>
             </div>
           </div>
 
-          <MetricCard
-            label="Delta Futuros"
-            value={metrics.delta_futuros.toLocaleString()}
-            icon={<ArrowUp className="h-4 w-4" />}
-            valueClassName={metrics.delta_futuros >= 0 ? 'text-primary' : 'text-destructive'}
-          />
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Delta Futuros</label>
+            <div className="relative h-8 w-full rounded-lg overflow-hidden bg-muted">
+              <div 
+                className={`absolute h-full transition-all duration-300 ${
+                  metrics.delta_futuros >= 0 ? 'bg-primary right-1/2' : 'bg-destructive left-1/2'
+                }`}
+                style={{ 
+                  width: `${Math.abs(metrics.delta_futuros) / 10}%`,
+                  maxWidth: '50%'
+                }}
+              />
+              <span className="absolute inset-0 flex items-center justify-center text-sm font-medium">
+                {metrics.delta_futuros.toLocaleString()}
+              </span>
+            </div>
+          </div>
 
-          <MetricCard
-            label="Delta Spot"
-            value={metrics.delta_spot.toLocaleString()}
-            icon={<ArrowDown className="h-4 w-4" />}
-            valueClassName={metrics.delta_spot >= 0 ? 'text-primary' : 'text-destructive'}
-          />
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Delta Spot</label>
+            <div className="relative h-8 w-full rounded-lg overflow-hidden bg-muted">
+              <div 
+                className={`absolute h-full transition-all duration-300 ${
+                  metrics.delta_spot >= 0 ? 'bg-primary right-1/2' : 'bg-destructive left-1/2'
+                }`}
+                style={{ 
+                  width: `${Math.abs(metrics.delta_spot) / 5}%`,
+                  maxWidth: '50%'
+                }}
+              />
+              <span className="absolute inset-0 flex items-center justify-center text-sm font-medium">
+                {metrics.delta_spot.toLocaleString()}
+              </span>
+            </div>
+          </div>
         </div>
 
         <Separator className="my-4" />
-        
+
         <TransactionList transactions={metrics.transacciones} />
       </div>
     </Card>
