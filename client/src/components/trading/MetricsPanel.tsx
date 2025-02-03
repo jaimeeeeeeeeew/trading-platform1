@@ -1,14 +1,14 @@
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import TransactionList from './TransactionList';
-import { ArrowUp, ArrowDown, Activity, Waves } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
 interface MetricsPanelProps {
   metrics: {
     direccion: number;
     dominancia: { left: number; right: number };
-    delta_futuros: number;
-    delta_spot: number;
+    delta_futuros: { positivo: number; negativo: number };
+    delta_spot: { positivo: number; negativo: number };
     transacciones: Array<{ volume: string; price: string }>;
   };
   className?: string;
@@ -20,7 +20,16 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
   const leftPercentage = (metrics.dominancia.left / dominanciaTotal) * 100;
   const rightPercentage = (metrics.dominancia.right / dominanciaTotal) * 100;
 
-  // Precio base para comparar la dirección (podríamos obtenerlo de la API)
+  // Calcular porcentajes para los deltas
+  const deltaFuturosTotal = metrics.delta_futuros.positivo + metrics.delta_futuros.negativo;
+  const deltaFuturosPositivoPercentage = (metrics.delta_futuros.positivo / deltaFuturosTotal) * 100;
+  const deltaFuturosNegativoPercentage = (metrics.delta_futuros.negativo / deltaFuturosTotal) * 100;
+
+  const deltaSpotTotal = metrics.delta_spot.positivo + metrics.delta_spot.negativo;
+  const deltaSpotPositivoPercentage = (metrics.delta_spot.positivo / deltaSpotTotal) * 100;
+  const deltaSpotNegativoPercentage = (metrics.delta_spot.negativo / deltaSpotTotal) * 100;
+
+  // Precio base para comparar la dirección
   const precioBase = 68500;
 
   return (
@@ -58,37 +67,45 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Delta Futuros</label>
-            <div className="relative h-8 w-full rounded-lg overflow-hidden bg-muted">
+            <div className="h-8 w-full rounded-lg overflow-hidden flex">
               <div 
-                className={`absolute h-full transition-all duration-300 ${
-                  metrics.delta_futuros >= 0 ? 'bg-primary right-1/2' : 'bg-destructive left-1/2'
-                }`}
-                style={{ 
-                  width: `${Math.abs(metrics.delta_futuros) / 10}%`,
-                  maxWidth: '50%'
-                }}
-              />
-              <span className="absolute inset-0 flex items-center justify-center text-sm font-medium">
-                {metrics.delta_futuros.toLocaleString()}
-              </span>
+                className="bg-primary h-full transition-all duration-300"
+                style={{ width: `${deltaFuturosPositivoPercentage}%` }}
+              >
+                <span className="text-xs text-primary-foreground flex items-center justify-center h-full">
+                  {metrics.delta_futuros.positivo.toLocaleString()}
+                </span>
+              </div>
+              <div 
+                className="bg-destructive h-full transition-all duration-300"
+                style={{ width: `${deltaFuturosNegativoPercentage}%` }}
+              >
+                <span className="text-xs text-destructive-foreground flex items-center justify-center h-full">
+                  {metrics.delta_futuros.negativo.toLocaleString()}
+                </span>
+              </div>
             </div>
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Delta Spot</label>
-            <div className="relative h-8 w-full rounded-lg overflow-hidden bg-muted">
+            <div className="h-8 w-full rounded-lg overflow-hidden flex">
               <div 
-                className={`absolute h-full transition-all duration-300 ${
-                  metrics.delta_spot >= 0 ? 'bg-primary right-1/2' : 'bg-destructive left-1/2'
-                }`}
-                style={{ 
-                  width: `${Math.abs(metrics.delta_spot) / 5}%`,
-                  maxWidth: '50%'
-                }}
-              />
-              <span className="absolute inset-0 flex items-center justify-center text-sm font-medium">
-                {metrics.delta_spot.toLocaleString()}
-              </span>
+                className="bg-primary h-full transition-all duration-300"
+                style={{ width: `${deltaSpotPositivoPercentage}%` }}
+              >
+                <span className="text-xs text-primary-foreground flex items-center justify-center h-full">
+                  {metrics.delta_spot.positivo.toLocaleString()}
+                </span>
+              </div>
+              <div 
+                className="bg-destructive h-full transition-all duration-300"
+                style={{ width: `${deltaSpotNegativoPercentage}%` }}
+              >
+                <span className="text-xs text-destructive-foreground flex items-center justify-center h-full">
+                  {metrics.delta_spot.negativo.toLocaleString()}
+                </span>
+              </div>
             </div>
           </div>
         </div>

@@ -16,14 +16,29 @@ function generateData() {
   const dominanciaLeft = getRandomInt(dominanciaTotal * 0.4, dominanciaTotal * 0.6);
   const dominanciaRight = dominanciaTotal - dominanciaLeft;
 
+  // Generar valores positivos y negativos para los deltas
+  const deltaFuturosTotal = 600;
+  const deltaFuturosPositivo = getRandomInt(deltaFuturosTotal * 0.3, deltaFuturosTotal * 0.7);
+  const deltaFuturosNegativo = deltaFuturosTotal - deltaFuturosPositivo;
+
+  const deltaSpotTotal = 300;
+  const deltaSpotPositivo = getRandomInt(deltaSpotTotal * 0.3, deltaSpotTotal * 0.7);
+  const deltaSpotNegativo = deltaSpotTotal - deltaSpotPositivo;
+
   return {
     direccion: Math.round(currentPrice),
     dominancia: {
       left: dominanciaLeft,
       right: dominanciaRight
     },
-    delta_futuros: getRandomInt(-300, 300),
-    delta_spot: getRandomInt(-150, 150),
+    delta_futuros: {
+      positivo: deltaFuturosPositivo,
+      negativo: deltaFuturosNegativo
+    },
+    delta_spot: {
+      positivo: deltaSpotPositivo,
+      negativo: deltaSpotNegativo
+    },
     transacciones: Array.from({ length: getRandomInt(3, 7) }, () => {
       const transactionPrice = currentPrice * (1 + (Math.random() * 0.001 - 0.0005));
       return {
