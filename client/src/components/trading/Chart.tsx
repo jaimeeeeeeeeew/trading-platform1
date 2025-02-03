@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { createChart } from 'lightweight-charts';
+import { createChart, IChartApi, HistogramData } from 'lightweight-charts';
 
 export default function Chart() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi>();
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -10,7 +11,7 @@ export default function Chart() {
     // Create the chart
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: 'solid', color: '#1a1a1a' },
+        background: { color: '#1a1a1a' },
         textColor: 'white',
       },
       grid: {
@@ -19,10 +20,14 @@ export default function Chart() {
       },
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
+      rightPriceScale: {
+        visible: true,
+        borderColor: '#2b2b2b',
+      },
     });
 
     // Create candlestick series
-    const candlestickSeries = chart.createPrimitive('Candlestick', {
+    const candlestickSeries = chart.addCandlestickSeries({
       upColor: '#26a69a',
       downColor: '#ef5350',
       borderVisible: false,
@@ -31,8 +36,11 @@ export default function Chart() {
     });
 
     // Create volume series
-    const volumeSeries = chart.createPrimitive('Histogram', {
+    const volumeSeries = chart.addHistogramSeries({
       color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
       priceScaleId: 'volume',
       scaleMargins: {
         top: 0.8,
@@ -40,15 +48,19 @@ export default function Chart() {
       },
     });
 
-    // Create order profile series on the right
-    const orderProfileSeries = chart.createPrimitive('Histogram', {
+    // Create order profile series (vertical histogram)
+    const orderProfileSeries = chart.addHistogramSeries({
       color: '#4CAF50',
+      priceFormat: {
+        type: 'volume',
+      },
       priceScaleId: 'orderProfile',
+      base: 0,
+      overlay: true,
       scaleMargins: {
         top: 0.1,
         bottom: 0.1,
       },
-      position: 'right',
     });
 
     // Sample data
@@ -63,24 +75,17 @@ export default function Chart() {
     ];
 
     // Order profile data - will be updated in real-time
-    const orderProfileData = [
-      { price: 45000, volume: 100 },
-      { price: 45500, volume: 200 },
-      { price: 46000, volume: 150 },
-      { price: 46500, volume: 300 },
+    const orderProfileData: HistogramData[] = [
+      { time: 45000, value: 100, color: '#4CAF50' },
+      { time: 45500, value: 200, color: '#4CAF50' },
+      { time: 46000, value: 150, color: '#ef5350' },
+      { time: 46500, value: 300, color: '#ef5350' },
     ];
 
     // Set the data
     candlestickSeries.setData(candlestickData);
     volumeSeries.setData(volumeData);
-
-    // Transform and set order profile data
-    const transformedOrderProfile = orderProfileData.map(item => ({
-      time: item.price.toString(),
-      value: item.volume,
-      color: item.volume > 200 ? '#ef5350' : '#26a69a'
-    }));
-    orderProfileSeries.setData(transformedOrderProfile);
+    orderProfileSeries.setData(orderProfileData);
 
     // Handle resize
     const handleResize = () => {
@@ -93,6 +98,7 @@ export default function Chart() {
     };
 
     window.addEventListener('resize', handleResize);
+    chartRef.current = chart;
 
     return () => {
       window.removeEventListener('resize', handleResize);
