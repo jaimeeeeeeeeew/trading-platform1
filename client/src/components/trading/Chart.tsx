@@ -1,74 +1,82 @@
 import { useEffect, useRef } from 'react';
-
-declare global {
-  interface Window {
-    TradingView: any;
-  }
-}
+import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 
 export default function Chart() {
-  const container = useRef<HTMLDivElement>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chart = useRef<any>(null);
+  const volumeSeriesRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!container.current) return;
+    if (!chartContainerRef.current) return;
 
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/tv.js';
-    script.async = true;
-    script.onload = () => {
-      new window.TradingView.widget({
-        container_id: container.current!.id,
-        autosize: true,
-        width: "100%",
-        height: "100%",
-        symbol: "BINANCE:BTCUSDT",
-        interval: "60",
-        timezone: "Etc/UTC",
-        theme: "dark",
-        style: "1",
-        locale: "es",
-        toolbar_bg: "#f1f3f6",
-        enable_publishing: false,
-        hide_side_toolbar: false,
-        allow_symbol_change: true,
-        show_popup_button: true,
-        popup_width: "1000",
-        popup_height: "650",
-        studies: [
-          {
-            id: "VolumeProfile@tv-prostudies",
-            inputs: {
-              first_bar_time: Math.floor(Date.now() / 1000) - 24 * 60 * 60,
-              last_bar_time: Math.floor(Date.now() / 1000),
-              rows: 24,
-              volume_accuracy: 2,
-              line_width: 2
-            }
-          }
-        ],
-        studies_overrides: {
-          "volume.volume.color.0": "#089981",
-          "volume.volume.color.1": "#F23645",
-          "volume.volume.transparency": 70,
-          "volume.volume.value_area.transparency": 50
-        },
-        overrides: {
-          "mainSeriesProperties.candleStyle.upColor": "#089981",
-          "mainSeriesProperties.candleStyle.downColor": "#F23645",
-          "mainSeriesProperties.candleStyle.borderUpColor": "#089981",
-          "mainSeriesProperties.candleStyle.borderDownColor": "#F23645",
-          "mainSeriesProperties.candleStyle.wickUpColor": "#089981",
-          "mainSeriesProperties.candleStyle.wickDownColor": "#F23645",
-          "volumePaneSize": "medium"
-        }
-      });
+    // Crear el gráfico principal
+    chart.current = createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
+      height: chartContainerRef.current.clientHeight,
+      layout: {
+        background: { type: ColorType.Solid, color: '#111320' },
+        textColor: '#FFFFFF',
+      },
+      grid: {
+        vertLines: { color: '#1f2937' },
+        horzLines: { color: '#1f2937' },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+      },
+      rightPriceScale: {
+        borderColor: '#1f2937',
+      },
+      timeScale: {
+        borderColor: '#1f2937',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
+
+    // Crear la serie de volumen
+    volumeSeriesRef.current = chart.current.addHistogramSeries({
+      color: '#089981',
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: 'volume',
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0,
+      },
+    });
+
+    // Función para actualizar los datos del volumen
+    const updateVolumeProfile = () => {
+      // Aquí agregaremos los datos de las órdenes límite
+      // Por ahora usamos datos de ejemplo
+      const volumeData = [
+        { time: '2024-02-03', value: 200, color: '#089981' },
+        { time: '2024-02-03', value: 150, color: '#F23645' },
+        { time: '2024-02-03', value: 300, color: '#089981' },
+      ];
+
+      volumeSeriesRef.current.setData(volumeData);
     };
 
-    document.head.appendChild(script);
+    // Actualizar el tamaño del gráfico cuando cambie el tamaño de la ventana
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.current.applyOptions({
+          width: chartContainerRef.current.clientWidth,
+          height: chartContainerRef.current.clientHeight,
+        });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    updateVolumeProfile();
 
     return () => {
-      if (script.parentNode) {
-        script.parentNode.removeChild(script);
+      window.removeEventListener('resize', handleResize);
+      if (chart.current) {
+        chart.current.remove();
       }
     };
   }, []);
@@ -76,8 +84,7 @@ export default function Chart() {
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
       <div
-        id="tradingview_widget"
-        ref={container}
+        ref={chartContainerRef}
         style={{ height: "calc(100vh - 2rem)" }}
         className="w-full"
       />
