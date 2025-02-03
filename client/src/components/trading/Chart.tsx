@@ -32,9 +32,32 @@ export default function Chart() {
         allow_symbol_change: true,
         studies: [
           "Volume@tv-basicstudies",
-          "VWAP@tv-basicstudies"
+          "VWAP@tv-basicstudies",
+          {
+            name: "Volume Profile Visible Range",
+            overlay: true,
+            options: {
+              volume_profile_resolution: "1D",
+              volume_profile_width: 50,
+              volume_profile_rows: 24,
+              volume_profile_line_width: 2,
+            }
+          }
         ],
+        studies_overrides: {
+          "Volume Profile Visible Range.volume.color.0": "#089981",
+          "Volume Profile Visible Range.volume.color.1": "#F23645",
+          "Volume Profile Visible Range.volume.transparency": 70,
+        },
         supported_resolutions: ["1", "5", "15", "30", "60", "D", "W"],
+        overrides: {
+          "mainSeriesProperties.candleStyle.upColor": "#089981",
+          "mainSeriesProperties.candleStyle.downColor": "#F23645",
+          "mainSeriesProperties.candleStyle.borderUpColor": "#089981",
+          "mainSeriesProperties.candleStyle.borderDownColor": "#F23645",
+          "mainSeriesProperties.candleStyle.wickUpColor": "#089981",
+          "mainSeriesProperties.candleStyle.wickDownColor": "#F23645",
+        }
       });
     };
 
