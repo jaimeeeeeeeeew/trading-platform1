@@ -1,55 +1,110 @@
 import { useEffect, useRef } from 'react';
-
-declare global {
-  interface Window {
-    TradingView: any;
-  }
-}
+import { createChart, ColorType, IChartApi } from 'lightweight-charts';
 
 export default function Chart() {
-  const container = useRef<HTMLDivElement>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi>();
 
   useEffect(() => {
-    if (!container.current) return;
+    if (!chartContainerRef.current) return;
 
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/tv.js';
-    script.async = true;
-    script.onload = () => {
-      new window.TradingView.widget({
-        container_id: container.current!.id,
-        width: "100%",
-        height: "100%",
-        symbol: "BINANCE:BTCUSDT",
-        interval: "D",
-        timezone: "Etc/UTC",
-        theme: "dark",
-        style: "1",
-        locale: "es",
-        toolbar_bg: "#f1f3f6",
-        enable_publishing: false,
-        hide_side_toolbar: false,
-        allow_symbol_change: true,
-        studies: [
-          "Volume@tv-basicstudies",
-          "VWAP@tv-basicstudies"
-        ],
-        supported_resolutions: ["1", "5", "15", "30", "60", "D", "W"],
-      });
+    // Create the chart
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { color: '#1a1a1a' },
+        textColor: 'white',
+      },
+      grid: {
+        vertLines: { color: '#2b2b2b' },
+        horzLines: { color: '#2b2b2b' },
+      },
+      width: chartContainerRef.current.clientWidth,
+      height: chartContainerRef.current.clientHeight,
+    });
+
+    // Create the main candlestick series
+    const mainSeries = chart.addCandlestickSeries({
+      upColor: '#26a69a',
+      downColor: '#ef5350',
+      borderVisible: false,
+      wickUpColor: '#26a69a',
+      wickDownColor: '#ef5350',
+    });
+
+    // Add volume histogram
+    const volumeSeries = chart.addHistogramSeries({
+      color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: '', // Set to empty to overlay
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0,
+      },
+    });
+
+    // Add order profile histogram on the right
+    const orderProfileSeries = chart.addHistogramSeries({
+      color: '#4CAF50',
+      base: 0,
+      priceFormat: {
+        type: 'volume',
+      },
+      overlay: true,
+      priceScaleId: 'overlay-scale',
+      scaleMargins: {
+        top: 0.1,
+        bottom: 0.1,
+      },
+    });
+
+    // Sample data - Replace with real data from your API
+    const candlestickData = [
+      { time: '2024-02-01', open: 45000, high: 46000, low: 44000, close: 45500 },
+      { time: '2024-02-02', open: 45500, high: 47000, low: 45000, close: 46800 },
+      // Add more data points...
+    ];
+
+    const volumeData = [
+      { time: '2024-02-01', value: 1000, color: '#26a69a' },
+      { time: '2024-02-02', value: 2000, color: '#ef5350' },
+      // Add more volume data...
+    ];
+
+    const orderProfileData = [
+      { time: '2024-02-01', value: 500, color: '#4CAF50' },
+      { time: '2024-02-02', value: 800, color: '#ef5350' },
+      // Add more order profile data...
+    ];
+
+    mainSeries.setData(candlestickData);
+    volumeSeries.setData(volumeData);
+    orderProfileSeries.setData(orderProfileData);
+
+    // Handle resize
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({
+          width: chartContainerRef.current.clientWidth,
+          height: chartContainerRef.current.clientHeight,
+        });
+      }
     };
 
-    document.head.appendChild(script);
+    window.addEventListener('resize', handleResize);
+    chartRef.current = chart;
 
     return () => {
-      document.head.removeChild(script);
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
     };
   }, []);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
       <div
-        id="tradingview_widget"
-        ref={container}
+        ref={chartContainerRef}
         className="w-full h-full"
       />
     </div>
