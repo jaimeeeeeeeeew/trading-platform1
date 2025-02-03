@@ -36,7 +36,8 @@ async function readLatestData() {
             positivo: Number(lastRecord.delta_spot_positivo),
             negativo: Number(lastRecord.delta_spot_negativo)
           },
-          transacciones: JSON.parse(lastRecord.transacciones || '[]')
+          transacciones: JSON.parse(lastRecord.transacciones || '[]'),
+          ordenes_limite: JSON.parse(lastRecord.ordenes_limite || '[]')
         };
 
         resolve(data);
@@ -50,7 +51,11 @@ async function readLatestData() {
       dominancia: { left: 50, right: 50 },
       delta_futuros: { positivo: 0, negativo: 0 },
       delta_spot: { positivo: 0, negativo: 0 },
-      transacciones: []
+      transacciones: [],
+      ordenes_limite: {
+        futures: { asks: [], bids: [] },
+        spot: { asks: [], bids: [] }
+      }
     };
   }
 }

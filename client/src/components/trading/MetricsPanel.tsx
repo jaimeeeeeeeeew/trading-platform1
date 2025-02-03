@@ -10,6 +10,16 @@ interface MetricsPanelProps {
     delta_futuros: { positivo: number; negativo: number };
     delta_spot: { positivo: number; negativo: number };
     transacciones: Array<{ volume: string; price: string }>;
+    ordenes_limite: {
+      futures: {
+        asks: Array<{ Price: number; Quantity: number }>;
+        bids: Array<{ Price: number; Quantity: number }>;
+      };
+      spot: {
+        asks: Array<{ Price: number; Quantity: number }>;
+        bids: Array<{ Price: number; Quantity: number }>;
+      };
+    };
   };
   className?: string;
 }
@@ -112,7 +122,10 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
 
         <Separator className="my-4" />
 
-        <TransactionList transactions={metrics.transacciones} />
+        <TransactionList 
+          transactions={metrics.transacciones} 
+          orderBook={metrics.ordenes_limite}
+        />
       </div>
     </Card>
   );
