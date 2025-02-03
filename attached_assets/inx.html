@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gráfico Financiero Avanzado con Lightweight Charts</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #2a2a2a;
+      color: #d1d4dc;
+      font-family: Arial, sans-serif;
+    }
+    #chart {
+      width: 80vw;
+      height: 70vh;
+    }
+  </style>
+</head>
+<body>
+  <div id="chart"></div>
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+  <script>
+    const chart = LightweightCharts.createChart(document.getElementById('chart'), {
+      layout: { backgroundColor: '#2a2a2a', textColor: '#d1d4dc' },
+      grid: { vertLines: { color: '#404040' }, horzLines: { color: '#404040' } },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      priceScale: { mode: LightweightCharts.PriceScaleMode.Logarithmic },
+    });
+
+    const candleSeries = chart.addCandlestickSeries();
+    candleSeries.setData([
+      { time: '2022-12-19', open: 100, high: 110, low: 90, close: 105 },
+      { time: '2022-12-20', open: 105, high: 115, low: 95, close: 110 },
+      { time: '2022-12-21', open: 110, high: 120, low: 100, close: 115 },
+      { time: '2022-12-22', open: 115, high: 125, low: 105, close: 120 },
+      { time: '2022-12-23', open: 120, high: 130, low: 110, close: 125 }
+    ]);
+
+    const linePrice = 110;
+    const lineSeries = chart.addLineSeries({ color: 'red', lineWidth: 2 });
+    lineSeries.setData([{ time: '2022-12-19', value: linePrice }, { time: '2022-12-23', value: linePrice }]);
+
+    candleSeries.setMarkers([
+      { time: '2022-12-20', position: 'aboveBar', color: '#f39c12', shape: 'arrowDown', text: 'Venta' },
+      { time: '2022-12-22', position: 'belowBar', color: '#2ecc71', shape: 'arrowUp', text: 'Compra' }
+    ]);
+
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.seriesData.get(candleSeries)) return;
+      const price = param.seriesData.get(candleSeries).value;
+      console.log("Precio actual en el puntero cruzado:", price);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Interfaz de Trading</title>
+  <link rel="stylesheet" href="src/style.css"> <!-- Archivo CSS para estilos -->
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+
+  <!-- SDK de TradingView -->
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+</head>
+<body>
+  <div class="main-container">
+    <!-- Contenedor para el gráfico y perfil de volumen -->
+    <div class="chart-container">
+      <!-- Gráfico de TradingView -->
+      <div id="tradingview_chart" class="chart"></div>
+
+      <!-- Perfil de Volumen -->
+      <div id="volume_profile" class="volume-profile"></div>
+    </div>
+
+    <!-- Panel Lateral Derecho para métricas y transacciones -->
+    <div class="sidebar">
+      <!-- Sección de métricas: Dirección, Dominancia, Delta Futuros, Delta Spot -->
+      <div class="metrics">
+        <div class="metric" id="direccion">
+          <span class="label">Dirección</span>
+          <span class="value">67813</span>
+        </div>
+        <div class="metric" id="dominancia">
+          <span class="label_dom">Dominancia</span>
+          <div class="dominance-bar">
+            <span class="value left">10391</span>
+            <span class="value right">7049</span>
+          </div>
+        </div>
+        <div class="metric" id="delta_futuros">
+          <span class="label">Delta Futuros</span>
+        </div>
+        <div class="metric" id="delta_spot">
+          <span class="label">Delta Spot</span>
+        </div>
+      </div>
+
+      <!-- Sección de Transacciones -->
+      <div class="transactions">
+        <h3>Transacciones</h3>
+        <ul id="transaction_list">
+          <!-- Las transacciones en tiempo real se agregarán aquí dinámicamente -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script principal para WebSocket y TradingView -->
+  <script src="src/main.js"></script>
+</body>
+</html>
