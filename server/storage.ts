@@ -1,21 +1,28 @@
 import { users, type User, type InsertUser } from "@shared/schema";
+import session from "express-session";
+import createMemoryStore from "memorystore";
 
-// modify the interface with any CRUD methods
-// you might need
+const MemoryStore = createMemoryStore(session);
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserPreferences(userId: number, preferences: string): Promise<User>;
+  sessionStore: session.Store;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   currentId: number;
+  sessionStore: session.Store;
 
   constructor() {
     this.users = new Map();
     this.currentId = 1;
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // Limpiar sesiones expiradas cada 24h
+    });
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -33,6 +40,15 @@ export class MemStorage implements IStorage {
     const user: User = { ...insertUser, id };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUserPreferences(userId: number, preferences: string): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("Usuario no encontrado");
+
+    const updatedUser = { ...user, tradingPreferences: preferences };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
   }
 }
 

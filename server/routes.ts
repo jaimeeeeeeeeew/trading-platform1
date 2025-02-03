@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocket, WebSocketServer } from 'ws';
 import { storage } from "./storage";
+import { setupAuth } from "./auth";
+import { parse as parseCookie } from 'cookie';
 
 function getRandomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -26,30 +28,54 @@ function generateData() {
 export function registerRoutes(app: Express): Server {
   const server = createServer(app);
 
-  // Create WebSocket server attached to the HTTP server
+  // Setup authentication
+  setupAuth(app);
+
+  // WebSocket server
   const wss = new WebSocketServer({ 
     server,
-    path: '/ws' // Specify the WebSocket endpoint
+    path: '/ws',
+    verifyClient: async (info, done) => {
+      try {
+        const cookies = parseCookie(info.req.headers.cookie || '');
+        const sid = cookies['connect.sid'];
+
+        if (!sid) {
+          done(false, 401, 'Unauthorized');
+          return;
+        }
+
+        // Verificar la sesión usando el store
+        storage.sessionStore.get(sid, (err, session) => {
+          if (err || !session) {
+            done(false, 401, 'Unauthorized');
+            return;
+          }
+          done(true);
+        });
+      } catch (err) {
+        done(false, 401, 'Unauthorized');
+      }
+    }
   });
 
   wss.on('connection', (ws: WebSocket) => {
-    console.log('Client connected to WebSocket');
+    console.log('Cliente conectado al WebSocket');
 
     const intervalId = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         const data = generateData();
-        console.log('Sending data:', data);
         ws.send(JSON.stringify(data));
       }
     }, 1000);
 
     ws.on('close', () => {
-      console.log('Client disconnected from WebSocket');
+      console.log('Cliente desconectado del WebSocket');
       clearInterval(intervalId);
     });
 
     ws.on('error', (error) => {
-      console.error('WebSocket error:', error);
+      console.error('Error de WebSocket:', error);
     });
   });
 

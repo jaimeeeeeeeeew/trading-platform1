@@ -3,17 +3,21 @@ import Chart from '@/components/trading/Chart';
 import MetricsPanel from '@/components/trading/MetricsPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useWebSocket } from '@/lib/websocket';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function Trading() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const socket = useWebSocket({
     onError: () => {
       toast({
         variant: "destructive",
-        title: "Connection Error",
-        description: "Failed to connect to real-time data feed"
+        title: "Error de conexión",
+        description: "No se pudo conectar al servidor de datos en tiempo real"
       });
-    }
+    },
+    // Solo intentar conectar si hay un usuario autenticado
+    enabled: !!user
   });
 
   const [metrics, setMetrics] = useState({
@@ -32,7 +36,7 @@ export default function Trading() {
         const data = JSON.parse(event.data);
         setMetrics(data);
       } catch (err) {
-        console.error('Failed to parse websocket data:', err);
+        console.error('Error al procesar datos del WebSocket:', err);
       }
     });
   }, [socket]);
