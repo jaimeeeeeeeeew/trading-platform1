@@ -3,39 +3,71 @@ import { useEffect, useState } from 'react';
 interface WebSocketOptions {
   onError?: () => void;
   enabled?: boolean;
+  retryAttempts?: number;
+  retryDelay?: number;
 }
 
-export function useWebSocket(options: WebSocketOptions = {}) {
+export function useWebSocket({
+  onError,
+  enabled = true,
+  retryAttempts = 3,
+  retryDelay = 1000
+}: WebSocketOptions = {}) {
   const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [attempts, setAttempts] = useState(0);
 
   useEffect(() => {
-    if (options.enabled === false) {
+    if (!enabled) {
       return;
     }
 
-    // Use relative URL to match the current protocol and host
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    let ws: WebSocket | null = null;
+    let timeoutId: NodeJS.Timeout;
 
-    ws.addEventListener('open', () => {
-      console.log('WebSocket Conectado');
-    });
+    const connect = () => {
+      // Use relative URL to match the current protocol and host
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
-    ws.addEventListener('error', (error) => {
-      console.error('Error de WebSocket:', error);
-      options.onError?.();
-    });
+      ws.addEventListener('open', () => {
+        console.log('WebSocket Conectado');
+        setAttempts(0); // Reset attempts on successful connection
+      });
 
-    ws.addEventListener('close', () => {
-      console.log('WebSocket Desconectado');
-    });
+      ws.addEventListener('error', (error) => {
+        console.error('Error de WebSocket:', error);
+        if (attempts < retryAttempts) {
+          timeoutId = setTimeout(() => {
+            setAttempts(prev => prev + 1);
+            connect();
+          }, retryDelay);
+        } else {
+          onError?.();
+        }
+      });
 
-    setSocket(ws);
+      ws.addEventListener('close', () => {
+        console.log('WebSocket Desconectado');
+        if (attempts < retryAttempts) {
+          timeoutId = setTimeout(() => {
+            setAttempts(prev => prev + 1);
+            connect();
+          }, retryDelay);
+        }
+      });
+
+      setSocket(ws);
+    };
+
+    connect();
 
     return () => {
-      ws.close();
+      clearTimeout(timeoutId);
+      if (ws) {
+        ws.close();
+      }
     };
-  }, [options.enabled]);
+  }, [enabled, attempts, retryAttempts, retryDelay, onError]);
 
   return socket;
 }

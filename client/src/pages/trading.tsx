@@ -4,6 +4,7 @@ import MetricsPanel from '@/components/trading/MetricsPanel';
 import { useToast } from '@/hooks/use-toast';
 import { useWebSocket } from '@/lib/websocket';
 import { useAuth } from '@/hooks/use-auth';
+import { Loader2 } from 'lucide-react';
 
 export default function Trading() {
   const { toast } = useToast();
@@ -13,11 +14,13 @@ export default function Trading() {
       toast({
         variant: "destructive",
         title: "Error de conexión",
-        description: "No se pudo conectar al servidor de datos en tiempo real"
+        description: "No se pudo conectar al servidor de datos en tiempo real. Intentando reconectar..."
       });
     },
     // Solo intentar conectar si hay un usuario autenticado
-    enabled: !!user
+    enabled: !!user,
+    retryAttempts: 5,
+    retryDelay: 2000
   });
 
   const [metrics, setMetrics] = useState({
@@ -40,6 +43,17 @@ export default function Trading() {
       }
     });
   }, [socket]);
+
+  if (!socket) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Conectando al servidor de datos...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">
