@@ -1,29 +1,32 @@
 import { useEffect, useRef } from 'react';
-import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
+import { 
+  createChart, 
+  IChartApi,
+  ISeriesApi,
+  CandlestickData,
+  HistogramData
+} from 'lightweight-charts';
 
 export default function Chart() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chart = useRef<any>(null);
-  const candlestickSeries = useRef<any>(null);
-  const volumeSeries = useRef<any>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
     // Crear el gráfico principal
-    chart.current = createChart(chartContainerRef.current, {
+    const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
       layout: {
-        background: { type: ColorType.Solid, color: '#111320' },
+        background: { type: 'solid', color: '#111320' },
         textColor: '#FFFFFF',
       },
       grid: {
         vertLines: { color: '#1f2937' },
         horzLines: { color: '#1f2937' },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
       },
       rightPriceScale: {
         borderColor: '#1f2937',
@@ -35,8 +38,10 @@ export default function Chart() {
       },
     });
 
+    chartRef.current = chart;
+
     // Crear la serie de velas
-    candlestickSeries.current = chart.current.addCandlestickSeries({
+    const candlestickSeries = chart.addCandlestickSeries({
       upColor: '#089981',
       downColor: '#F23645',
       borderUpColor: '#089981',
@@ -45,40 +50,44 @@ export default function Chart() {
       wickDownColor: '#F23645',
     });
 
-    // Crear la serie de volumen en un panel separado
-    volumeSeries.current = chart.current.addBarSeries({
-      overlay: true,
+    candlestickSeriesRef.current = candlestickSeries;
+
+    // Crear la serie de volumen
+    const volumeSeries = chart.addHistogramSeries({
+      color: '#26a69a',
       priceFormat: {
         type: 'volume',
       },
       priceScaleId: 'volume',
       scaleMargins: {
-        top: 0.8, // Ajusta esto para cambiar la posición vertical del volumen
+        top: 0.8,
         bottom: 0,
       },
     });
 
+    volumeSeriesRef.current = volumeSeries;
+
     // Datos de ejemplo para las velas
-    const candleData = [
+    const candleData: CandlestickData[] = [
       { time: '2024-02-03', open: 40000, high: 41000, low: 39000, close: 40500 },
       { time: '2024-02-03', open: 40500, high: 41500, low: 40000, close: 41000 },
       { time: '2024-02-03', open: 41000, high: 42000, low: 40500, close: 41500 },
     ];
 
     // Datos de ejemplo para el volumen
-    const volumeData = [
+    const volumeData: HistogramData[] = [
       { time: '2024-02-03', value: 200, color: '#089981' },
       { time: '2024-02-03', value: 150, color: '#F23645' },
       { time: '2024-02-03', value: 300, color: '#089981' },
     ];
 
-    candlestickSeries.current.setData(candleData);
-    volumeSeries.current.setData(volumeData);
+    candlestickSeries.setData(candleData);
+    volumeSeries.setData(volumeData);
 
     // Actualizar el tamaño del gráfico cuando cambie el tamaño de la ventana
     const handleResize = () => {
       if (chartContainerRef.current) {
-        chart.current.applyOptions({
+        chart.applyOptions({
           width: chartContainerRef.current.clientWidth,
           height: chartContainerRef.current.clientHeight,
         });
@@ -89,9 +98,7 @@ export default function Chart() {
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (chart.current) {
-        chart.current.remove();
-      }
+      chart.remove();
     };
   }, []);
 
