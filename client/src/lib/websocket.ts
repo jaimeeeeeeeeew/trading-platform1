@@ -25,38 +25,45 @@ export function useWebSocket({
     let timeoutId: NodeJS.Timeout;
 
     const connect = () => {
-      // Use relative URL to match the current protocol and host
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+      try {
+        // Usar la URL relativa para coincidir con el protocolo actual
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
 
-      ws.addEventListener('open', () => {
-        console.log('WebSocket Conectado');
-        setAttempts(0); // Reset attempts on successful connection
-      });
+        ws = new WebSocket(wsUrl);
 
-      ws.addEventListener('error', (error) => {
-        console.error('Error de WebSocket:', error);
-        if (attempts < retryAttempts) {
-          timeoutId = setTimeout(() => {
-            setAttempts(prev => prev + 1);
-            connect();
-          }, retryDelay);
-        } else {
-          onError?.();
-        }
-      });
+        ws.addEventListener('open', () => {
+          console.log('WebSocket Conectado');
+          setAttempts(0);
+          setSocket(ws);
+        });
 
-      ws.addEventListener('close', () => {
-        console.log('WebSocket Desconectado');
-        if (attempts < retryAttempts) {
-          timeoutId = setTimeout(() => {
-            setAttempts(prev => prev + 1);
-            connect();
-          }, retryDelay);
-        }
-      });
+        ws.addEventListener('error', (error) => {
+          console.error('Error de WebSocket:', error);
+          if (attempts < retryAttempts) {
+            timeoutId = setTimeout(() => {
+              setAttempts(prev => prev + 1);
+              connect();
+            }, retryDelay * Math.pow(2, attempts)); // Exponential backoff
+          } else {
+            onError?.();
+          }
+        });
 
-      setSocket(ws);
+        ws.addEventListener('close', () => {
+          console.log('WebSocket Desconectado');
+          setSocket(null);
+          if (attempts < retryAttempts) {
+            timeoutId = setTimeout(() => {
+              setAttempts(prev => prev + 1);
+              connect();
+            }, retryDelay * Math.pow(2, attempts)); // Exponential backoff
+          }
+        });
+      } catch (error) {
+        console.error('Error al crear WebSocket:', error);
+        onError?.();
+      }
     };
 
     connect();

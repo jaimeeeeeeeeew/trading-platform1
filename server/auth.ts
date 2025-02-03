@@ -40,15 +40,16 @@ export function setupAuth(app: Express) {
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: app.get("env") === "production",
+      secure: false, // Cambiado a false para desarrollo
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: 'strict'
+      sameSite: 'lax' // Cambiado a lax para permitir conexiones WebSocket
     },
     store: storage.sessionStore,
   };
 
   if (app.get("env") === "production") {
     app.set("trust proxy", 1);
+    sessionSettings.cookie!.secure = true;
   }
 
   app.use(session(sessionSettings));

@@ -6,24 +6,34 @@ import { useWebSocket } from '@/lib/websocket';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
 
+interface MetricsData {
+  direccion: number;
+  dominancia: { left: number; right: number };
+  delta_futuros: number;
+  delta_spot: number;
+  transacciones: Array<{ volume: string; price: string }>;
+}
+
 export default function Trading() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [connectionError, setConnectionError] = useState(false);
+
   const socket = useWebSocket({
     onError: () => {
+      setConnectionError(true);
       toast({
         variant: "destructive",
         title: "Error de conexión",
-        description: "No se pudo conectar al servidor de datos en tiempo real. Intentando reconectar..."
+        description: "No se pudo conectar al servidor de datos en tiempo real"
       });
     },
-    // Solo intentar conectar si hay un usuario autenticado
     enabled: !!user,
-    retryAttempts: 5,
-    retryDelay: 2000
+    retryAttempts: 3,
+    retryDelay: 1000
   });
 
-  const [metrics, setMetrics] = useState({
+  const [metrics, setMetrics] = useState<MetricsData>({
     direccion: 0,
     dominancia: { left: 0, right: 0 },
     delta_futuros: 0,
@@ -34,22 +44,41 @@ export default function Trading() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.addEventListener('message', (event) => {
+    // Reset connection error when socket is connected
+    setConnectionError(false);
+
+    const handleMessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('Datos recibidos:', data);
         setMetrics(data);
       } catch (err) {
         console.error('Error al procesar datos del WebSocket:', err);
+        toast({
+          variant: "destructive",
+          title: "Error de datos",
+          description: "Error al procesar los datos recibidos"
+        });
       }
-    });
-  }, [socket]);
+    };
 
-  if (!socket) {
+    socket.addEventListener('message', handleMessage);
+
+    return () => {
+      socket.removeEventListener('message', handleMessage);
+    };
+  }, [socket, toast]);
+
+  if (!socket || connectionError) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Conectando al servidor de datos...</p>
+          <p className="text-muted-foreground">
+            {connectionError 
+              ? "Error de conexión. Intentando reconectar..."
+              : "Conectando al servidor de datos..."}
+          </p>
         </div>
       </div>
     );

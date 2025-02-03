@@ -48,11 +48,19 @@ export function registerRoutes(app: Express): Server {
 
   const wss = new WebSocketServer({ 
     noServer: true,
-    path: '/ws'
+    path: '/'
   });
 
+  // Manejar la actualización de la conexión HTTP a WebSocket
   server.on('upgrade', (request, socket, head) => {
-    const cookies = parseCookie(request.headers.cookie || '');
+    const cookieHeader = request.headers.cookie;
+    if (!cookieHeader) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    const cookies = parseCookie(cookieHeader);
     const sessionId = cookies['connect.sid'];
 
     if (!sessionId) {
