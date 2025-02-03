@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,14 +26,17 @@ import { Loader2 } from "lucide-react";
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
-  const { user, loginMutation, registerMutation } = useAuth();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
 
-  // Redirigir si el usuario ya está autenticado
-  if (user) {
-    setLocation("/");
-    return null;
-  }
+  useEffect(() => {
+    // Redirigir si el usuario ya está autenticado
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
+
+  if (user) return null;
 
   return (
     <div className="min-h-screen flex">
@@ -80,6 +83,10 @@ function LoginForm() {
   const { loginMutation } = useAuth();
   const form = useForm<Pick<InsertUser, "username" | "password">>({
     resolver: zodResolver(insertUserSchema.pick({ username: true, password: true })),
+    defaultValues: {
+      username: "",
+      password: ""
+    }
   });
 
   return (
@@ -133,6 +140,11 @@ function RegisterForm() {
   const { registerMutation } = useAuth();
   const form = useForm<InsertUser>({
     resolver: zodResolver(insertUserSchema),
+    defaultValues: {
+      username: "",
+      password: "",
+      tradingPreferences: null
+    }
   });
 
   return (
