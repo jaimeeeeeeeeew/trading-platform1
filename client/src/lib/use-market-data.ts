@@ -4,8 +4,8 @@ import { useToast } from '@/hooks/use-toast';
 interface MarketData {
   direccion: number;
   dominancia: { left: number; right: number };
-  delta_futuros: number;
-  delta_spot: number;
+  delta_futuros: { positivo: number; negativo: number };
+  delta_spot: { positivo: number; negativo: number };
   transacciones: Array<{ volume: string; price: string }>;
 }
 
@@ -13,8 +13,8 @@ export function useMarketData() {
   const [data, setData] = useState<MarketData>({
     direccion: 0,
     dominancia: { left: 0, right: 0 },
-    delta_futuros: 0,
-    delta_spot: 0,
+    delta_futuros: { positivo: 0, negativo: 0 },
+    delta_spot: { positivo: 0, negativo: 0 },
     transacciones: []
   });
   const [error, setError] = useState(false);
@@ -31,6 +31,11 @@ export function useMarketData() {
       } catch (err) {
         console.error('Error al procesar datos:', err);
         setError(true);
+        toast({
+          variant: "destructive",
+          title: "Error de datos",
+          description: "Error al procesar los datos recibidos"
+        });
       }
     };
 
