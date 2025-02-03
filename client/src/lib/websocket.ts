@@ -22,13 +22,14 @@ export function useWebSocket({
     }
 
     let ws: WebSocket | null = null;
-    let timeoutId: NodeJS.Timeout;
+    let reconnectTimeout: NodeJS.Timeout;
 
     const connect = () => {
       try {
-        // Usar la URL relativa para coincidir con el protocolo actual
+        // Asegurarnos de usar la misma base URL que el navegador
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}`;
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        console.log('Intentando conectar a:', wsUrl);
 
         ws = new WebSocket(wsUrl);
 
@@ -38,28 +39,37 @@ export function useWebSocket({
           setSocket(ws);
         });
 
-        ws.addEventListener('error', (error) => {
-          console.error('Error de WebSocket:', error);
+        ws.addEventListener('close', () => {
+          console.log('WebSocket Desconectado');
+          setSocket(null);
+
           if (attempts < retryAttempts) {
-            timeoutId = setTimeout(() => {
+            console.log(`Reintentando conexión en ${retryDelay}ms (intento ${attempts + 1}/${retryAttempts})`);
+            reconnectTimeout = setTimeout(() => {
               setAttempts(prev => prev + 1);
               connect();
-            }, retryDelay * Math.pow(2, attempts)); // Exponential backoff
+            }, retryDelay);
           } else {
+            console.log('Máximo de intentos alcanzado');
             onError?.();
           }
         });
 
-        ws.addEventListener('close', () => {
-          console.log('WebSocket Desconectado');
-          setSocket(null);
-          if (attempts < retryAttempts) {
-            timeoutId = setTimeout(() => {
-              setAttempts(prev => prev + 1);
-              connect();
-            }, retryDelay * Math.pow(2, attempts)); // Exponential backoff
+        ws.addEventListener('error', (error) => {
+          console.error('Error de WebSocket:', error);
+        });
+
+        // Mantener la conexión viva respondiendo a pings
+        ws.addEventListener('ping', () => {
+          if (ws?.readyState === WebSocket.OPEN) {
+            try {
+              ws.send('pong');
+            } catch (error) {
+              console.error('Error al enviar pong:', error);
+            }
           }
         });
+
       } catch (error) {
         console.error('Error al crear WebSocket:', error);
         onError?.();
@@ -69,7 +79,7 @@ export function useWebSocket({
     connect();
 
     return () => {
-      clearTimeout(timeoutId);
+      clearTimeout(reconnectTimeout);
       if (ws) {
         ws.close();
       }

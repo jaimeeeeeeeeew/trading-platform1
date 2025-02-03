@@ -9,10 +9,6 @@ function getRandomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function getRandomFloat(min: number, max: number) {
-  return Math.random() * (max - min) + min;
-}
-
 function generateData() {
   const basePrice = 68500;
   const volatility = 0.002; // 0.2% volatilidad
@@ -43,49 +39,50 @@ function generateData() {
 
 export function registerRoutes(app: Express): Server {
   const server = createServer(app);
-
   setupAuth(app);
 
+  // Configuración del WebSocket con manejo de sesión
   const wss = new WebSocketServer({ 
-    noServer: true,
-    path: '/'
-  });
+    server,
+    path: "/ws",
+    verifyClient: (info, callback) => {
+      const cookies = parseCookie(info.req.headers.cookie || '');
+      const sessionId = cookies['connect.sid'];
 
-  // Manejar la actualización de la conexión HTTP a WebSocket
-  server.on('upgrade', (request, socket, head) => {
-    const cookieHeader = request.headers.cookie;
-    if (!cookieHeader) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-      socket.destroy();
-      return;
+      if (!sessionId) {
+        callback(false, 401, 'Unauthorized');
+        return;
+      }
+
+      callback(true);
     }
-
-    const cookies = parseCookie(cookieHeader);
-    const sessionId = cookies['connect.sid'];
-
-    if (!sessionId) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request);
-    });
   });
 
   wss.on('connection', (ws: WebSocket) => {
     console.log('Cliente conectado al WebSocket');
+    let isAlive = true;
 
-    // Enviar datos iniciales inmediatamente
-    try {
-      const initialData = generateData();
-      ws.send(JSON.stringify(initialData));
-    } catch (error) {
-      console.error('Error al enviar datos iniciales:', error);
-    }
+    // Enviar datos iniciales
+    const initialData = generateData();
+    ws.send(JSON.stringify(initialData));
 
-    const intervalId = setInterval(() => {
+    // Mantener la conexión viva
+    const pingInterval = setInterval(() => {
+      if (!isAlive) {
+        ws.terminate();
+        return;
+      }
+
+      isAlive = false;
+      ws.ping();
+    }, 30000);
+
+    ws.on('pong', () => {
+      isAlive = true;
+    });
+
+    // Intervalo para enviar datos
+    const dataInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) {
         try {
           const data = generateData();
@@ -98,12 +95,14 @@ export function registerRoutes(app: Express): Server {
 
     ws.on('close', () => {
       console.log('Cliente desconectado del WebSocket');
-      clearInterval(intervalId);
+      clearInterval(dataInterval);
+      clearInterval(pingInterval);
     });
 
     ws.on('error', (error) => {
       console.error('Error de WebSocket:', error);
-      clearInterval(intervalId);
+      clearInterval(dataInterval);
+      clearInterval(pingInterval);
     });
   });
 
