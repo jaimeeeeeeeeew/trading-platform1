@@ -62,62 +62,31 @@ export default function Chart() {
 
         console.log('✅ Widget creado exitosamente');
 
-        // Usar _ready_handlers para manejar la inicialización
-        widget.current._ready_handlers.push(() => {
-          console.log('📊 Widget está listo via _ready_handlers');
+        // Listen for messages from the TradingView iframe
+        const handleMessage = (event: MessageEvent) => {
+          if (event.source !== widget.current.iframe.contentWindow) {
+            return;
+          }
 
           try {
-            // Obtener el chart y sus métodos
-            console.log('📊 Intentando obtener chart()');
-            console.log('📊 Widget actual:', widget.current);
-            console.log('📊 Widget methods:', Object.keys(widget.current));
-
-            if (widget.current.chart) {
-              console.log('📊 chart existe como propiedad');
-              const chartFunction = widget.current.chart;
-              console.log('📊 tipo de chart:', typeof chartFunction);
-
-              const chart = chartFunction();
-              console.log('📊 Chart obtenido:', chart);
-              console.log('📊 Métodos del chart:', Object.keys(chart));
-
-              // Suscribirse a cambios en el chart
-              if (chart.subscribe) {
-                console.log('📊 Intentando suscribirse a eventos del chart');
-                chart.subscribe('onDataLoaded', () => {
-                  console.log('📊 Nuevos datos cargados');
-                });
-              }
-
-              // Intentar obtener el precio actual
-              if (chart.crossHairMoved) {
-                console.log('📊 Configurando crossHairMoved');
-                chart.crossHairMoved().subscribe(
-                  null,
-                  (param: any) => {
-                    console.log('📊 Precio actual:', param.price);
-                    if (param.price && updatePriceRange) {
-                      updatePriceRange({
-                        high: param.price * 1.001,
-                        low: param.price * 0.999
-                      });
-                    }
-                  }
-                );
-              }
-            } else {
-              console.log('❌ chart no está disponible en el widget');
+            const data = JSON.parse(event.data);
+            if (data.name === 'price') {
+              console.log('📊 Precio recibido:', data.price);
+              updatePriceRange({
+                high: data.price * 1.001,
+                low: data.price * 0.999
+              });
             }
-
           } catch (error) {
-            console.error('❌ Error al configurar chart:', error);
-            console.error('Error details:', {
-              name: error.name,
-              message: error.message,
-              stack: error.stack
-            });
+            // Ignore non-JSON messages
           }
-        });
+        };
+
+        window.addEventListener('message', handleMessage);
+
+        return () => {
+          window.removeEventListener('message', handleMessage);
+        };
 
       } catch (error) {
         console.error('❌ Error al crear widget:', error);
