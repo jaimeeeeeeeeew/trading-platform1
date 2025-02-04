@@ -42,7 +42,7 @@ export default function Chart() {
           container_id: container.current!.id,
           width: "100%",
           height: "100%",
-          symbol: currentSymbol,  // Removido el prefijo BINANCE:
+          symbol: currentSymbol || "BINANCE:BTCUSDT",
           interval: "1",
           timezone: "Etc/UTC",
           theme: "dark",
@@ -59,8 +59,10 @@ export default function Chart() {
           disabled_features: ["header_symbol_search"],
           enabled_features: ["volume_force_overlay"],
           custom_css_url: './chart.css',
+          // Agregamos el callback onChartReady
           onChartReady: () => {
             const chart = widget.current.activeChart();
+            // Obtener el rango visible inicial
             const visibleRange = chart.getVisibleRange();
             console.log('📊 Rango visible inicial:', visibleRange);
 
@@ -72,6 +74,7 @@ export default function Chart() {
               });
             }
 
+            // Suscribirse a cambios en el rango visible
             chart.onVisibleRangeChanged().subscribe(null, (range: any) => {
               console.log('📊 Rango visible cambió:', range);
               updateTimeRange({
@@ -81,6 +84,7 @@ export default function Chart() {
               });
             });
 
+            // Suscribirse a cambios de precio
             chart.crosshairMoved().subscribe(null, (param: any) => {
               if (param.price) {
                 console.log('📊 Precio actual:', param.price);

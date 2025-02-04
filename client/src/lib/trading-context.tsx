@@ -27,7 +27,7 @@ const STORAGE_KEY = 'trading_symbol';
 export function TradingProvider({ children }: { children: ReactNode }) {
   const [currentSymbol, setCurrentSymbol] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved || 'BTCUSDT';
+    return saved || 'BINANCE:BTCUSDT';
   });
 
   const [visiblePriceRange, setVisiblePriceRange] = useState<PriceRange>({
