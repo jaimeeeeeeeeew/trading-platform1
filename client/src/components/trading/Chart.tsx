@@ -66,7 +66,31 @@ export default function Chart() {
           onChartReady: () => {
             console.warn('📊 TradingView - Chart listo');
 
-            // Verificar el símbolo actual cuando el chart esté listo
+            // Obtener información del símbolo cuando el chart esté listo
+            const chart = widget.current?.chart();
+            if (chart) {
+              // Obtener información inicial del símbolo
+              chart.symbolInfo().then((symbolInfo: any) => {
+                console.warn('📊 TradingView - Información del símbolo:', {
+                  nombre: symbolInfo.name,
+                  descripcion: symbolInfo.description,
+                  precio: symbolInfo.last_price,
+                  moneda: symbolInfo.currency_code,
+                });
+              });
+
+              // Suscribirse a actualizaciones de precio en tiempo real
+              chart.onRealtimeCallback((callback: any) => {
+                console.warn('📊 TradingView - Actualización de precio:', {
+                  symbol: callback.symbol,
+                  precio: callback.price,
+                  volumen: callback.volume,
+                  timestamp: new Date(callback.time * 1000).toLocaleString(),
+                });
+              });
+            }
+
+            // Verificar el símbolo actual
             if (widget.current && widget.current.symbolInterval) {
               const currentWidgetSymbol = widget.current.symbolInterval().symbol;
               console.warn('📊 TradingView - Símbolo del widget:', currentWidgetSymbol);
