@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
+import { Card } from '@/components/ui/card';
 
 export default function RiskCalculator() {
   const [calculationType, setCalculationType] = useState<'sl' | 'amount'>('sl');
@@ -59,101 +60,77 @@ export default function RiskCalculator() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="account-capital" className="text-xs">Capital de la cuenta</Label>
-        <Input
-          id="account-capital"
-          type="number"
-          value={accountCapital}
-          onChange={(e) => setAccountCapital(e.target.value)}
-          placeholder="Ej: 10000"
-          className="h-8 text-xs"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-xs">Porcentaje de riesgo</Label>
-        <RadioGroup value={riskPercentage} onValueChange={setRiskPercentage} className="flex gap-4">
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="1" id="r1" />
-            <Label htmlFor="r1" className="text-xs">1%</Label>
+    <Card className="p-4 h-full bg-card">
+      <div className="grid grid-cols-6 gap-2 h-full">
+        <div className="space-y-1 col-span-2">
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              value={accountCapital}
+              onChange={(e) => setAccountCapital(e.target.value)}
+              placeholder="Capital"
+              className="h-7 text-xs"
+            />
+            <RadioGroup value={riskPercentage} onValueChange={setRiskPercentage} className="flex">
+              <div className="flex items-center gap-1">
+                <RadioGroupItem value="1" id="r1" className="h-3 w-3" />
+                <Label htmlFor="r1" className="text-[10px]">1%</Label>
+              </div>
+              <div className="flex items-center gap-1 ml-2">
+                <RadioGroupItem value="2" id="r2" className="h-3 w-3" />
+                <Label htmlFor="r2" className="text-[10px]">2%</Label>
+              </div>
+            </RadioGroup>
           </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="2" id="r2" />
-            <Label htmlFor="r2" className="text-xs">2%</Label>
-          </div>
-        </RadioGroup>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="entry-price" className="text-xs">Precio de entrada</Label>
-        <Input
-          id="entry-price"
-          type="number"
-          value={entryPrice}
-          onChange={(e) => setEntryPrice(e.target.value)}
-          placeholder="Ej: 45000"
-          className="h-8 text-xs"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-xs">Tipo de cálculo</Label>
-        <RadioGroup 
-          value={calculationType} 
-          onValueChange={(value) => setCalculationType(value as 'sl' | 'amount')}
-          className="flex gap-4"
-        >
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="sl" id="c1" />
-            <Label htmlFor="c1" className="text-xs">Calcular Stop Loss</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="amount" id="c2" />
-            <Label htmlFor="c2" className="text-xs">Calcular Monto</Label>
-          </div>
-        </RadioGroup>
-      </div>
-
-      {calculationType === 'sl' ? (
-        <div className="space-y-2">
-          <Label htmlFor="investment-amount" className="text-xs">Monto a invertir</Label>
           <Input
-            id="investment-amount"
             type="number"
-            value={investmentAmount}
-            onChange={(e) => setInvestmentAmount(e.target.value)}
-            placeholder="Ej: 1000"
-            className="h-8 text-xs"
+            value={entryPrice}
+            onChange={(e) => setEntryPrice(e.target.value)}
+            placeholder="Entrada"
+            className="h-7 text-xs"
           />
         </div>
-      ) : (
-        <div className="space-y-2">
-          <Label htmlFor="stop-loss" className="text-xs">Stop Loss</Label>
+
+        <div className="space-y-1 col-span-2">
+          <RadioGroup 
+            value={calculationType} 
+            onValueChange={(value) => setCalculationType(value as 'sl' | 'amount')}
+            className="flex gap-2 h-7 items-center"
+          >
+            <div className="flex items-center gap-1">
+              <RadioGroupItem value="sl" id="c1" className="h-3 w-3" />
+              <Label htmlFor="c1" className="text-[10px]">Stop Loss</Label>
+            </div>
+            <div className="flex items-center gap-1">
+              <RadioGroupItem value="amount" id="c2" className="h-3 w-3" />
+              <Label htmlFor="c2" className="text-[10px]">Monto</Label>
+            </div>
+          </RadioGroup>
           <Input
-            id="stop-loss"
             type="number"
-            value={stopLoss}
-            onChange={(e) => setStopLoss(e.target.value)}
-            placeholder="Ej: 44000"
-            className="h-8 text-xs"
+            value={calculationType === 'sl' ? investmentAmount : stopLoss}
+            onChange={(e) => calculationType === 'sl' 
+              ? setInvestmentAmount(e.target.value) 
+              : setStopLoss(e.target.value)}
+            placeholder={calculationType === 'sl' ? "Monto" : "Stop Loss"}
+            className="h-7 text-xs"
           />
         </div>
-      )}
 
-      <div className="bg-muted p-4 rounded-lg">
-        <p className="text-xs font-medium">Resultado:</p>
-        <p className="text-sm font-semibold">
-          {calculationType === 'sl' 
-            ? `Stop Loss: ${stopLoss || '---'}`
-            : `Monto a invertir: ${investmentAmount || '---'}`}
-        </p>
+        <div className="col-span-2 flex flex-col justify-between">
+          <Button onClick={calculateRisk} className="h-7 text-xs mb-1">
+            Calcular
+          </Button>
+          <div className="bg-muted p-2 rounded text-[10px]">
+            <p className="font-medium mb-1">Resultado:</p>
+            <p className="font-semibold">
+              {calculationType === 'sl' 
+                ? `SL: ${stopLoss || '---'}`
+                : `Monto: ${investmentAmount || '---'}`}
+            </p>
+          </div>
+        </div>
       </div>
-
-      <Button onClick={calculateRisk} className="w-full h-8 text-xs">
-        Calcular
-      </Button>
-    </div>
+    </Card>
   );
 }

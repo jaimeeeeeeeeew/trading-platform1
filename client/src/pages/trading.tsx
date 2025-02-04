@@ -1,5 +1,6 @@
 import Chart from '@/components/trading/Chart';
 import MetricsPanel from '@/components/trading/MetricsPanel';
+import RiskCalculator from '@/components/trading/RiskCalculator';
 import { useAuth } from '@/hooks/use-auth';
 import { useMarketData } from '@/lib/use-market-data';
 import { Loader2 } from 'lucide-react';
@@ -26,8 +27,13 @@ export default function Trading() {
   return (
     <div className="flex h-screen bg-background">
       <div className="flex-1 p-4 flex gap-4">
-        <div className="flex-[3] h-full">
-          <Chart />
+        <div className="flex-[3] h-full flex flex-col">
+          <div className="flex-1">
+            <Chart />
+          </div>
+          <div className="h-[180px] mt-4">
+            <RiskCalculator />
+          </div>
         </div>
         <div className="flex-1 h-full">
           <MetricsPanel
