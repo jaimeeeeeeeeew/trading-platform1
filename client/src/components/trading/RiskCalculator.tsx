@@ -16,47 +16,115 @@ export default function RiskCalculator() {
   const [stopLoss, setStopLoss] = useState('');
   const { toast } = useToast();
 
+  const validateInputs = () => {
+    const capital = parseFloat(accountCapital);
+    const risk = parseFloat(riskPercentage);
+    const entry = parseFloat(entryPrice);
+
+    if (isNaN(capital) || capital <= 0) {
+      toast({
+        title: 'Error',
+        description: 'El capital debe ser un número positivo',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    if (isNaN(risk) || risk <= 0) {
+      toast({
+        title: 'Error',
+        description: 'El porcentaje de riesgo debe ser un número positivo',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    if (isNaN(entry) || entry <= 0) {
+      toast({
+        title: 'Error',
+        description: 'El precio de entrada debe ser un número positivo',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   const calculateRisk = () => {
+    if (!validateInputs()) return;
+
     const capital = parseFloat(accountCapital);
     const risk = parseFloat(riskPercentage) / 100;
     const entry = parseFloat(entryPrice);
     const capitalAtRisk = capital * risk;
 
-    if (isNaN(capital) || isNaN(risk) || isNaN(entry)) {
-      toast({
-        title: 'Error',
-        description: 'Por favor, ingresa valores numéricos válidos',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     if (calculationType === 'sl') {
       const amount = parseFloat(investmentAmount);
-      if (isNaN(amount)) {
+      if (isNaN(amount) || amount <= 0) {
         toast({
           title: 'Error',
-          description: 'Por favor, ingresa un monto válido',
+          description: 'El monto a invertir debe ser un número positivo',
           variant: 'destructive',
         });
         return;
       }
+
       // SL = Entrada - (Capital a perder / Monto invertido)
       const sl = entry - (capitalAtRisk / amount);
-      setStopLoss(sl.toFixed(2));
-    } else {
-      const sl = parseFloat(stopLoss);
-      if (isNaN(sl)) {
+
+      if (sl <= 0) {
         toast({
           title: 'Error',
-          description: 'Por favor, ingresa un stop loss válido',
+          description: 'El stop loss calculado es inválido. Ajusta el monto o el riesgo.',
           variant: 'destructive',
         });
         return;
       }
+
+      setStopLoss(sl.toFixed(2));
+      toast({
+        title: 'Cálculo completado',
+        description: `Stop Loss calculado: ${sl.toFixed(2)}`,
+      });
+
+    } else {
+      const sl = parseFloat(stopLoss);
+      if (isNaN(sl) || sl <= 0) {
+        toast({
+          title: 'Error',
+          description: 'El stop loss debe ser un número positivo',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (sl >= entry) {
+        toast({
+          title: 'Error',
+          description: 'El stop loss debe ser menor al precio de entrada',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       // Monto a invertir = Capital a perder / |Entrada - SL|
-      const amount = capitalAtRisk / Math.abs(entry - sl);
+      const priceDiff = Math.abs(entry - sl);
+      if (priceDiff === 0) {
+        toast({
+          title: 'Error',
+          description: 'La diferencia entre entrada y stop loss no puede ser cero',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const amount = capitalAtRisk / priceDiff;
       setInvestmentAmount(amount.toFixed(2));
+      toast({
+        title: 'Cálculo completado',
+        description: `Monto a invertir calculado: ${amount.toFixed(2)}`,
+      });
     }
   };
 
@@ -139,8 +207,8 @@ export default function RiskCalculator() {
           <p className="font-medium mb-1">Resultado:</p>
           <p className="font-semibold">
             {calculationType === 'sl' 
-              ? `SL: ${stopLoss || '---'}`
-              : `Monto: ${investmentAmount || '---'}`}
+              ? `Stop Loss: ${stopLoss || '---'}`
+              : `Monto a invertir: ${investmentAmount || '---'}`}
           </p>
         </div>
       </div>
