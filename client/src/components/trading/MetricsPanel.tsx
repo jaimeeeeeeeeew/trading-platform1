@@ -1,9 +1,9 @@
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import TransactionList from './TransactionList';
 import { Activity } from 'lucide-react';
 import { useTrading } from '@/lib/trading-context';
+import OrderPanel from './OrderPanel';
 
 // Lista de criptomonedas disponibles
 const CRYPTOCURRENCIES = [
@@ -20,7 +20,6 @@ interface MetricsPanelProps {
     dominancia: { left: number; right: number };
     delta_futuros: { positivo: number; negativo: number };
     delta_spot: { positivo: number; negativo: number };
-    transacciones: Array<{ volume: string; price: string }>;
   };
   className?: string;
 }
@@ -142,7 +141,8 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
 
         <Separator className="my-4" />
 
-        <TransactionList transactions={metrics.transacciones} />
+        {/* Panel de Órdenes */}
+        <OrderPanel />
       </div>
     </Card>
   );
