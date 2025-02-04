@@ -11,7 +11,6 @@ declare global {
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const widget = useRef<any>(null);
-  const chart = useRef<any>(null);
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
 
@@ -48,35 +47,38 @@ export default function Chart() {
           locale: "es",
           enable_publishing: false,
           allow_symbol_change: true,
-          studies: ["RSI@tv-basicstudies"],
+          studies: ["Volume@tv-basicstudies"],
           save_image: true,
           onChartReady: () => {
-            console.log('📊 Chart listo - Obteniendo objeto chart');
-            chart.current = widget.current.chart();
+            console.log('📊 Chart listo - Iniciando configuración');
+            try {
+              // Obtener el widget y sus propiedades
+              const activeChart = widget.current.activeChart();
+              console.log('📊 Active Chart disponible:', !!activeChart);
 
-            if (!chart.current) {
-              console.error('❌ No se pudo obtener el objeto chart');
-              return;
-            }
+              // Listar todas las propiedades y métodos disponibles
+              console.log('📊 Propiedades del widget:', Object.keys(widget.current));
 
-            console.log('📊 Objeto chart obtenido:', chart.current);
-            console.log('📊 Métodos disponibles en chart:', Object.getOwnPropertyNames(chart.current));
+              // Intentar obtener el estudios (incluyendo volumen)
+              const studies = activeChart.getAllStudies();
+              console.log('📊 Estudios disponibles:', studies);
 
-            // Intentar acceder a métodos específicos
-            if (typeof chart.current.priceScale === 'function') {
-              console.log('✅ Método priceScale disponible');
-              const priceScale = chart.current.priceScale('right');
-              console.log('📊 PriceScale:', priceScale);
-            } else {
-              console.log('❌ Método priceScale no disponible');
-            }
+              // Intentar obtener los datos visibles
+              const visibleRange = activeChart.getVisibleRange();
+              console.log('📊 Rango visible:', visibleRange);
 
-            if (typeof chart.current.timeScale === 'function') {
-              console.log('✅ Método timeScale disponible');
-              const timeScale = chart.current.timeScale();
-              console.log('📊 TimeScale:', timeScale);
-            } else {
-              console.log('❌ Método timeScale no disponible');
+              // Intentar suscribirnos a cambios en el chart
+              activeChart.onDataLoaded().subscribe(
+                null,
+                () => {
+                  console.log('📊 Nuevos datos cargados');
+                  const range = activeChart.getVisiblePriceRange();
+                  console.log('📊 Rango de precios:', range);
+                }
+              );
+
+            } catch (error) {
+              console.error('❌ Error en onChartReady:', error);
             }
 
             // Actualizar símbolo si es necesario
