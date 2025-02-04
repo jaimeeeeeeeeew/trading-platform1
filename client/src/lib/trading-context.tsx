@@ -7,11 +7,19 @@ interface TradingContextType {
 
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
 
+const STORAGE_KEY = 'trading_symbol';
+
 export function TradingProvider({ children }: { children: ReactNode }) {
-  const [currentSymbol, setCurrentSymbol] = useState('BINANCE:BTCUSDT');
+  // Intentar cargar el símbolo guardado, si no existe usar el default
+  const [currentSymbol, setCurrentSymbol] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved || 'BINANCE:BTCUSDT';
+  });
 
   useEffect(() => {
-    console.log('TradingContext - Símbolo actualizado a:', currentSymbol);
+    // Guardar el símbolo en localStorage cuando cambie
+    localStorage.setItem(STORAGE_KEY, currentSymbol);
+    console.log('TradingContext - Símbolo actualizado y guardado:', currentSymbol);
   }, [currentSymbol]);
 
   return (

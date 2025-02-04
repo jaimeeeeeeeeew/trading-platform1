@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useTrading } from '@/lib/trading-context';
+import { useToast } from '@/hooks/use-toast';
 
 declare global {
   interface Window {
@@ -11,6 +12,17 @@ export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const widget = useRef<any>(null);
   const { currentSymbol, setCurrentSymbol } = useTrading();
+  const { toast } = useToast();
+
+  const handleSymbolChange = useCallback((symbol: string) => {
+    console.log('TradingView - Símbolo cambiado a:', symbol);
+    setCurrentSymbol(symbol);
+    toast({
+      title: "Símbolo actualizado",
+      description: `Cambiado a ${symbol}`,
+      duration: 2000
+    });
+  }, [setCurrentSymbol, toast]);
 
   useEffect(() => {
     if (!container.current) return;
@@ -42,14 +54,17 @@ export default function Chart() {
           "VWAP@tv-basicstudies"
         ],
         supported_resolutions: ["1", "5", "15", "30", "60", "D", "W"],
+        save_image: true,
         // Detectar cambios de símbolo
-        onSymbolChange: (symbol: string) => {
-          console.log('TradingView - Símbolo cambiado a:', symbol);
-          setCurrentSymbol(symbol);
-        },
+        onSymbolChange: handleSymbolChange,
         // Agregar callback cuando el widget está listo
         onChartReady: () => {
-          console.log('TradingView chart listo, símbolo actual:', widget.current?.symbolInterval?.().symbol);
+          console.log('TradingView chart listo, símbolo actual:', currentSymbol);
+          // Verificar que el símbolo inicial se haya cargado correctamente
+          const actualSymbol = widget.current?.symbolInterval?.()?.symbol;
+          if (actualSymbol && actualSymbol !== currentSymbol) {
+            handleSymbolChange(actualSymbol);
+          }
         }
       });
     };
@@ -61,7 +76,7 @@ export default function Chart() {
         document.head.removeChild(script);
       }
     };
-  }, [currentSymbol, setCurrentSymbol]);
+  }, [currentSymbol, handleSymbolChange]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
