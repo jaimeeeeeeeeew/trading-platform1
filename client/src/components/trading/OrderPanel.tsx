@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Calculator } from 'lucide-react';
+import RiskCalculator from './RiskCalculator';
 
 const orderSchema = z.object({
   quantity: z.number().positive('La cantidad debe ser positiva'),
@@ -27,7 +28,6 @@ export default function OrderPanel() {
   const [orderSide, setOrderSide] = useState<'BUY' | 'SELL'>('BUY');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const { toast } = useToast();
-
   const form = useForm<OrderFormData>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
@@ -35,8 +35,8 @@ export default function OrderPanel() {
       price: visiblePriceRange.high,
     },
   });
-
   const [useTrailingStop, setUseTrailingStop] = useState(false);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
 
   const onSubmit = async (data: OrderFormData) => {
     try {
@@ -111,78 +111,94 @@ export default function OrderPanel() {
         </div>
       </div>
 
-      <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="w-full flex items-center justify-between p-0 h-8">
-            <span className="text-xs">Opciones avanzadas</span>
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="stopLoss" className="text-xs">Stop Loss</Label>
-              <Input
-                id="stopLoss"
-                type="number"
-                step="any"
-                className="h-8 text-xs"
-                {...form.register('stopLoss', { valueAsNumber: true })}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="takeProfit" className="text-xs">Take Profit</Label>
-              <Input
-                id="takeProfit"
-                type="number"
-                step="any"
-                className="h-8 text-xs"
-                {...form.register('takeProfit', { valueAsNumber: true })}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="trailing-stop"
-              checked={useTrailingStop}
-              onCheckedChange={setUseTrailingStop}
-              className="h-4 w-8"
-            />
-            <Label htmlFor="trailing-stop" className="text-xs">Trailing Stop</Label>
-          </div>
-
-          {useTrailingStop && (
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs flex items-center gap-1"
+          onClick={() => setIsCalculatorOpen(true)}
+        >
+          <Calculator className="h-3 w-3" />
+          <span>Calculadora</span>
+        </Button>
+        <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen} className="flex-1">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-full flex items-center justify-between p-0 h-8">
+              <span className="text-xs">Opciones avanzadas</span>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label htmlFor="trailingStop" className="text-xs">Valor</Label>
+                <Label htmlFor="stopLoss" className="text-xs">Stop Loss</Label>
                 <Input
-                  id="trailingStop"
+                  id="stopLoss"
                   type="number"
                   step="any"
                   className="h-8 text-xs"
-                  {...form.register('trailingStop', { valueAsNumber: true })}
+                  {...form.register('stopLoss', { valueAsNumber: true })}
                 />
               </div>
+
               <div className="space-y-1">
-                <Label htmlFor="trailingDistance" className="text-xs">Distancia</Label>
+                <Label htmlFor="takeProfit" className="text-xs">Take Profit</Label>
                 <Input
-                  id="trailingDistance"
+                  id="takeProfit"
                   type="number"
                   step="any"
                   className="h-8 text-xs"
-                  {...form.register('trailingDistance', { valueAsNumber: true })}
+                  {...form.register('takeProfit', { valueAsNumber: true })}
                 />
               </div>
             </div>
-          )}
-        </CollapsibleContent>
-      </Collapsible>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="trailing-stop"
+                checked={useTrailingStop}
+                onCheckedChange={setUseTrailingStop}
+                className="h-4 w-8"
+              />
+              <Label htmlFor="trailing-stop" className="text-xs">Trailing Stop</Label>
+            </div>
+
+            {useTrailingStop && (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="trailingStop" className="text-xs">Valor</Label>
+                  <Input
+                    id="trailingStop"
+                    type="number"
+                    step="any"
+                    className="h-8 text-xs"
+                    {...form.register('trailingStop', { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="trailingDistance" className="text-xs">Distancia</Label>
+                  <Input
+                    id="trailingDistance"
+                    type="number"
+                    step="any"
+                    className="h-8 text-xs"
+                    {...form.register('trailingDistance', { valueAsNumber: true })}
+                  />
+                </div>
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
 
       <Button type="submit" className="w-full h-8 text-xs">
         {orderSide === 'BUY' ? 'Comprar' : 'Vender'} {currentSymbol}
       </Button>
+      <RiskCalculator 
+        open={isCalculatorOpen}
+        onOpenChange={setIsCalculatorOpen}
+      />
     </form>
   );
 }
