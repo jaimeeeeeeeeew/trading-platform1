@@ -27,6 +27,7 @@ export default function Chart() {
 
     script.onload = () => {
       console.log('✅ Script de TradingView cargado');
+      console.log('TradingView disponible:', !!window.TradingView);
 
       if (!window.TradingView) {
         console.error('❌ TradingView no disponible en window');
@@ -35,6 +36,8 @@ export default function Chart() {
 
       try {
         console.log('🎯 Intentando crear widget de TradingView');
+        console.log('ID del contenedor:', container.current!.id);
+
         widget.current = new window.TradingView.widget({
           container_id: container.current!.id,
           width: "100%",
@@ -47,50 +50,24 @@ export default function Chart() {
           locale: "es",
           enable_publishing: false,
           allow_symbol_change: true,
-          studies: ["Volume@tv-basicstudies"],
           save_image: true,
-          onChartReady: () => {
-            console.log('📊 Chart listo - Iniciando configuración');
-            try {
-              // Obtener el widget y sus propiedades
-              const activeChart = widget.current.activeChart();
-              console.log('📊 Active Chart disponible:', !!activeChart);
-
-              // Listar todas las propiedades y métodos disponibles
-              console.log('📊 Propiedades del widget:', Object.keys(widget.current));
-
-              // Intentar obtener los estudios (incluyendo volumen)
-              const studies = activeChart.getAllStudies();
-              console.log('📊 Estudios disponibles:', studies);
-
-              // Intentar obtener los datos visibles
-              const visibleRange = activeChart.getVisibleRange();
-              console.log('📊 Rango visible:', visibleRange);
-
-              // Intentar suscribirnos a cambios en el chart
-              activeChart.onDataLoaded().subscribe(
-                null,
-                () => {
-                  console.log('📊 Nuevos datos cargados');
-                  const range = activeChart.getVisiblePriceRange();
-                  console.log('📊 Rango de precios:', range);
-                }
-              );
-
-            } catch (error) {
-              console.error('❌ Error en onChartReady:', error);
-            }
-
-            // Actualizar símbolo si es necesario
-            if (currentSymbol) {
-              console.log('🔄 Actualizando símbolo a:', currentSymbol);
-              const symbolToUse = currentSymbol.includes(':') ? currentSymbol : `BINANCE:${currentSymbol}`;
-              widget.current.setSymbol(symbolToUse);
-            }
-          }
         });
 
         console.log('✅ Widget creado exitosamente');
+        console.log('Widget actual:', widget.current);
+
+        // Verificar si el widget tiene el método onChartReady
+        console.log('Métodos del widget:', Object.keys(widget.current));
+
+        if (typeof widget.current.onChartReady === 'function') {
+          console.log('📊 Configurando onChartReady');
+          widget.current.onChartReady(() => {
+            console.log('📊 Chart está listo!');
+            console.log('Objeto widget dentro de onChartReady:', widget.current);
+          });
+        } else {
+          console.error('❌ onChartReady no es una función');
+        }
 
       } catch (error) {
         console.error('❌ Error al crear widget:', error);
