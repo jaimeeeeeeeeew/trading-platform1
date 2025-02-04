@@ -20,22 +20,14 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 function useLoginMutation() {
   const { toast } = useToast();
-
+  
   return useMutation({
     mutationFn: async (credentials: Pick<InsertUser, "username" | "password">) => {
       const res = await apiRequest("POST", "/api/login", credentials);
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Error al iniciar sesión");
-      }
       return res.json();
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "¡Bienvenido!",
-        description: "Has iniciado sesión correctamente",
-      });
     },
     onError: (error: Error) => {
       toast({
@@ -49,22 +41,14 @@ function useLoginMutation() {
 
 function useRegisterMutation() {
   const { toast } = useToast();
-
+  
   return useMutation({
     mutationFn: async (credentials: InsertUser) => {
       const res = await apiRequest("POST", "/api/register", credentials);
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Error al registrarse");
-      }
       return res.json();
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "¡Registro exitoso!",
-        description: "Tu cuenta ha sido creada correctamente",
-      });
     },
     onError: (error: Error) => {
       toast({
@@ -78,17 +62,13 @@ function useRegisterMutation() {
 
 function useLogoutMutation() {
   const { toast } = useToast();
-
+  
   return useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/logout");
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
-      toast({
-        title: "Sesión cerrada",
-        description: "Has cerrado sesión correctamente",
-      });
     },
     onError: (error: Error) => {
       toast({

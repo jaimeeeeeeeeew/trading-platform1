@@ -5,15 +5,15 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import Trading from "@/pages/trading";
 import AuthPage from "@/pages/auth-page";
-import { AuthProvider } from "@/hooks/use-auth.tsx";
+import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { TradingProvider } from "@/lib/trading-context";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/auth" component={AuthPage} />
       <ProtectedRoute path="/" component={Trading} />
+      <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
   );
