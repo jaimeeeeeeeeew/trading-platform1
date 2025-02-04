@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import Trading from "@/pages/trading";
 import AuthPage from "@/pages/auth-page";
-import { AuthProvider } from "@/hooks/use-auth";
+import { AuthProvider } from "@/hooks/use-auth.tsx";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { TradingProvider } from "@/lib/trading-context";
 
