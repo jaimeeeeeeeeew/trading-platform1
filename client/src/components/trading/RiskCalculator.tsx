@@ -258,15 +258,22 @@ export default function RiskCalculator() {
           </div>
         </RadioGroup>
 
-        <Input
-          type="number"
-          value={calculationType === 'sl' ? investmentAmount : stopLoss}
-          onChange={(e) => calculationType === 'sl' 
-            ? setInvestmentAmount(e.target.value) 
-            : setStopLoss(e.target.value)}
-          placeholder={calculationType === 'sl' ? "Monto a invertir" : "Stop Loss"}
-          className="h-7 text-xs"
-        />
+        <div className="space-y-1">
+          <Input
+            type="number"
+            value={calculationType === 'sl' ? investmentAmount : stopLoss}
+            onChange={(e) => calculationType === 'sl' 
+              ? setInvestmentAmount(e.target.value) 
+              : setStopLoss(e.target.value)}
+            placeholder={calculationType === 'sl' ? "Monto a invertir" : "Stop Loss"}
+            className="h-7 text-xs"
+          />
+          <p className="text-[10px] text-muted-foreground ml-1">
+            {calculationType === 'sl' 
+              ? "* Cuántas monedas (apalancamiento incluido)" 
+              : "* ¿Dónde quieres el stop?"}
+          </p>
+        </div>
 
         <Button onClick={calculateRisk} className="w-full h-7 text-xs">
           Calcular
