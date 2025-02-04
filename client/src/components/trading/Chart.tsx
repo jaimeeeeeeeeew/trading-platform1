@@ -18,9 +18,18 @@ export default function Chart() {
   useEffect(() => {
     if (widget.current && currentSymbol) {
       console.log('🔄 Cambiando símbolo a:', currentSymbol);
-      const chart = widget.current.chart();
-      if (chart) {
-        chart.setSymbol(currentSymbol);
+      try {
+        // Intentar cambiar el símbolo usando setSymbol directamente en el widget
+        widget.current.setSymbol(currentSymbol, {
+          onSuccess: () => {
+            console.log('✅ Símbolo cambiado exitosamente');
+          },
+          onError: (error: any) => {
+            console.error('❌ Error cambiando símbolo:', error);
+          }
+        });
+      } catch (error) {
+        console.error('❌ Error al intentar cambiar el símbolo:', error);
       }
     }
   }, [currentSymbol]);
@@ -39,7 +48,7 @@ export default function Chart() {
           container_id: container.current!.id,
           width: "100%",
           height: "100%",
-          symbol: currentSymbol || "BTCUSDT", // Usar el símbolo actual o BTCUSDT por defecto
+          symbol: currentSymbol || "BINANCE:BTCUSDT", // Usar el símbolo actual o BTCUSDT por defecto
           interval: "1",
           timezone: "Etc/UTC",
           theme: "dark",
@@ -59,20 +68,14 @@ export default function Chart() {
           onChartReady: () => {
             console.log("🎯 Chart Ready - Símbolo actual:", currentSymbol);
 
-            const chart = widget.current.chart();
-
-            // Suscribirse a cambios en el símbolo
-            chart.onSymbolChange(symbolData => {
-              console.log("💱 Symbol Changed:", symbolData);
-            });
-
-            // Monitorear datos en tiempo real
+            // Configurar un intervalo para monitorear datos
             const interval = setInterval(() => {
               try {
-                const mainSeries = chart.mainSeries();
-                if (mainSeries) {
-                  const lastPrice = mainSeries.lastPrice();
-                  console.log("💰 Precio actual:", lastPrice);
+                if (widget.current) {
+                  const symbolInfo = widget.current.symbolInterval();
+                  if (symbolInfo) {
+                    console.log("📊 Información actual:", symbolInfo);
+                  }
                 }
               } catch (error) {
                 console.error("❌ Error monitoreando datos:", error);
@@ -83,6 +86,7 @@ export default function Chart() {
           },
         });
 
+        console.log('✅ Widget de TradingView creado exitosamente');
       } catch (error) {
         console.error('❌ Error initializing TradingView:', error);
         toast({
