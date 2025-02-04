@@ -83,11 +83,12 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // Ruta de registro
   app.post("/api/register", async (req, res, next) => {
     try {
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
-        return res.status(400).send("El nombre de usuario ya existe");
+        return res.status(400).json({ error: "El nombre de usuario ya existe" });
       }
 
       const user = await storage.createUser({
@@ -97,17 +98,36 @@ export function setupAuth(app: Express) {
 
       req.login(user, (err) => {
         if (err) return next(err);
-        res.status(201).json(user);
+        res.status(201).json({ 
+          id: user.id,
+          username: user.username,
+          tradingPreferences: user.tradingPreferences,
+        });
       });
     } catch (err) {
       next(err);
     }
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.status(200).json(req.user);
+  // Ruta de login
+  app.post("/api/login", (req, res, next) => {
+    passport.authenticate("local", (err, user, info) => {
+      if (err) return next(err);
+      if (!user) {
+        return res.status(401).json({ error: "Credenciales inválidas" });
+      }
+      req.login(user, (err) => {
+        if (err) return next(err);
+        res.json({
+          id: user.id,
+          username: user.username,
+          tradingPreferences: user.tradingPreferences,
+        });
+      });
+    })(req, res, next);
   });
 
+  // Ruta de logout
   app.post("/api/logout", (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
@@ -115,8 +135,15 @@ export function setupAuth(app: Express) {
     });
   });
 
+  // Ruta para obtener usuario actual
   app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    res.json(req.user);
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "No autenticado" });
+    }
+    res.json({
+      id: req.user.id,
+      username: req.user.username,
+      tradingPreferences: req.user.tradingPreferences,
+    });
   });
 }

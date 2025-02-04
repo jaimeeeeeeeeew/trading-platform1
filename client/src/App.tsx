@@ -12,8 +12,8 @@ import { TradingProvider } from "@/lib/trading-context";
 function Router() {
   return (
     <Switch>
-      <ProtectedRoute path="/" component={Trading} />
       <Route path="/auth" component={AuthPage} />
+      <ProtectedRoute path="/" component={Trading} />
       <Route component={NotFound} />
     </Switch>
   );
