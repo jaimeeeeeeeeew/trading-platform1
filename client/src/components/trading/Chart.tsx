@@ -19,36 +19,41 @@ export default function Chart() {
     if (widget.current && currentSymbol) {
       console.log('🔄 Cambiando símbolo a:', currentSymbol);
       try {
-        // Intentar cambiar el símbolo usando setSymbol directamente en el widget
-        widget.current.setSymbol(currentSymbol, {
-          onSuccess: () => {
-            console.log('✅ Símbolo cambiado exitosamente');
-          },
-          onError: (error: any) => {
-            console.error('❌ Error cambiando símbolo:', error);
-          }
-        });
+        // Asegurarnos de que el símbolo tenga el formato correcto para Binance
+        const formattedSymbol = currentSymbol.includes(':') ? currentSymbol : `BINANCE:${currentSymbol}`;
+        widget.current.setSymbol(formattedSymbol);
+        console.log('✅ Símbolo actualizado a:', formattedSymbol);
       } catch (error) {
-        console.error('❌ Error al intentar cambiar el símbolo:', error);
+        console.error('❌ Error al cambiar símbolo:', error);
       }
     }
   }, [currentSymbol]);
 
   // Efecto para inicializar el widget
   useEffect(() => {
-    const loadTradingView = () => {
-      if (!container.current) {
-        console.error('❌ Container no encontrado');
-        return;
-      }
+    if (!container.current) {
+      console.error('❌ Container no encontrado');
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/tv.js';
+    script.async = true;
+
+    script.onload = () => {
+      console.log('📦 Script de TradingView cargado');
 
       try {
-        // Crear el widget con configuración extendida
+        // Asegurarnos de que el símbolo inicial tenga el formato correcto
+        const initialSymbol = currentSymbol ? 
+          (currentSymbol.includes(':') ? currentSymbol : `BINANCE:${currentSymbol}`) : 
+          'BINANCE:BTCUSDT';
+
         widget.current = new window.TradingView.widget({
           container_id: container.current!.id,
           width: "100%",
           height: "100%",
-          symbol: currentSymbol || "BINANCE:BTCUSDT", // Usar el símbolo actual o BTCUSDT por defecto
+          symbol: initialSymbol,
           interval: "1",
           timezone: "Etc/UTC",
           theme: "dark",
@@ -59,36 +64,15 @@ export default function Chart() {
           hide_side_toolbar: false,
           debug: true,
           autosize: true,
-          studies: [
-            "RSI@tv-basicstudies",
-            "MASimple@tv-basicstudies",
-            "MACD@tv-basicstudies"
-          ],
-          // Eventos del gráfico
+          studies: ["RSI@tv-basicstudies"],
           onChartReady: () => {
-            console.log("🎯 Chart Ready - Símbolo actual:", currentSymbol);
-
-            // Configurar un intervalo para monitorear datos
-            const interval = setInterval(() => {
-              try {
-                if (widget.current) {
-                  const symbolInfo = widget.current.symbolInterval();
-                  if (symbolInfo) {
-                    console.log("📊 Información actual:", symbolInfo);
-                  }
-                }
-              } catch (error) {
-                console.error("❌ Error monitoreando datos:", error);
-              }
-            }, 1000);
-
-            return () => clearInterval(interval);
+            console.log('📊 Chart listo - Símbolo actual:', initialSymbol);
           },
         });
 
         console.log('✅ Widget de TradingView creado exitosamente');
       } catch (error) {
-        console.error('❌ Error initializing TradingView:', error);
+        console.error('❌ Error al crear widget:', error);
         toast({
           title: "Error",
           description: "No se pudo inicializar el gráfico",
@@ -97,13 +81,8 @@ export default function Chart() {
       }
     };
 
-    // Cargar el script de TradingView
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/tv.js';
-    script.async = true;
-    script.onload = loadTradingView;
     script.onerror = () => {
-      console.error('❌ Error loading TradingView script');
+      console.error('❌ Error al cargar script de TradingView');
       toast({
         title: "Error",
         description: "No se pudo cargar TradingView",
@@ -113,7 +92,6 @@ export default function Chart() {
 
     document.head.appendChild(script);
 
-    // Cleanup
     return () => {
       if (document.head.contains(script)) {
         document.head.removeChild(script);
