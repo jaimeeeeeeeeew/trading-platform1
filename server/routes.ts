@@ -6,27 +6,51 @@ function getRandomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function generateData() {
-  const basePrice = 68500;
-  const volatility = 0.002; // 0.2% volatilidad
-  const priceChange = basePrice * volatility * (Math.random() * 2 - 1);
-  const currentPrice = basePrice + priceChange;
+let lastPrice = 68500;
+let trend = 0;
 
+function generateData() {
+  // Simular cambio de precio con tendencia
+  trend = trend * 0.95 + (Math.random() - 0.5) * 0.3;
+  const volatility = 0.001; // 0.1% volatilidad
+  const priceChange = lastPrice * volatility * trend;
+  lastPrice = lastPrice + priceChange;
+
+  // Generar dominancia basada en la dirección del precio
   const dominanciaTotal = 10000;
-  const dominanciaLeft = getRandomInt(dominanciaTotal * 0.4, dominanciaTotal * 0.6);
+  const dominanciaLeft = trend > 0 
+    ? getRandomInt(dominanciaTotal * 0.55, dominanciaTotal * 0.7)  // Más compradores
+    : getRandomInt(dominanciaTotal * 0.3, dominanciaTotal * 0.45); // Más vendedores
   const dominanciaRight = dominanciaTotal - dominanciaLeft;
 
-  // Generar valores positivos y negativos para los deltas
-  const deltaFuturosTotal = 600;
-  const deltaFuturosPositivo = getRandomInt(deltaFuturosTotal * 0.3, deltaFuturosTotal * 0.7);
+  // Delta futuros correlacionado con el precio
+  const deltaFuturosTotal = getRandomInt(500, 700);
+  const deltaFuturosPositivo = trend > 0
+    ? getRandomInt(deltaFuturosTotal * 0.6, deltaFuturosTotal * 0.8)
+    : getRandomInt(deltaFuturosTotal * 0.2, deltaFuturosTotal * 0.4);
   const deltaFuturosNegativo = deltaFuturosTotal - deltaFuturosPositivo;
 
-  const deltaSpotTotal = 300;
-  const deltaSpotPositivo = getRandomInt(deltaSpotTotal * 0.3, deltaSpotTotal * 0.7);
+  // Delta spot sigue a futuros pero con menor volumen
+  const deltaSpotTotal = Math.floor(deltaFuturosTotal * 0.6);
+  const deltaSpotPositivo = trend > 0
+    ? getRandomInt(deltaSpotTotal * 0.55, deltaSpotTotal * 0.75)
+    : getRandomInt(deltaSpotTotal * 0.25, deltaSpotTotal * 0.45);
   const deltaSpotNegativo = deltaSpotTotal - deltaSpotPositivo;
 
+  // Generar transacciones relacionadas con la tendencia
+  const numTransactions = getRandomInt(3, 7);
+  const transacciones = Array.from({ length: numTransactions }, () => {
+    const isLarge = Math.random() < 0.2; // 20% de probabilidad de transacción grande
+    const volumeBase = isLarge ? getRandomInt(500, 2000) : getRandomInt(50, 500);
+    const transactionPrice = lastPrice * (1 + (Math.random() * 0.001 - 0.0005));
+    return {
+      volume: `${volumeBase}K`,
+      price: transactionPrice.toFixed(2)
+    };
+  });
+
   return {
-    direccion: Math.round(currentPrice),
+    direccion: Math.round(lastPrice),
     dominancia: {
       left: dominanciaLeft,
       right: dominanciaRight
@@ -39,13 +63,7 @@ function generateData() {
       positivo: deltaSpotPositivo,
       negativo: deltaSpotNegativo
     },
-    transacciones: Array.from({ length: getRandomInt(3, 7) }, () => {
-      const transactionPrice = currentPrice * (1 + (Math.random() * 0.001 - 0.0005));
-      return {
-        volume: `${getRandomInt(50, 500)}K`,
-        price: transactionPrice.toFixed(2)
-      };
-    })
+    transacciones
   };
 }
 
@@ -64,13 +82,13 @@ export function registerRoutes(app: Express): Server {
     const initialData = generateData();
     res.write(`data: ${JSON.stringify(initialData)}\n\n`);
 
-    // Configurar el intervalo para enviar actualizaciones
+    // Configurar el intervalo para enviar actualizaciones más frecuentes
     const interval = setInterval(() => {
       if (!res.writableEnded) {
         const data = generateData();
         res.write(`data: ${JSON.stringify(data)}\n\n`);
       }
-    }, 1000);
+    }, 500); // Actualizar cada 500ms para datos más fluidos
 
     // Limpiar el intervalo cuando el cliente se desconecte
     req.on('close', () => {
