@@ -1,103 +1,182 @@
 import { useEffect, useRef } from 'react';
-import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 
+declare global {
+  interface Window {
+    TradingView: any;
+  }
+}
+
 export default function Chart() {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chart = useRef<any>(null);
-  const candleSeries = useRef<any>(null);
+  const container = useRef<HTMLDivElement>(null);
+  const widget = useRef<any>(null);
+  const { currentSymbol } = useTrading();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    console.log('🚀 Iniciando componente Chart');
 
-    // Crear el gráfico
-    chart.current = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
-      height: chartContainerRef.current.clientHeight,
-      layout: {
-        background: { type: ColorType.Solid, color: '#000000' },
-        textColor: '#d1d4dc',
-      },
-      grid: {
-        vertLines: { color: 'rgba(42, 46, 57, 0.5)' },
-        horzLines: { color: 'rgba(42, 46, 57, 0.5)' },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-      },
-      rightPriceScale: {
-        borderColor: 'rgba(197, 203, 206, 0.8)',
-      },
-      timeScale: {
-        borderColor: 'rgba(197, 203, 206, 0.8)',
-        timeVisible: true,
-        secondsVisible: true,
-      },
-    });
+    if (!container.current) {
+      console.error('❌ Container no encontrado');
+      return;
+    }
 
-    // Crear serie de velas
-    candleSeries.current = chart.current.addCandlestickSeries({
-      upColor: '#26a69a',
-      downColor: '#ef5350',
-      borderVisible: false,
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350',
-    });
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/tv.js';
+    script.async = true;
 
-    // Conectar a SSE para datos en tiempo real
-    const eventSource = new EventSource('/api/market-data');
+    script.onload = () => {
+      console.log('📦 Script de TradingView cargado');
 
-    eventSource.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        console.log('📊 Datos recibidos:', data);
+        widget.current = new window.TradingView.widget({
+          container_id: container.current!.id,
+          width: "100%",
+          height: "100%",
+          symbol: "BTCUSDT",
+          interval: "1",
+          timezone: "Etc/UTC",
+          theme: "dark",
+          style: "1",
+          locale: "es",
+          enable_publishing: false,
+          allow_symbol_change: true,
+          hide_side_toolbar: false,
+          debug: true,
+          autosize: true,
+          studies: ["RSI@tv-basicstudies"],
+          onChartReady: () => {
+            console.log('📊 Chart listo - Comenzando recopilación de datos');
 
-        // Crear datos de vela
-        const candleData = {
-          time: Date.now() / 1000,
-          open: data.direccion - 10,
-          high: data.direccion + Math.random() * 20,
-          low: data.direccion - Math.random() * 20,
-          close: data.direccion
-        };
+            const collectChartData = () => {
+              try {
+                if (!widget.current) {
+                  console.warn('⚠️ Widget no disponible');
+                  return;
+                }
 
-        candleSeries.current.update(candleData);
+                const chart = widget.current.chart();
+                if (!chart) {
+                  console.warn('⚠️ Chart no disponible');
+                  return;
+                }
 
-        // Imprimir información detallada
-        console.log('=== DATOS DEL MERCADO ===');
-        console.log(`Precio actual: $${data.direccion}`);
-        console.log('Dominancia compradores:', data.dominancia.left);
-        console.log('Dominancia vendedores:', data.dominancia.right);
-        console.log('Delta futuros +:', data.delta_futuros.positivo);
-        console.log('Delta futuros -:', data.delta_futuros.negativo);
-        console.log('Delta spot +:', data.delta_spot.positivo);
-        console.log('Delta spot -:', data.delta_spot.negativo);
-        console.log('Últimas transacciones:', data.transacciones);
-        console.log('========================');
+                // Información básica del gráfico
+                const symbolInfo = {
+                  symbol: chart.symbol(),
+                  resolution: chart.resolution(),
+                  timezone: chart.getTimezoneOffset(),
+                };
+                console.log('📈 Información del símbolo:', symbolInfo);
+
+                // Información de precios
+                try {
+                  const priceData = chart.crosshairMove();
+                  if (priceData) {
+                    console.log('💰 Datos de precio actual:', priceData);
+                  }
+                } catch (e) {
+                  console.warn('⚠️ No se pudo obtener precio actual:', e);
+                }
+
+                // Estudios técnicos
+                try {
+                  const studies = chart.getAllStudies();
+                  console.log('📊 Estudios técnicos:', studies);
+                } catch (e) {
+                  console.warn('⚠️ No se pudo obtener estudios:', e);
+                }
+
+                // Series de precios
+                try {
+                  const mainSeries = chart.mainSeries();
+                  if (mainSeries) {
+                    console.log('📉 Serie principal:', {
+                      visible: mainSeries.isVisible(),
+                      style: mainSeries.style(),
+                    });
+                  }
+                } catch (e) {
+                  console.warn('⚠️ No se pudo obtener serie principal:', e);
+                }
+
+                // Marcadores y líneas
+                try {
+                  const shapes = chart.getAllShapes();
+                  console.log('🔷 Formas en el gráfico:', shapes);
+                } catch (e) {
+                  console.warn('⚠️ No se pudo obtener formas:', e);
+                }
+
+                // Rango de precios visible
+                try {
+                  const visibleRange = chart.getVisibleRange();
+                  console.log('👀 Rango visible:', visibleRange);
+                } catch (e) {
+                  console.warn('⚠️ No se pudo obtener rango visible:', e);
+                }
+
+                // Suscribirse a eventos de precio
+                chart.onDataLoaded().subscribe(null, () => {
+                  console.log('🔄 Nuevos datos cargados');
+                  try {
+                    const bars = chart.series().bars();
+                    if (bars && bars.length) {
+                      console.log('📊 Última barra:', bars[bars.length - 1]);
+                    }
+                  } catch (e) {
+                    console.warn('⚠️ Error al acceder a las barras:', e);
+                  }
+                });
+
+                // Suscribirse a cambios de cursor
+                chart.subscribeCrosshairMove((param: any) => {
+                  if (param && param.price) {
+                    console.log('🎯 Precio en cursor:', param.price);
+                  }
+                });
+
+              } catch (error) {
+                console.error('❌ Error al recopilar datos:', error);
+              }
+            };
+
+            // Recopilar datos inmediatamente y cada 5 segundos
+            collectChartData();
+            const dataInterval = setInterval(collectChartData, 5000);
+
+            return () => {
+              clearInterval(dataInterval);
+            };
+          },
+        });
+
+        console.log('✅ Widget de TradingView creado exitosamente');
       } catch (error) {
-        console.error('Error procesando datos:', error);
-      }
-    };
-
-    const handleResize = () => {
-      if (chartContainerRef.current && chart.current) {
-        chart.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight,
+        console.error('❌ Error al crear widget:', error);
+        toast({
+          title: "Error",
+          description: "No se pudo inicializar el gráfico",
+          duration: 3000,
         });
       }
     };
 
-    window.addEventListener('resize', handleResize);
+    script.onerror = () => {
+      console.error('❌ Error al cargar script de TradingView');
+      toast({
+        title: "Error",
+        description: "No se pudo cargar TradingView",
+        duration: 3000,
+      });
+    };
 
-    // Cleanup
+    document.head.appendChild(script);
+
     return () => {
-      window.removeEventListener('resize', handleResize);
-      eventSource.close();
-      if (chart.current) {
-        chart.current.remove();
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
       }
     };
   }, []);
@@ -105,7 +184,8 @@ export default function Chart() {
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
       <div
-        ref={chartContainerRef}
+        id="tradingview_widget"
+        ref={container}
         className="w-full h-full"
       />
     </div>
