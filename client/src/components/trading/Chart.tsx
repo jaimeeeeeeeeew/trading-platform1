@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTrading } from '@/lib/trading-context';
 
 declare global {
   interface Window {
@@ -8,6 +9,8 @@ declare global {
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
+  const widget = useRef<any>(null);
+  const { setCurrentSymbol } = useTrading();
 
   useEffect(() => {
     if (!container.current) return;
@@ -16,7 +19,7 @@ export default function Chart() {
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
     script.onload = () => {
-      new window.TradingView.widget({
+      widget.current = new window.TradingView.widget({
         container_id: container.current!.id,
         width: "100%",
         height: "100%",
@@ -35,15 +38,22 @@ export default function Chart() {
           "VWAP@tv-basicstudies"
         ],
         supported_resolutions: ["1", "5", "15", "30", "60", "D", "W"],
+        // Detectar cambios de símbolo
+        onSymbolChange: (symbol: string) => {
+          console.log('Símbolo cambiado a:', symbol);
+          setCurrentSymbol(symbol);
+        },
       });
     };
 
     document.head.appendChild(script);
 
     return () => {
-      document.head.removeChild(script);
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
     };
-  }, []);
+  }, [setCurrentSymbol]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">

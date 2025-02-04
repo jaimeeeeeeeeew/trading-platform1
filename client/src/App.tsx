@@ -7,6 +7,7 @@ import Trading from "@/pages/trading";
 import AuthPage from "@/pages/auth-page";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { TradingProvider } from "@/lib/trading-context";
 
 function Router() {
   return (
@@ -22,8 +23,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router />
-        <Toaster />
+        <TradingProvider>
+          <Router />
+          <Toaster />
+        </TradingProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
