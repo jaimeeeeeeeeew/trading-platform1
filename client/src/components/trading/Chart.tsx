@@ -11,7 +11,7 @@ declare global {
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const widget = useRef<any>(null);
-  const { currentSymbol } = useTrading();
+  const { currentSymbol, updatePriceRange } = useTrading();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -67,27 +67,50 @@ export default function Chart() {
           console.log('📊 Widget está listo via _ready_handlers');
 
           try {
-            // Intentar obtener el iframe y sus propiedades
-            const iframe = widget.current.iframe;
-            console.log('📊 iframe disponible:', !!iframe);
+            // Obtener el chart y sus métodos
+            if (widget.current.chart && typeof widget.current.chart === 'function') {
+              const chart = widget.current.chart();
+              console.log('📊 Métodos disponibles del chart:', Object.keys(chart));
 
-            // Verificar si podemos acceder al contenido del iframe
-            if (iframe.contentWindow) {
-              console.log('📊 contentWindow disponible');
+              // Intentar obtener el precio actual
+              if (chart.crossHairMoved) {
+                chart.crossHairMoved().subscribe(
+                  null,
+                  (param: any) => {
+                    console.log('📊 Precio actual:', param.price);
+                    if (param.price && updatePriceRange) {
+                      updatePriceRange({
+                        high: param.price * 1.001, // 0.1% arriba
+                        low: param.price * 0.999   // 0.1% abajo
+                      });
+                    }
+                  }
+                );
+              }
 
-              // Intentar agregar estudios después de que el chart esté listo
-              if (widget.current.chart) {
-                const chart = widget.current.chart();
-                console.log('📊 Chart objeto disponible');
+              // Suscribirse a cambios en el rango visible
+              if (chart.onVisibleRangeChanged) {
+                chart.onVisibleRangeChanged().subscribe(
+                  null,
+                  (range: any) => {
+                    console.log('📊 Rango visible cambió:', range);
+                  }
+                );
+              }
 
-                // Agregar volumen superpuesto
-                chart.createStudy('Volume', false, true);
-                console.log('📊 Estudio de volumen agregado');
+              // Suscribirse a cambios en el símbolo
+              if (chart.symbolChanged) {
+                chart.symbolChanged().subscribe(
+                  null,
+                  (symbolInfo: any) => {
+                    console.log('📊 Símbolo cambió:', symbolInfo);
+                  }
+                );
               }
             }
 
           } catch (error) {
-            console.error('❌ Error en ready handler:', error);
+            console.error('❌ Error al configurar subscripciones:', error);
           }
         });
 
@@ -119,7 +142,7 @@ export default function Chart() {
         document.head.removeChild(script);
       }
     };
-  }, [currentSymbol]);
+  }, [currentSymbol, updatePriceRange]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
