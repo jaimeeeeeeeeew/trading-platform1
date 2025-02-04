@@ -14,32 +14,34 @@ export default function Chart() {
   const { currentSymbol, setCurrentSymbol } = useTrading();
   const { toast } = useToast();
 
-  const handleSymbolChange = useCallback((symbol: string) => {
-    console.log('%c TradingView - handleSymbolChange llamado con símbolo:', 'background: #222; color: #bada55', symbol);
-    if (symbol !== currentSymbol) {
-      console.log('%c TradingView - Actualizando símbolo de', 'background: #222; color: #ff0', currentSymbol, 'a', symbol);
-      setCurrentSymbol(symbol);
-      toast({
-        title: "Símbolo actualizado",
-        description: `Cambiado a ${symbol}`,
-        duration: 2000
-      });
-    } else {
-      console.log('%c TradingView - Símbolo sin cambios:', 'background: #222; color: #bada55', symbol);
-    }
+  // Función para verificar y actualizar el símbolo actual
+  const handleSymbolChange = useCallback((newSymbol: string) => {
+    if (!newSymbol || newSymbol === currentSymbol) return;
+
+    console.warn(`📊 TradingView - Cambio de símbolo detectado: ${currentSymbol} -> ${newSymbol}`);
+    setCurrentSymbol(newSymbol);
+
+    toast({
+      title: "Símbolo Actualizado",
+      description: `Cambiado de ${currentSymbol} a ${newSymbol}`,
+      duration: 3000,
+    });
   }, [currentSymbol, setCurrentSymbol, toast]);
 
   useEffect(() => {
     if (!container.current) return;
 
-    console.log('%c TradingView - Iniciando widget con símbolo:', 'background: #222; color: #bada55', currentSymbol);
+    console.warn('📊 TradingView - Inicializando widget...');
 
+    // Cargar el script de TradingView
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
-    script.onload = () => {
-      console.log('%c TradingView - Script cargado, creando widget...', 'background: #222; color: #bada55');
 
+    script.onload = () => {
+      console.warn('📊 TradingView - Creando widget con símbolo:', currentSymbol);
+
+      // Crear el widget
       widget.current = new window.TradingView.widget({
         container_id: container.current!.id,
         width: "100%",
@@ -60,20 +62,40 @@ export default function Chart() {
         ],
         supported_resolutions: ["1", "5", "15", "30", "60", "D", "W"],
         save_image: true,
-        // Detectar cambios de símbolo
-        onSymbolChange: (symbol) => {
-          console.log('%c TradingView - onSymbolChange evento disparado:', 'background: #222; color: #ff0', symbol);
-          handleSymbolChange(symbol);
-        },
-        // Agregar callback cuando el widget está listo
+        // Configurar callbacks
         onChartReady: () => {
-          console.log('%c TradingView - Chart listo, verificando símbolo inicial', 'background: #222; color: #bada55');
-          const actualSymbol = widget.current?.symbolInterval?.()?.symbol;
-          console.log('%c TradingView - Símbolo actual del widget:', 'background: #222; color: #bada55', actualSymbol);
-          if (actualSymbol && actualSymbol !== currentSymbol) {
-            console.log('%c TradingView - Corrigiendo símbolo inicial', 'background: #222; color: #ff0');
-            handleSymbolChange(actualSymbol);
+          console.warn('📊 TradingView - Chart listo, configurando listeners...');
+
+          // Obtener la instancia del chart
+          const chart = widget.current?.chart();
+          if (!chart) {
+            console.error('No se pudo obtener la instancia del chart');
+            return;
           }
+
+          // Suscribirse a cambios de símbolo directamente en el chart
+          chart.onSymbolChanged().subscribe(null, (symbolData: any) => {
+            console.warn('📊 TradingView - Evento onSymbolChanged:', symbolData);
+            handleSymbolChange(symbolData.name);
+          });
+
+          // Verificar símbolo inicial
+          const initialSymbol = chart.symbol();
+          if (initialSymbol && initialSymbol !== currentSymbol) {
+            handleSymbolChange(initialSymbol);
+          }
+
+          // Configurar verificación periódica del símbolo
+          const checkInterval = setInterval(() => {
+            const chartSymbol = chart.symbol();
+            if (chartSymbol && chartSymbol !== currentSymbol) {
+              console.warn('📊 TradingView - Cambio de símbolo detectado en verificación:', chartSymbol);
+              handleSymbolChange(chartSymbol);
+            }
+          }, 1000);
+
+          // Limpiar intervalo cuando el componente se desmonte
+          return () => clearInterval(checkInterval);
         }
       });
     };
