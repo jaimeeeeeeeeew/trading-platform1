@@ -33,7 +33,7 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
   const precioBase = 68500;
 
   return (
-    <Card className={`p-4 flex flex-col ${className}`}>
+    <Card className={`p-4 flex flex-col bg-[rgb(26,26,26)] ${className}`}>
       <div className="space-y-4 flex-1">
         <div className="grid gap-4">
           <MetricCard
@@ -127,7 +127,7 @@ interface MetricCardProps {
 
 function MetricCard({ label, value, icon, valueClassName = '' }: MetricCardProps) {
   return (
-    <div className="bg-card rounded-lg p-3 space-y-2">
+    <div className="bg-[rgb(26,26,26)] rounded-lg p-3 space-y-2">
       <div className="flex items-center gap-2">
         {icon}
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
