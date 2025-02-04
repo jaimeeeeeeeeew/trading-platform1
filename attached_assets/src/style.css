@@ -24,7 +24,7 @@ body {
   flex-direction: row;
   gap: 10px;
   flex: 3;
-  background-color: #282828;
+  background-color: #2a2a2a;
   border-radius: 8px;
   height: 80vh;
 }
@@ -44,7 +44,7 @@ body {
 .volume-profile {
   flex: 1;
   height: 100%;
-  background-color: #333;
+  background-color: #2a2a2a;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -67,7 +67,7 @@ body {
 /* Panel lateral derecho para métricas y transacciones */
 .sidebar {
   flex: 1;
-  background-color: #333333;
+  background-color: #2a2a2a;
   padding: 10px;
   border-radius: 8px;
   display: flex;
@@ -111,7 +111,7 @@ body {
 }
 
 #delta_futuros, #delta_spot {
-  background-color: #333333;
+  background-color: #2a2a2a;
 }
 
 /* Transacciones */
