@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 
@@ -13,12 +13,14 @@ export default function Chart() {
   const widget = useRef<any>(null);
   const { currentSymbol, setCurrentSymbol } = useTrading();
   const { toast } = useToast();
+  const [priceStats, setPriceStats] = useState<{ max: string | null, min: string | null }>({ max: null, min: null });
 
   const handleSymbolChange = useCallback((newSymbol: string) => {
     if (!newSymbol || newSymbol === currentSymbol) return;
 
     console.warn('📊 TradingView - Intentando cambiar símbolo:', currentSymbol, '->', newSymbol);
     setCurrentSymbol(newSymbol);
+    setPriceStats({ max: null, min: null }); // Reset stats on symbol change
 
     toast({
       title: "Símbolo Actualizado",
@@ -66,7 +68,34 @@ export default function Chart() {
 
             const chart = widget.current?.chart();
             if (chart) {
-              // Suscribirse a cambios de precio
+              // Calcular precios máximos y mínimos cuando se cargan nuevos datos
+              chart.onDataLoaded().subscribe(
+                null,
+                () => {
+                  const bars = chart.bars();
+                  if (bars && bars.length > 0) {
+                    let maxPrice = -Infinity;
+                    let minPrice = Infinity;
+
+                    bars.forEach((bar: any) => {
+                      maxPrice = Math.max(maxPrice, bar.high);
+                      minPrice = Math.min(minPrice, bar.low);
+                    });
+
+                    setPriceStats({
+                      max: maxPrice.toFixed(2),
+                      min: minPrice.toFixed(2)
+                    });
+
+                    console.warn('📊 TradingView - Precios actualizados:', {
+                      máximo: maxPrice,
+                      mínimo: minPrice
+                    });
+                  }
+                }
+              );
+
+              // Resto del código existente...
               chart.subscribeCrosshairMove((param: any) => {
                 if (param.time && param.price) {
                   console.warn('📊 TradingView - Precio actual:', {
@@ -76,24 +105,6 @@ export default function Chart() {
                 }
               });
 
-              // Obtener datos en tiempo real
-              chart.onDataLoaded().subscribe(
-                null,
-                () => {
-                  const lastBar = chart.bars()[chart.bars().length - 1];
-                  if (lastBar) {
-                    console.warn('📊 TradingView - Última barra:', {
-                      open: lastBar.open,
-                      high: lastBar.high,
-                      low: lastBar.low,
-                      close: lastBar.close,
-                      time: new Date(lastBar.time * 1000).toLocaleString(),
-                    });
-                  }
-                }
-              );
-
-              // Verificar precio actual
               setInterval(() => {
                 const series = chart.series();
                 if (series) {
@@ -103,7 +114,6 @@ export default function Chart() {
               }, 1000);
             }
 
-            // Verificar el símbolo actual
             if (widget.current && widget.current.symbolInterval) {
               const currentWidgetSymbol = widget.current.symbolInterval().symbol;
               console.warn('📊 TradingView - Símbolo del widget:', currentWidgetSymbol);
@@ -143,6 +153,12 @@ export default function Chart() {
         ref={container}
         className="w-full h-full"
       />
+      {priceStats.max !== null && priceStats.min !== null && (
+        <div className="absolute top-4 right-4 bg-background/80 p-2 rounded-lg border border-border">
+          <p className="text-sm font-medium">Máximo: {priceStats.max}</p>
+          <p className="text-sm font-medium">Mínimo: {priceStats.min}</p>
+        </div>
+      )}
     </div>
   );
 }
