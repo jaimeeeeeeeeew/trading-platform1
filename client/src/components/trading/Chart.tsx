@@ -11,7 +11,7 @@ declare global {
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const widget = useRef<any>(null);
-  const { currentSymbol, updatePriceRange } = useTrading();
+  const { currentSymbol, updatePriceRange, updateTimeRange } = useTrading();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -57,7 +57,8 @@ export default function Chart() {
             "VWAP@tv-basicstudies"
           ],
           disabled_features: ["header_symbol_search"],
-          enabled_features: ["volume_force_overlay"]
+          enabled_features: ["volume_force_overlay"],
+          custom_css_url: './chart.css'
         });
 
         console.log('✅ Widget creado exitosamente');
@@ -70,11 +71,23 @@ export default function Chart() {
 
           try {
             const data = JSON.parse(event.data);
+            console.log('📊 Mensaje recibido del widget:', data);
+
             if (data.name === 'price') {
               console.log('📊 Precio recibido:', data.price);
               updatePriceRange({
                 high: data.price * 1.001,
                 low: data.price * 0.999
+              });
+            }
+
+            // Procesar información del rango temporal
+            if (data.name === 'timeRange') {
+              console.log('📊 Rango temporal recibido:', data.range);
+              updateTimeRange({
+                from: new Date(data.range.from * 1000),
+                to: new Date(data.range.to * 1000),
+                interval: data.range.interval
               });
             }
           } catch (error) {
@@ -83,6 +96,16 @@ export default function Chart() {
         };
 
         window.addEventListener('message', handleMessage);
+
+        // Solicitar información del rango temporal
+        widget.current._ready_handlers.push(() => {
+          console.log('📊 Widget está listo, solicitando información temporal');
+          if (widget.current.iframe && widget.current.iframe.contentWindow) {
+            widget.current.iframe.contentWindow.postMessage({
+              name: 'getTimeRange'
+            }, '*');
+          }
+        });
 
         return () => {
           window.removeEventListener('message', handleMessage);
@@ -116,7 +139,7 @@ export default function Chart() {
         document.head.removeChild(script);
       }
     };
-  }, [currentSymbol, updatePriceRange]);
+  }, [currentSymbol, updatePriceRange, updateTimeRange]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">

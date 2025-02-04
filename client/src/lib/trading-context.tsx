@@ -5,11 +5,19 @@ interface PriceRange {
   low: number;
 }
 
+interface TimeRange {
+  from: Date;
+  to: Date;
+  interval: string;
+}
+
 interface TradingContextType {
   currentSymbol: string;
   setCurrentSymbol: (symbol: string) => void;
   visiblePriceRange: PriceRange;
   updatePriceRange: (range: PriceRange) => void;
+  timeRange: TimeRange | null;
+  updateTimeRange: (range: TimeRange) => void;
 }
 
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
@@ -27,6 +35,8 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     low: 0
   });
 
+  const [timeRange, setTimeRange] = useState<TimeRange | null>(null);
+
   const handleSymbolChange = (symbol: string) => {
     console.log('TradingContext - setCurrentSymbol llamado con:', symbol);
     localStorage.setItem(STORAGE_KEY, symbol);
@@ -38,13 +48,20 @@ export function TradingProvider({ children }: { children: ReactNode }) {
     setVisiblePriceRange(range);
   };
 
+  const updateTimeRange = (range: TimeRange) => {
+    console.log('TradingContext - updateTimeRange llamado con:', range);
+    setTimeRange(range);
+  };
+
   return (
     <TradingContext.Provider 
       value={{ 
         currentSymbol, 
         setCurrentSymbol: handleSymbolChange,
         visiblePriceRange,
-        updatePriceRange
+        updatePriceRange,
+        timeRange,
+        updateTimeRange
       }}
     >
       {children}
