@@ -18,7 +18,6 @@ export default function Chart() {
   const handleSymbolChange = useCallback((newSymbol: string) => {
     if (!newSymbol || newSymbol === currentSymbol) return;
 
-    console.warn('📊 TradingView - Intentando cambiar símbolo:', currentSymbol, '->', newSymbol);
     setCurrentSymbol(newSymbol);
     setPriceStats({ max: null, min: null }); // Reset stats on symbol change
 
@@ -35,16 +34,11 @@ export default function Chart() {
       return;
     }
 
-    console.warn('📊 TradingView - Iniciando configuración...');
-    console.warn('📊 TradingView - Símbolo actual:', currentSymbol);
-
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
 
     script.onload = () => {
-      console.warn('📊 TradingView - Script cargado, creando widget');
-
       try {
         widget.current = new window.TradingView.widget({
           container_id: container.current!.id,
@@ -60,12 +54,9 @@ export default function Chart() {
           allow_symbol_change: true,
           hide_side_toolbar: false,
           onSymbolChange: (symbolData: any) => {
-            console.warn('📊 TradingView - onSymbolChange evento:', symbolData);
             handleSymbolChange(symbolData);
           },
           onChartReady: () => {
-            console.warn('📊 TradingView - Chart listo');
-
             const chart = widget.current?.chart();
             if (chart) {
               // Calcular precios máximos y mínimos cuando se cargan nuevos datos
@@ -87,36 +78,28 @@ export default function Chart() {
                       min: minPrice.toFixed(2)
                     });
 
-                    console.log('----------------------------------------');
-                    console.log('🔍 RANGO DE PRECIOS DEL GRÁFICO');
-                    console.log('----------------------------------------');
-                    console.log(`📈 Precio Máximo: ${maxPrice.toFixed(2)}`);
-                    console.log(`📉 Precio Mínimo: ${minPrice.toFixed(2)}`);
-                    console.log('----------------------------------------');
+                    // Imprimir de manera más visible el rango de precios
+                    console.log('\n');
+                    console.log('========================================');
+                    console.log('   🔍 RANGO DE PRECIOS DEL GRÁFICO');
+                    console.log('========================================');
+                    console.log(`   📈 Precio Máximo: $${maxPrice.toFixed(2)}`);
+                    console.log(`   📉 Precio Mínimo: $${minPrice.toFixed(2)}`);
+                    console.log('========================================\n');
                   }
                 }
               );
 
-              // Resto del código existente...
+              // Monitorear el precio actual al mover el cursor
               chart.subscribeCrosshairMove((param: any) => {
                 if (param.time && param.price) {
-                  console.log('📊 Precio actual:', param.price.toFixed(2));
+                  console.log(`Precio actual: $${param.price.toFixed(2)}`);
                 }
               });
-
-              setInterval(() => {
-                const series = chart.series();
-                if (series) {
-                  const lastPrice = series.lastPrice();
-                  console.log('📊 Último precio:', lastPrice);
-                }
-              }, 1000);
             }
 
             if (widget.current && widget.current.symbolInterval) {
               const currentWidgetSymbol = widget.current.symbolInterval().symbol;
-              console.warn('📊 TradingView - Símbolo del widget:', currentWidgetSymbol);
-
               if (currentWidgetSymbol !== currentSymbol) {
                 handleSymbolChange(currentWidgetSymbol);
               }
@@ -125,8 +108,6 @@ export default function Chart() {
           debug: true,
           autosize: true,
         });
-
-        console.warn('✅ Widget creado exitosamente');
       } catch (error) {
         console.error('❌ Error al crear widget:', error);
       }
