@@ -14,7 +14,6 @@ export default function Chart() {
   const { currentSymbol, setCurrentSymbol } = useTrading();
   const { toast } = useToast();
 
-  // Función para verificar y actualizar el símbolo actual
   const handleSymbolChange = useCallback((newSymbol: string) => {
     if (!newSymbol || newSymbol === currentSymbol) return;
 
@@ -37,7 +36,6 @@ export default function Chart() {
     console.warn('📊 TradingView - Iniciando configuración...');
     console.warn('📊 TradingView - Símbolo actual:', currentSymbol);
 
-    // Cargar el script de TradingView
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
@@ -66,28 +64,43 @@ export default function Chart() {
           onChartReady: () => {
             console.warn('📊 TradingView - Chart listo');
 
-            // Obtener información del símbolo cuando el chart esté listo
             const chart = widget.current?.chart();
             if (chart) {
-              // Obtener información inicial del símbolo
-              chart.symbolInfo().then((symbolInfo: any) => {
-                console.warn('📊 TradingView - Información del símbolo:', {
-                  nombre: symbolInfo.name,
-                  descripcion: symbolInfo.description,
-                  precio: symbolInfo.last_price,
-                  moneda: symbolInfo.currency_code,
-                });
+              // Suscribirse a cambios de precio
+              chart.subscribeCrosshairMove((param: any) => {
+                if (param.time && param.price) {
+                  console.warn('📊 TradingView - Precio actual:', {
+                    precio: param.price,
+                    tiempo: new Date(param.time * 1000).toLocaleString(),
+                  });
+                }
               });
 
-              // Suscribirse a actualizaciones de precio en tiempo real
-              chart.onRealtimeCallback((callback: any) => {
-                console.warn('📊 TradingView - Actualización de precio:', {
-                  symbol: callback.symbol,
-                  precio: callback.price,
-                  volumen: callback.volume,
-                  timestamp: new Date(callback.time * 1000).toLocaleString(),
-                });
-              });
+              // Obtener datos en tiempo real
+              chart.onDataLoaded().subscribe(
+                null,
+                () => {
+                  const lastBar = chart.bars()[chart.bars().length - 1];
+                  if (lastBar) {
+                    console.warn('📊 TradingView - Última barra:', {
+                      open: lastBar.open,
+                      high: lastBar.high,
+                      low: lastBar.low,
+                      close: lastBar.close,
+                      time: new Date(lastBar.time * 1000).toLocaleString(),
+                    });
+                  }
+                }
+              );
+
+              // Verificar precio actual
+              setInterval(() => {
+                const series = chart.series();
+                if (series) {
+                  const lastPrice = series.lastPrice();
+                  console.warn('📊 TradingView - Último precio:', lastPrice);
+                }
+              }, 1000);
             }
 
             // Verificar el símbolo actual
