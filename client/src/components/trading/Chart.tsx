@@ -42,7 +42,7 @@ export default function Chart() {
           container_id: container.current!.id,
           width: "100%",
           height: "100%",
-          symbol: "BINANCE:BTCUSDT",
+          symbol: currentSymbol || "BINANCE:BTCUSDT",
           interval: "1",
           timezone: "Etc/UTC",
           theme: "dark",
@@ -54,20 +54,25 @@ export default function Chart() {
         });
 
         console.log('✅ Widget creado exitosamente');
-        console.log('Widget actual:', widget.current);
 
-        // Verificar si el widget tiene el método onChartReady
-        console.log('Métodos del widget:', Object.keys(widget.current));
+        // Usar _ready_handlers para manejar la inicialización
+        widget.current._ready_handlers.push(() => {
+          console.log('📊 Widget está listo via _ready_handlers');
 
-        if (typeof widget.current.onChartReady === 'function') {
-          console.log('📊 Configurando onChartReady');
-          widget.current.onChartReady(() => {
-            console.log('📊 Chart está listo!');
-            console.log('Objeto widget dentro de onChartReady:', widget.current);
-          });
-        } else {
-          console.error('❌ onChartReady no es una función');
-        }
+          try {
+            // Intentar obtener el iframe y sus propiedades
+            const iframe = widget.current.iframe;
+            console.log('📊 iframe disponible:', !!iframe);
+
+            // Verificar si podemos acceder al contenido del iframe
+            if (iframe.contentWindow) {
+              console.log('📊 contentWindow disponible');
+            }
+
+          } catch (error) {
+            console.error('❌ Error en ready handler:', error);
+          }
+        });
 
       } catch (error) {
         console.error('❌ Error al crear widget:', error);
