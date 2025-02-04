@@ -1,7 +1,18 @@
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import TransactionList from './TransactionList';
 import { Activity } from 'lucide-react';
+import { useTrading } from '@/lib/trading-context';
+
+// Lista de criptomonedas disponibles
+const CRYPTOCURRENCIES = [
+  { value: 'BINANCE:BTCUSDT', label: 'Bitcoin (BTC)' },
+  { value: 'BINANCE:ETHUSDT', label: 'Ethereum (ETH)' },
+  { value: 'BINANCE:ADAUSDT', label: 'Cardano (ADA)' },
+  { value: 'BINANCE:SOLUSDT', label: 'Solana (SOL)' },
+  { value: 'BINANCE:DOGEUSDT', label: 'Dogecoin (DOGE)' },
+];
 
 interface MetricsPanelProps {
   metrics: {
@@ -15,6 +26,8 @@ interface MetricsPanelProps {
 }
 
 export default function MetricsPanel({ metrics, className = '' }: MetricsPanelProps) {
+  const { currentSymbol, setCurrentSymbol } = useTrading();
+
   // Calcular el total para los porcentajes de dominancia
   const dominanciaTotal = metrics.dominancia.left + metrics.dominancia.right;
   const leftPercentage = (metrics.dominancia.left / dominanciaTotal) * 100;
@@ -29,18 +42,35 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
   const deltaSpotPositivoPercentage = (metrics.delta_spot.positivo / deltaSpotTotal) * 100;
   const deltaSpotNegativoPercentage = (metrics.delta_spot.negativo / deltaSpotTotal) * 100;
 
-  // Precio base para comparar la dirección
-  const precioBase = 68500;
-
   return (
     <Card className={`p-4 flex flex-col bg-[rgb(26,26,26)] ${className}`}>
       <div className="space-y-4 flex-1">
+        {/* Selector de Criptomoneda */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Criptomoneda</label>
+          <Select
+            value={currentSymbol}
+            onValueChange={setCurrentSymbol}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecciona una criptomoneda" />
+            </SelectTrigger>
+            <SelectContent>
+              {CRYPTOCURRENCIES.map((crypto) => (
+                <SelectItem key={crypto.value} value={crypto.value}>
+                  {crypto.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="grid gap-4">
           <MetricCard
             label="Dirección"
             value={metrics.direccion.toLocaleString()}
             icon={<Activity className="h-4 w-4" />}
-            valueClassName={metrics.direccion > precioBase ? 'text-primary' : 'text-destructive'}
+            valueClassName={metrics.direccion > 68500 ? 'text-primary' : 'text-destructive'}
           />
 
           <div className="space-y-2">
