@@ -31,7 +31,7 @@ export default function Trading() {
           <Chart />
         </div>
         <div className="flex-1 flex flex-col gap-4">
-          <div className="flex-[3]">
+          <div className="flex-1">
             <MetricsPanel
               metrics={metrics}
               className="h-full"

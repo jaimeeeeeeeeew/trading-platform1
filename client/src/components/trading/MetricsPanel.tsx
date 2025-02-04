@@ -1,5 +1,4 @@
 import { Card } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Activity } from 'lucide-react';
 import { useTrading } from '@/lib/trading-context';
@@ -41,44 +40,40 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
   const deltaSpotNegativoPercentage = (metrics.delta_spot.negativo / deltaSpotTotal) * 100;
 
   return (
-    <Card className={`p-4 flex flex-col bg-[rgb(26,26,26)] ${className}`}>
-      <div className="space-y-4 flex-1">
-        {/* Selector de Criptomoneda */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Criptomoneda</label>
-          <Select
-            value={currentSymbol}
-            onValueChange={setCurrentSymbol}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Selecciona una criptomoneda" />
-            </SelectTrigger>
-            <SelectContent>
-              {CRYPTOCURRENCIES.map((crypto) => (
-                <SelectItem key={crypto.value} value={crypto.value}>
-                  {crypto.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <Card className={`p-2 flex flex-col bg-[rgb(26,26,26)] ${className}`}>
+      <div className="space-y-2 flex-1">
+        <Select
+          value={currentSymbol}
+          onValueChange={setCurrentSymbol}
+        >
+          <SelectTrigger className="w-full h-7 text-xs">
+            <SelectValue placeholder="Selecciona una criptomoneda" />
+          </SelectTrigger>
+          <SelectContent>
+            {CRYPTOCURRENCIES.map((crypto) => (
+              <SelectItem key={crypto.value} value={crypto.value} className="text-xs">
+                {crypto.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <div className="grid gap-4">
+        <div className="grid gap-2">
           <MetricCard
             label="Dirección"
             value={metrics.direccion.toLocaleString()}
-            icon={<Activity className="h-4 w-4" />}
+            icon={<Activity className="h-3 w-3" />}
             valueClassName={metrics.direccion > 68500 ? 'text-primary' : 'text-destructive'}
           />
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Dominancia</label>
-            <div className="h-8 w-full rounded-lg overflow-hidden flex">
+          <div className="space-y-1">
+            <label className="text-[10px] font-medium">Dominancia</label>
+            <div className="h-6 w-full rounded-lg overflow-hidden flex">
               <div 
                 className="bg-primary h-full transition-all duration-300"
                 style={{ width: `${leftPercentage}%` }}
               >
-                <span className="text-xs text-primary-foreground flex items-center justify-center h-full">
+                <span className="text-[10px] text-primary-foreground flex items-center justify-center h-full">
                   {metrics.dominancia.left.toLocaleString()}
                 </span>
               </div>
@@ -86,21 +81,21 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
                 className="bg-destructive h-full transition-all duration-300"
                 style={{ width: `${rightPercentage}%` }}
               >
-                <span className="text-xs text-destructive-foreground flex items-center justify-center h-full">
+                <span className="text-[10px] text-destructive-foreground flex items-center justify-center h-full">
                   {metrics.dominancia.right.toLocaleString()}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Delta Futuros</label>
-            <div className="h-8 w-full rounded-lg overflow-hidden flex">
+          <div className="space-y-1">
+            <label className="text-[10px] font-medium">Delta Futuros</label>
+            <div className="h-6 w-full rounded-lg overflow-hidden flex">
               <div 
                 className="bg-primary h-full transition-all duration-300"
                 style={{ width: `${deltaFuturosPositivoPercentage}%` }}
               >
-                <span className="text-xs text-primary-foreground flex items-center justify-center h-full">
+                <span className="text-[10px] text-primary-foreground flex items-center justify-center h-full">
                   {metrics.delta_futuros.positivo.toLocaleString()}
                 </span>
               </div>
@@ -108,21 +103,21 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
                 className="bg-destructive h-full transition-all duration-300"
                 style={{ width: `${deltaFuturosNegativoPercentage}%` }}
               >
-                <span className="text-xs text-destructive-foreground flex items-center justify-center h-full">
+                <span className="text-[10px] text-destructive-foreground flex items-center justify-center h-full">
                   {metrics.delta_futuros.negativo.toLocaleString()}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Delta Spot</label>
-            <div className="h-8 w-full rounded-lg overflow-hidden flex">
+          <div className="space-y-1">
+            <label className="text-[10px] font-medium">Delta Spot</label>
+            <div className="h-6 w-full rounded-lg overflow-hidden flex">
               <div 
                 className="bg-primary h-full transition-all duration-300"
                 style={{ width: `${deltaSpotPositivoPercentage}%` }}
               >
-                <span className="text-xs text-primary-foreground flex items-center justify-center h-full">
+                <span className="text-[10px] text-primary-foreground flex items-center justify-center h-full">
                   {metrics.delta_spot.positivo.toLocaleString()}
                 </span>
               </div>
@@ -130,7 +125,7 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
                 className="bg-destructive h-full transition-all duration-300"
                 style={{ width: `${deltaSpotNegativoPercentage}%` }}
               >
-                <span className="text-xs text-destructive-foreground flex items-center justify-center h-full">
+                <span className="text-[10px] text-destructive-foreground flex items-center justify-center h-full">
                   {metrics.delta_spot.negativo.toLocaleString()}
                 </span>
               </div>
@@ -151,12 +146,12 @@ interface MetricCardProps {
 
 function MetricCard({ label, value, icon, valueClassName = '' }: MetricCardProps) {
   return (
-    <div className="bg-[rgb(26,26,26)] rounded-lg p-3 space-y-2">
-      <div className="flex items-center gap-2">
+    <div className="bg-[rgb(26,26,26)] rounded-lg p-2 space-y-1">
+      <div className="flex items-center gap-1">
         {icon}
-        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+        <span className="text-[10px] font-medium text-muted-foreground">{label}</span>
       </div>
-      <div className={`text-lg font-semibold ${valueClassName}`}>
+      <div className={`text-sm font-semibold ${valueClassName}`}>
         {value}
       </div>
     </div>
