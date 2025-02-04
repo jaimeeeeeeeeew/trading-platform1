@@ -44,32 +44,46 @@ export default function Chart() {
           allow_symbol_change: true,
           hide_side_toolbar: false,
           onChartReady: () => {
-            console.log('📊 Chart listo, intentando acceder a los datos...');
+            console.log('📊 Chart listo');
 
-            const chart = widget.current?.chart();
-            if (!chart) {
-              console.error('❌ No se pudo obtener el objeto chart');
-              return;
-            }
+            // Intentar obtener datos cada segundo
+            const interval = setInterval(() => {
+              try {
+                const chart = widget.current?.chart();
+                if (!chart) {
+                  console.log('❌ Chart no disponible aún');
+                  return;
+                }
 
-            // Imprimir el objeto chart para depuración
-            console.log('Objeto chart:', chart);
+                const symbol = chart.symbol();
+                const resolution = chart.resolution();
 
-            // Verificar si tenemos acceso a series
-            const series = chart.series();
-            console.log('Series disponibles:', series);
+                console.log('🔍 Datos actuales:', {
+                  symbol,
+                  resolution
+                });
 
-            try {
-              // Intentar acceder a los datos directamente
-              const allBars = series.data();
-              console.log('Datos crudos disponibles:', allBars);
+                // Obtener el estudio actual
+                const studies = chart.getAllStudies();
+                console.log('📈 Estudios disponibles:', studies);
 
-              // Intentar obtener el último precio
-              const lastPrice = series.lastPrice();
-              console.log('Último precio disponible:', lastPrice);
-            } catch (error) {
-              console.error('Error al acceder a los datos:', error);
-            }
+                // Obtener los precios visibles
+                const priceRange = chart.priceRange();
+                if (priceRange) {
+                  console.log('\n');
+                  console.log('========================================');
+                  console.log('   🔍 RANGO DE PRECIOS VISIBLE');
+                  console.log('========================================');
+                  console.log(`   📈 Precio Máximo: $${priceRange.max}`);
+                  console.log(`   📉 Precio Mínimo: $${priceRange.min}`);
+                  console.log('========================================\n');
+                }
+              } catch (error) {
+                console.error('Error al obtener datos:', error);
+              }
+            }, 1000);
+
+            return () => clearInterval(interval);
           },
           debug: true,
           autosize: true,
