@@ -1,22 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
+interface OrderData {
+  price: number;
+  volume: number;
+}
+
 interface MarketData {
-  direccion: number;
-  dominancia: { left: number; right: number };
-  delta_futuros: { positivo: number; negativo: number };
-  delta_spot: { positivo: number; negativo: number };
-  transacciones: Array<{ volume: string; price: string }>;
+  limitAsks: OrderData[];
+  limitBids: OrderData[];
+  marketBuys: OrderData[];
+  marketSells: OrderData[];
 }
 
 export function useMarketData() {
-  const [data, setData] = useState<MarketData>({
-    direccion: 0,
-    dominancia: { left: 0, right: 0 },
-    delta_futuros: { positivo: 0, negativo: 0 },
-    delta_spot: { positivo: 0, negativo: 0 },
-    transacciones: []
-  });
+  const [data, setData] = useState<Record<string, MarketData> | undefined>(undefined);
   const [error, setError] = useState(false);
   const { toast } = useToast();
 

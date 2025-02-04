@@ -1,46 +1,54 @@
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import TransactionList from './TransactionList';
-import { Activity } from 'lucide-react';
+import { Activity, TrendingUp, TrendingDown } from 'lucide-react';
 import { useTrading } from '@/lib/trading-context';
 
-// Lista de criptomonedas disponibles
 const CRYPTOCURRENCIES = [
-  { value: 'BINANCE:BTCUSDT', label: 'Bitcoin (BTC)' },
-  { value: 'BINANCE:ETHUSDT', label: 'Ethereum (ETH)' },
-  { value: 'BINANCE:ADAUSDT', label: 'Cardano (ADA)' },
-  { value: 'BINANCE:SOLUSDT', label: 'Solana (SOL)' },
-  { value: 'BINANCE:DOGEUSDT', label: 'Dogecoin (DOGE)' },
+  { value: 'BTCUSDT', label: 'Bitcoin (BTC)' },
+  { value: 'ETHUSDT', label: 'Ethereum (ETH)' },
+  { value: 'SOLUSDT', label: 'Solana (SOL)' },
+  { value: 'XRPUSDT', label: 'Ripple (XRP)' },
 ];
 
+interface OrderData {
+  price: number;
+  volume: number;
+}
+
+interface MarketData {
+  limitAsks: OrderData[];
+  limitBids: OrderData[];
+  marketBuys: OrderData[];
+  marketSells: OrderData[];
+}
+
 interface MetricsPanelProps {
-  metrics: {
-    direccion: number;
-    dominancia: { left: number; right: number };
-    delta_futuros: { positivo: number; negativo: number };
-    delta_spot: { positivo: number; negativo: number };
-    transacciones: Array<{ volume: string; price: string }>;
-  };
+  metrics?: Record<string, MarketData>;
   className?: string;
 }
 
 export default function MetricsPanel({ metrics, className = '' }: MetricsPanelProps) {
   const { currentSymbol, setCurrentSymbol } = useTrading();
 
-  // Calcular el total para los porcentajes de dominancia
-  const dominanciaTotal = metrics.dominancia.left + metrics.dominancia.right;
-  const leftPercentage = (metrics.dominancia.left / dominanciaTotal) * 100;
-  const rightPercentage = (metrics.dominancia.right / dominanciaTotal) * 100;
+  if (!metrics) {
+    return <div>Cargando datos...</div>;
+  }
 
-  // Calcular porcentajes para los deltas
-  const deltaFuturosTotal = metrics.delta_futuros.positivo + metrics.delta_futuros.negativo;
-  const deltaFuturosPositivoPercentage = (metrics.delta_futuros.positivo / deltaFuturosTotal) * 100;
-  const deltaFuturosNegativoPercentage = (metrics.delta_futuros.negativo / deltaFuturosTotal) * 100;
+  const symbolData = metrics[currentSymbol];
 
-  const deltaSpotTotal = metrics.delta_spot.positivo + metrics.delta_spot.negativo;
-  const deltaSpotPositivoPercentage = (metrics.delta_spot.positivo / deltaSpotTotal) * 100;
-  const deltaSpotNegativoPercentage = (metrics.delta_spot.negativo / deltaSpotTotal) * 100;
+  if (!symbolData) {
+    return <div>No hay datos disponibles para {currentSymbol}</div>;
+  }
+
+  // Calcular totales
+  const totalAskVolume = symbolData.limitAsks.reduce((sum, order) => sum + order.volume, 0);
+  const totalBidVolume = symbolData.limitBids.reduce((sum, order) => sum + order.volume, 0);
+  const totalMarketBuyVolume = symbolData.marketBuys.reduce((sum, order) => sum + order.volume, 0);
+  const totalMarketSellVolume = symbolData.marketSells.reduce((sum, order) => sum + order.volume, 0);
+
+  // Obtener el precio medio
+  const midPrice = (symbolData.limitAsks[0]?.price + symbolData.limitBids[0]?.price) / 2;
 
   return (
     <Card className={`p-4 flex flex-col bg-[rgb(26,26,26)] ${className}`}>
@@ -66,83 +74,80 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
         </div>
 
         <div className="grid gap-4">
+          {/* Precio Actual */}
           <MetricCard
-            label="Dirección"
-            value={metrics.direccion.toLocaleString()}
+            label="Precio Medio"
+            value={midPrice?.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            })}
             icon={<Activity className="h-4 w-4" />}
-            valueClassName={metrics.direccion > 68500 ? 'text-primary' : 'text-destructive'}
           />
 
+          {/* Volumen de Órdenes Límite */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Dominancia</label>
+            <label className="text-sm font-medium">Volumen de Órdenes Límite</label>
             <div className="h-8 w-full rounded-lg overflow-hidden flex">
               <div 
                 className="bg-primary h-full transition-all duration-300"
-                style={{ width: `${leftPercentage}%` }}
+                style={{ width: `${(totalAskVolume / (totalAskVolume + totalBidVolume)) * 100}%` }}
               >
                 <span className="text-xs text-primary-foreground flex items-center justify-center h-full">
-                  {metrics.dominancia.left.toLocaleString()}
+                  {totalAskVolume.toLocaleString()}
                 </span>
               </div>
               <div 
                 className="bg-destructive h-full transition-all duration-300"
-                style={{ width: `${rightPercentage}%` }}
+                style={{ width: `${(totalBidVolume / (totalAskVolume + totalBidVolume)) * 100}%` }}
               >
                 <span className="text-xs text-destructive-foreground flex items-center justify-center h-full">
-                  {metrics.dominancia.right.toLocaleString()}
+                  {totalBidVolume.toLocaleString()}
                 </span>
               </div>
             </div>
           </div>
 
+          {/* Volumen de Mercado */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Delta Futuros</label>
+            <label className="text-sm font-medium">Volumen de Mercado</label>
             <div className="h-8 w-full rounded-lg overflow-hidden flex">
               <div 
                 className="bg-primary h-full transition-all duration-300"
-                style={{ width: `${deltaFuturosPositivoPercentage}%` }}
+                style={{ width: `${(totalMarketBuyVolume / (totalMarketBuyVolume + totalMarketSellVolume)) * 100}%` }}
               >
                 <span className="text-xs text-primary-foreground flex items-center justify-center h-full">
-                  {metrics.delta_futuros.positivo.toLocaleString()}
+                  {totalMarketBuyVolume.toLocaleString()}
                 </span>
               </div>
               <div 
                 className="bg-destructive h-full transition-all duration-300"
-                style={{ width: `${deltaFuturosNegativoPercentage}%` }}
+                style={{ width: `${(totalMarketSellVolume / (totalMarketBuyVolume + totalMarketSellVolume)) * 100}%` }}
               >
                 <span className="text-xs text-destructive-foreground flex items-center justify-center h-full">
-                  {metrics.delta_futuros.negativo.toLocaleString()}
+                  {totalMarketSellVolume.toLocaleString()}
                 </span>
               </div>
             </div>
           </div>
 
+          {/* Últimas Órdenes */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Delta Spot</label>
-            <div className="h-8 w-full rounded-lg overflow-hidden flex">
-              <div 
-                className="bg-primary h-full transition-all duration-300"
-                style={{ width: `${deltaSpotPositivoPercentage}%` }}
-              >
-                <span className="text-xs text-primary-foreground flex items-center justify-center h-full">
-                  {metrics.delta_spot.positivo.toLocaleString()}
-                </span>
-              </div>
-              <div 
-                className="bg-destructive h-full transition-all duration-300"
-                style={{ width: `${deltaSpotNegativoPercentage}%` }}
-              >
-                <span className="text-xs text-destructive-foreground flex items-center justify-center h-full">
-                  {metrics.delta_spot.negativo.toLocaleString()}
-                </span>
-              </div>
+            <label className="text-sm font-medium">Últimas Órdenes de Mercado</label>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {[...symbolData.marketBuys, ...symbolData.marketSells]
+                .sort((a, b) => b.price - a.price)
+                .slice(0, 5)
+                .map((order, i) => (
+                  <div key={i} className="flex justify-between items-center text-sm p-2 rounded bg-card">
+                    <span className={order.price >= midPrice ? 'text-primary' : 'text-destructive'}>
+                      {order.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                    <span>{order.volume.toLocaleString()}</span>
+                  </div>
+                ))}
             </div>
           </div>
         </div>
-
-        <Separator className="my-4" />
-
-        <TransactionList transactions={metrics.transacciones} />
       </div>
     </Card>
   );
