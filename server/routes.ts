@@ -6,7 +6,8 @@ function getRandomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-let lastPrice = 68500;
+// Usaremos el precio de TradingView como base
+let lastPrice = 43000; // Precio actual aproximado de BTC
 let trend = 0;
 
 function generateData() {
