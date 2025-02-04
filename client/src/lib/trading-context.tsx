@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 interface TradingContextType {
   currentSymbol: string;
@@ -9,6 +9,10 @@ const TradingContext = createContext<TradingContextType | undefined>(undefined);
 
 export function TradingProvider({ children }: { children: ReactNode }) {
   const [currentSymbol, setCurrentSymbol] = useState('BINANCE:BTCUSDT');
+
+  useEffect(() => {
+    console.log('TradingContext - Símbolo actualizado a:', currentSymbol);
+  }, [currentSymbol]);
 
   return (
     <TradingContext.Provider value={{ currentSymbol, setCurrentSymbol }}>

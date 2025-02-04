@@ -10,20 +10,24 @@ declare global {
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const widget = useRef<any>(null);
-  const { setCurrentSymbol } = useTrading();
+  const { currentSymbol, setCurrentSymbol } = useTrading();
 
   useEffect(() => {
     if (!container.current) return;
+
+    console.log('Inicializando TradingView widget con símbolo:', currentSymbol);
 
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
     script.onload = () => {
+      console.log('Script de TradingView cargado, creando widget...');
+
       widget.current = new window.TradingView.widget({
         container_id: container.current!.id,
         width: "100%",
         height: "100%",
-        symbol: "BINANCE:BTCUSDT",
+        symbol: currentSymbol,
         interval: "D",
         timezone: "Etc/UTC",
         theme: "dark",
@@ -40,9 +44,13 @@ export default function Chart() {
         supported_resolutions: ["1", "5", "15", "30", "60", "D", "W"],
         // Detectar cambios de símbolo
         onSymbolChange: (symbol: string) => {
-          console.log('Símbolo cambiado a:', symbol);
+          console.log('TradingView - Símbolo cambiado a:', symbol);
           setCurrentSymbol(symbol);
         },
+        // Agregar callback cuando el widget está listo
+        onChartReady: () => {
+          console.log('TradingView chart listo, símbolo actual:', widget.current?.symbolInterval?.().symbol);
+        }
       });
     };
 
@@ -53,7 +61,7 @@ export default function Chart() {
         document.head.removeChild(script);
       }
     };
-  }, [setCurrentSymbol]);
+  }, [currentSymbol, setCurrentSymbol]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
