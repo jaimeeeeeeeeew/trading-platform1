@@ -30,14 +30,14 @@ export default function Trading() {
         <div className="flex-[3]">
           <Chart />
         </div>
-        <div className="flex-1 h-full flex flex-col gap-4">
-          <div className="flex-1">
+        <div className="flex-1 flex flex-col gap-4">
+          <div className="flex-[3]">
             <MetricsPanel
               metrics={metrics}
               className="h-full"
             />
           </div>
-          <div className="h-[180px]">
+          <div className="flex-1">
             <RiskCalculator />
           </div>
         </div>
