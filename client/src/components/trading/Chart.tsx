@@ -11,8 +11,40 @@ declare global {
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const widget = useRef<any>(null);
-  const { currentSymbol } = useTrading();
+  const chart = useRef<any>(null);
+  const { currentSymbol, updatePriceRange } = useTrading();
   const { toast } = useToast();
+
+  const updateVisiblePriceRange = () => {
+    if (!chart.current) return;
+
+    try {
+      const priceScale = chart.current.priceScale('right');
+      const mainSeries = chart.current.mainSeries();
+
+      if (priceScale && mainSeries) {
+        const visibleBars = mainSeries.barsInLogicalRange(
+          chart.current.timeScale().getVisibleLogicalRange()
+        );
+
+        if (visibleBars) {
+          const priceFormatter = mainSeries.priceFormatter();
+          const highPrice = priceFormatter.format(visibleBars.high);
+          const lowPrice = priceFormatter.format(visibleBars.low);
+
+          // Actualizar el contexto con el nuevo rango de precios
+          updatePriceRange({
+            high: parseFloat(highPrice),
+            low: parseFloat(lowPrice)
+          });
+
+          console.log('📊 Rango de precios visible:', { high: highPrice, low: lowPrice });
+        }
+      }
+    } catch (error) {
+      console.error('Error al obtener rango de precios:', error);
+    }
+  };
 
   useEffect(() => {
     if (!container.current) return;
@@ -39,11 +71,20 @@ export default function Chart() {
           save_image: true,
           onChartReady: () => {
             console.log('📊 Chart listo');
-            // Una vez que el chart está listo, intentamos actualizar al símbolo actual
+            chart.current = widget.current.chart();
+
+            // Configurar eventos para actualizar el rango de precios
+            chart.current.onVisibleRangeChanged().subscribe(null, () => {
+              updateVisiblePriceRange();
+            });
+
             if (currentSymbol) {
               const symbolToUse = currentSymbol.includes(':') ? currentSymbol : `BINANCE:${currentSymbol}`;
               widget.current.setSymbol(symbolToUse);
             }
+
+            // Actualizar rango inicial
+            updateVisiblePriceRange();
           }
         });
 

@@ -1,8 +1,15 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
+
+interface PriceRange {
+  high: number;
+  low: number;
+}
 
 interface TradingContextType {
   currentSymbol: string;
   setCurrentSymbol: (symbol: string) => void;
+  visiblePriceRange: PriceRange;
+  updatePriceRange: (range: PriceRange) => void;
 }
 
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
@@ -10,26 +17,36 @@ const TradingContext = createContext<TradingContextType | undefined>(undefined);
 const STORAGE_KEY = 'trading_symbol';
 
 export function TradingProvider({ children }: { children: ReactNode }) {
-  // Intentar cargar el símbolo guardado, si no existe usar el default
   const [currentSymbol, setCurrentSymbol] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    console.log('TradingContext - Cargando símbolo guardado:', saved || 'BINANCE:BTCUSDT');
     return saved || 'BINANCE:BTCUSDT';
   });
 
-  useEffect(() => {
-    // Guardar el símbolo en localStorage cuando cambie
-    console.log('TradingContext - Guardando nuevo símbolo:', currentSymbol);
-    localStorage.setItem(STORAGE_KEY, currentSymbol);
-  }, [currentSymbol]);
+  const [visiblePriceRange, setVisiblePriceRange] = useState<PriceRange>({
+    high: 0,
+    low: 0
+  });
 
   const handleSymbolChange = (symbol: string) => {
     console.log('TradingContext - setCurrentSymbol llamado con:', symbol);
+    localStorage.setItem(STORAGE_KEY, symbol);
     setCurrentSymbol(symbol);
   };
 
+  const updatePriceRange = (range: PriceRange) => {
+    console.log('TradingContext - updatePriceRange llamado con:', range);
+    setVisiblePriceRange(range);
+  };
+
   return (
-    <TradingContext.Provider value={{ currentSymbol, setCurrentSymbol: handleSymbolChange }}>
+    <TradingContext.Provider 
+      value={{ 
+        currentSymbol, 
+        setCurrentSymbol: handleSymbolChange,
+        visiblePriceRange,
+        updatePriceRange
+      }}
+    >
       {children}
     </TradingContext.Provider>
   );
