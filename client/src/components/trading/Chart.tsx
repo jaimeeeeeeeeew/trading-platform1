@@ -66,36 +66,55 @@ export default function Chart() {
         onChartReady: () => {
           console.warn('📊 TradingView - Chart listo, configurando listeners...');
 
-          // Obtener la instancia del chart
+          // 1. Obtener la instancia del chart
           const chart = widget.current?.chart();
           if (!chart) {
             console.error('No se pudo obtener la instancia del chart');
             return;
           }
 
-          // Suscribirse a cambios de símbolo directamente en el chart
+          // 2. Suscribirse a eventos nativos del chart
           chart.onSymbolChanged().subscribe(null, (symbolData: any) => {
             console.warn('📊 TradingView - Evento onSymbolChanged:', symbolData);
             handleSymbolChange(symbolData.name);
           });
 
-          // Verificar símbolo inicial
-          const initialSymbol = chart.symbol();
-          if (initialSymbol && initialSymbol !== currentSymbol) {
-            handleSymbolChange(initialSymbol);
+          // 3. Configurar MutationObserver para detectar cambios en el DOM
+          const symbolElement = document.querySelector('.chart-container .symbol-text');
+          if (symbolElement) {
+            const observer = new MutationObserver((mutations) => {
+              mutations.forEach((mutation) => {
+                if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                  const newSymbol = (mutation.target as HTMLElement).textContent;
+                  if (newSymbol) {
+                    console.warn('📊 TradingView - Cambio detectado por MutationObserver:', newSymbol);
+                    handleSymbolChange(newSymbol);
+                  }
+                }
+              });
+            });
+
+            observer.observe(symbolElement, {
+              characterData: true,
+              childList: true,
+              subtree: true
+            });
           }
 
-          // Configurar verificación periódica del símbolo
+          // 4. Verificación periódica como respaldo
           const checkInterval = setInterval(() => {
             const chartSymbol = chart.symbol();
             if (chartSymbol && chartSymbol !== currentSymbol) {
-              console.warn('📊 TradingView - Cambio de símbolo detectado en verificación:', chartSymbol);
+              console.warn('📊 TradingView - Cambio detectado en verificación periódica:', chartSymbol);
               handleSymbolChange(chartSymbol);
             }
           }, 1000);
 
-          // Limpiar intervalo cuando el componente se desmonte
-          return () => clearInterval(checkInterval);
+          // Limpiar observadores cuando el componente se desmonte
+          return () => {
+            clearInterval(checkInterval);
+            symbolElement && observer?.disconnect();
+          };
         }
       });
     };
