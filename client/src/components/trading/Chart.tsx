@@ -59,7 +59,7 @@ export default function Chart() {
               // Listar todas las propiedades y métodos disponibles
               console.log('📊 Propiedades del widget:', Object.keys(widget.current));
 
-              // Intentar obtener el estudios (incluyendo volumen)
+              // Intentar obtener los estudios (incluyendo volumen)
               const studies = activeChart.getAllStudies();
               console.log('📊 Estudios disponibles:', studies);
 
