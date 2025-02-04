@@ -87,10 +87,12 @@ export default function Chart() {
                       min: minPrice.toFixed(2)
                     });
 
-                    console.warn('📊 TradingView - Precios actualizados:', {
-                      máximo: maxPrice,
-                      mínimo: minPrice
-                    });
+                    console.log('----------------------------------------');
+                    console.log('🔍 RANGO DE PRECIOS DEL GRÁFICO');
+                    console.log('----------------------------------------');
+                    console.log(`📈 Precio Máximo: ${maxPrice.toFixed(2)}`);
+                    console.log(`📉 Precio Mínimo: ${minPrice.toFixed(2)}`);
+                    console.log('----------------------------------------');
                   }
                 }
               );
@@ -98,10 +100,7 @@ export default function Chart() {
               // Resto del código existente...
               chart.subscribeCrosshairMove((param: any) => {
                 if (param.time && param.price) {
-                  console.warn('📊 TradingView - Precio actual:', {
-                    precio: param.price,
-                    tiempo: new Date(param.time * 1000).toLocaleString(),
-                  });
+                  console.log('📊 Precio actual:', param.price.toFixed(2));
                 }
               });
 
@@ -109,7 +108,7 @@ export default function Chart() {
                 const series = chart.series();
                 if (series) {
                   const lastPrice = series.lastPrice();
-                  console.warn('📊 TradingView - Último precio:', lastPrice);
+                  console.log('📊 Último precio:', lastPrice);
                 }
               }, 1000);
             }
