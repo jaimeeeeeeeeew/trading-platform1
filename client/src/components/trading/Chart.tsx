@@ -14,22 +14,6 @@ export default function Chart() {
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
 
-  // Efecto para manejar cambios en el símbolo
-  useEffect(() => {
-    if (widget.current && currentSymbol) {
-      console.log('🔄 Cambiando símbolo a:', currentSymbol);
-      try {
-        // Asegurarnos de que el símbolo tenga el formato correcto para Binance
-        const formattedSymbol = currentSymbol.includes(':') ? currentSymbol : `BINANCE:${currentSymbol}`;
-        widget.current.setSymbol(formattedSymbol);
-        console.log('✅ Símbolo actualizado a:', formattedSymbol);
-      } catch (error) {
-        console.error('❌ Error al cambiar símbolo:', error);
-      }
-    }
-  }, [currentSymbol]);
-
-  // Efecto para inicializar el widget
   useEffect(() => {
     if (!container.current) {
       console.error('❌ Container no encontrado');
@@ -44,16 +28,11 @@ export default function Chart() {
       console.log('📦 Script de TradingView cargado');
 
       try {
-        // Asegurarnos de que el símbolo inicial tenga el formato correcto
-        const initialSymbol = currentSymbol ? 
-          (currentSymbol.includes(':') ? currentSymbol : `BINANCE:${currentSymbol}`) : 
-          'BINANCE:BTCUSDT';
-
         widget.current = new window.TradingView.widget({
           container_id: container.current!.id,
           width: "100%",
           height: "100%",
-          symbol: initialSymbol,
+          symbol: "BINANCE:BTCUSDT",
           interval: "1",
           timezone: "Etc/UTC",
           theme: "dark",
@@ -66,7 +45,7 @@ export default function Chart() {
           autosize: true,
           studies: ["RSI@tv-basicstudies"],
           onChartReady: () => {
-            console.log('📊 Chart listo - Símbolo actual:', initialSymbol);
+            console.log('📊 Chart listo');
           },
         });
 
@@ -97,7 +76,20 @@ export default function Chart() {
         document.head.removeChild(script);
       }
     };
-  }, []); // Solo se ejecuta una vez al montar el componente
+  }, []);
+
+  // Efecto específico para cambios de símbolo
+  useEffect(() => {
+    if (widget.current && currentSymbol) {
+      const symbolToUse = currentSymbol.includes(':') ? currentSymbol : `BINANCE:${currentSymbol}`;
+      try {
+        widget.current.chart().setSymbol(symbolToUse);
+        console.log('✅ Símbolo actualizado a:', symbolToUse);
+      } catch (error) {
+        console.error('❌ Error al cambiar símbolo:', error);
+      }
+    }
+  }, [currentSymbol]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
