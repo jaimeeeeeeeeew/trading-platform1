@@ -29,13 +29,29 @@ import {
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function TradingAnalytics() {
   const [apiKey, setApiKey] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
   const [date, setDate] = useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
     to: new Date(),
+  });
+
+  const { data: metrics } = useQuery({
+    queryKey: ['trading', 'metrics', date?.from, date?.to],
+    queryFn: async () => {
+      if (!user?.id || !date?.from || !date?.to) return null;
+      const response = await fetch(`/api/trading/metrics?userId=${user.id}&startDate=${date.from.toISOString()}&endDate=${date.to.toISOString()}`);
+      if (!response.ok) {
+        throw new Error('Error al obtener métricas');
+      }
+      return response.json();
+    },
+    enabled: !!user?.id && !!date?.from && !!date?.to
   });
 
   const handleSaveApiKey = () => {
@@ -125,13 +141,13 @@ export default function TradingAnalytics() {
           <div className="grid grid-cols-2 gap-2">
             <MetricCard
               title="PnL Periodo"
-              value="+12.45%"
+              value={metrics?.stats?.profitPercent || "0%"}
               trend="up"
               icon={<BarChart className="h-3 w-3" />}
             />
             <MetricCard
               title="Win Rate"
-              value="68%"
+              value={`${((metrics?.stats?.profitableTrades || 0) / (metrics?.stats?.totalTrades || 1) * 100).toFixed(1)}%`}
               trend="up"
               icon={<Activity className="h-3 w-3" />}
             />
@@ -140,13 +156,13 @@ export default function TradingAnalytics() {
           <div className="grid grid-cols-2 gap-2">
             <MetricCard
               title="Racha Ganadora"
-              value="8 trades"
+              value={`${metrics?.stats?.maxWinStreak || 0} trades`}
               trend="up"
               icon={<Trophy className="h-3 w-3" />}
             />
             <MetricCard
               title="Racha Perdedora"
-              value="3 trades"
+              value={`${metrics?.stats?.maxLoseStreak || 0} trades`}
               trend="down"
               icon={<TrendingDown className="h-3 w-3" />}
             />
@@ -157,27 +173,27 @@ export default function TradingAnalytics() {
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Trades:</span>
-                <span className="font-medium">156</span>
+                <span className="font-medium">{metrics?.stats?.totalTrades || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Trades Ganadores:</span>
-                <span className="font-medium text-primary">106</span>
+                <span className="font-medium text-primary">{metrics?.stats?.profitableTrades || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Trades Perdedores:</span>
-                <span className="font-medium text-destructive">50</span>
+                <span className="font-medium text-destructive">{metrics?.stats?.losingTrades || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Promedio R/R:</span>
-                <span className="font-medium">1:2.5</span>
+                <span className="font-medium">{metrics?.stats?.avgRR || "1:2.5"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Mejor Trade:</span>
-                <span className="font-medium text-primary">+5.8%</span>
+                <span className="font-medium text-primary">{metrics?.stats?.bestTrade || "+5.8%"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Peor Trade:</span>
-                <span className="font-medium text-destructive">-2.1%</span>
+                <span className="font-medium text-destructive">{metrics?.stats?.worstTrade || "-2.1%"}</span>
               </div>
             </div>
           </div>
@@ -196,19 +212,19 @@ export default function TradingAnalytics() {
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Riesgo promedio:</span>
-                  <span className="font-medium">1.2%</span>
+                  <span className="font-medium">{metrics?.stats?.avgRisk || "1.2%"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ratio R/R promedio:</span>
-                  <span className="font-medium">1:2.5</span>
+                  <span className="font-medium">{metrics?.stats?.avgRR || "1:2.5"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tiempo promedio trade:</span>
-                  <span className="font-medium">4h 23m</span>
+                  <span className="font-medium">{metrics?.stats?.avgTradeDuration || "4h 23m"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Drawdown máximo:</span>
-                  <span className="font-medium text-destructive">-8.3%</span>
+                  <span className="font-medium text-destructive">{metrics?.stats?.maxDrawdown || "-8.3%"}</span>
                 </div>
               </div>
             </div>

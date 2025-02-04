@@ -2,6 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { createBinxClient } from './binx-client';
+import { db } from './db';
+import { and, between, eq } from 'drizzle-orm';
+import { trades, tradingMetrics } from '@shared/schema';
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -28,6 +31,66 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error('Error al obtener datos de BINX:', error);
       res.status(500).json({ error: 'Error al obtener datos de mercado' });
+    }
+  });
+
+  // Ruta para obtener métricas de trading por periodo
+  app.get('/api/trading/metrics', async (req, res) => {
+    try {
+      const { userId, startDate, endDate } = req.query;
+      if (!userId || !startDate || !endDate) {
+        return res.status(400).json({ error: 'Faltan parámetros requeridos' });
+      }
+
+      const metrics = await db.select()
+        .from(tradingMetrics)
+        .where(
+          and(
+            eq(tradingMetrics.userId, Number(userId)),
+            between(tradingMetrics.startDate, new Date(String(startDate)), new Date(String(endDate)))
+          )
+        );
+
+      const tradeHistory = await db.select()
+        .from(trades)
+        .where(
+          and(
+            eq(trades.userId, Number(userId)),
+            between(trades.openTime, new Date(String(startDate)), new Date(String(endDate)))
+          )
+        );
+
+      // Calcular rachas
+      let currentStreak = 0;
+      let maxWinStreak = 0;
+      let maxLoseStreak = 0;
+      let currentWinStreak = 0;
+      let currentLoseStreak = 0;
+
+      tradeHistory.forEach(trade => {
+        if (trade.pnl && trade.pnl > 0) {
+          currentWinStreak++;
+          currentLoseStreak = 0;
+          maxWinStreak = Math.max(maxWinStreak, currentWinStreak);
+        } else if (trade.pnl && trade.pnl < 0) {
+          currentLoseStreak++;
+          currentWinStreak = 0;
+          maxLoseStreak = Math.max(maxLoseStreak, currentLoseStreak);
+        }
+      });
+
+      res.json({
+        metrics,
+        stats: {
+          maxWinStreak,
+          maxLoseStreak,
+          totalTrades: tradeHistory.length,
+          profitableTrades: tradeHistory.filter(t => t.pnl && t.pnl > 0).length,
+        }
+      });
+    } catch (error) {
+      console.error('Error al obtener métricas:', error);
+      res.status(500).json({ error: 'Error al obtener métricas' });
     }
   });
 
