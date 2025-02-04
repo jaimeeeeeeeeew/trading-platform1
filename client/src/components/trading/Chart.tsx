@@ -1,84 +1,139 @@
 import { useEffect, useRef } from 'react';
-import { createChart, ColorType } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
-import { useMarketData } from '@/lib/use-market-data';
+import { useToast } from '@/hooks/use-toast';
+
+declare global {
+  interface Window {
+    TradingView: any;
+  }
+}
 
 export default function Chart() {
-  const { currentSymbol } = useTrading();
-  const { data: marketData } = useMarketData();
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chart = useRef<any>(null);
-  const series = useRef<any>(null);
+  const container = useRef<HTMLDivElement>(null);
+  const widget = useRef<any>(null);
+  const { currentSymbol, updatePriceRange, updateTimeRange } = useTrading();
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (!chartContainerRef.current) return;
+    console.log('🔄 Iniciando efecto para cargar TradingView');
+    if (!container.current) {
+      console.error('❌ Container ref no disponible');
+      return;
+    }
 
-    // Inicializar el gráfico
-    chart.current = createChart(chartContainerRef.current, {
-      layout: {
-        background: { color: '#1a1a1a' },
-        textColor: '#d1d4dc',
-      },
-      grid: {
-        vertLines: { color: '#2b2b43' },
-        horzLines: { color: '#2b2b43' },
-      },
-      width: chartContainerRef.current.clientWidth,
-      height: chartContainerRef.current.clientHeight,
-      timeScale: {
-        timeVisible: true,
-        secondsVisible: true,
-      },
-    });
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/tv.js';
+    script.async = true;
 
-    // Crear la serie de líneas
-    series.current = chart.current.addLineSeries({
-      color: '#2962FF',
-      lineWidth: 2,
-      crosshairMarkerVisible: true,
-      priceLineVisible: true,
-      priceLineWidth: 1,
-      priceLineColor: '#2962FF',
-      priceLineStyle: 3,
-    });
+    script.onload = () => {
+      console.log('✅ Script de TradingView cargado');
+      console.log('TradingView disponible:', !!window.TradingView);
 
-    // Manejar el redimensionamiento
-    const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight,
+      if (!window.TradingView) {
+        console.error('❌ TradingView no disponible en window');
+        return;
+      }
+
+      try {
+        console.log('🎯 Intentando crear widget de TradingView');
+        console.log('ID del contenedor:', container.current!.id);
+
+        widget.current = new window.TradingView.widget({
+          container_id: container.current!.id,
+          width: "100%",
+          height: "100%",
+          symbol: currentSymbol || "BINANCE:BTCUSDT",
+          interval: "1",
+          timezone: "Etc/UTC",
+          theme: "dark",
+          style: "1",
+          locale: "es",
+          enable_publishing: false,
+          allow_symbol_change: true,
+          save_image: true,
+          studies: [
+            "Volume@tv-basicstudies",
+            "MAExp@tv-basicstudies",
+            "VWAP@tv-basicstudies"
+          ],
+          disabled_features: ["header_symbol_search"],
+          enabled_features: ["volume_force_overlay"],
+          custom_css_url: './chart.css',
+          // Agregamos el callback onChartReady
+          onChartReady: () => {
+            const chart = widget.current.activeChart();
+            // Obtener el rango visible inicial
+            const visibleRange = chart.getVisibleRange();
+            console.log('📊 Rango visible inicial:', visibleRange);
+
+            if (visibleRange) {
+              updateTimeRange({
+                from: new Date(visibleRange.from * 1000),
+                to: new Date(visibleRange.to * 1000),
+                interval: chart.resolution()
+              });
+            }
+
+            // Suscribirse a cambios en el rango visible
+            chart.onVisibleRangeChanged().subscribe(null, (range: any) => {
+              console.log('📊 Rango visible cambió:', range);
+              updateTimeRange({
+                from: new Date(range.from * 1000),
+                to: new Date(range.to * 1000),
+                interval: chart.resolution()
+              });
+            });
+
+            // Suscribirse a cambios de precio
+            chart.crosshairMoved().subscribe(null, (param: any) => {
+              if (param.price) {
+                console.log('📊 Precio actual:', param.price);
+                updatePriceRange({
+                  high: param.price * 1.001,
+                  low: param.price * 0.999
+                });
+              }
+            });
+          }
+        });
+
+        console.log('✅ Widget creado exitosamente');
+
+      } catch (error) {
+        console.error('❌ Error al crear widget:', error);
+        toast({
+          title: "Error",
+          description: "No se pudo inicializar el gráfico",
+          duration: 3000,
         });
       }
     };
 
-    window.addEventListener('resize', handleResize);
+    script.onerror = (error) => {
+      console.error('❌ Error al cargar script de TradingView:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar TradingView",
+        duration: 3000,
+      });
+    };
+
+    document.head.appendChild(script);
+    console.log('✅ Script agregado al head');
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      if (chart.current) {
-        chart.current.remove();
+      if (document.head.contains(script)) {
+        console.log('🧹 Limpiando script de TradingView');
+        document.head.removeChild(script);
       }
     };
-  }, []);
-
-  // Actualizar datos cuando cambian
-  useEffect(() => {
-    if (series.current && marketData) {
-      const price = parseFloat(marketData.ask_limit);
-      if (!isNaN(price)) {
-        series.current.update({
-          time: Date.now() / 1000,
-          value: price,
-        });
-      }
-    }
-  }, [marketData]);
+  }, [currentSymbol, updatePriceRange, updateTimeRange]);
 
   return (
-    <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-[#1a1a1a]">
+    <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
       <div
-        ref={chartContainerRef}
+        id="tradingview_widget"
+        ref={container}
         className="w-full h-full"
       />
     </div>

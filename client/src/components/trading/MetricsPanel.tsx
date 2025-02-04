@@ -1,6 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import TransactionList from './TransactionList';
 import { Activity } from 'lucide-react';
 import { useTrading } from '@/lib/trading-context';
 
@@ -19,10 +20,7 @@ interface MetricsPanelProps {
     dominancia: { left: number; right: number };
     delta_futuros: { positivo: number; negativo: number };
     delta_spot: { positivo: number; negativo: number };
-    ask_limit: string;
-    bid_limit: string;
-    buy_market: string;
-    sell_market: string;
+    transacciones: Array<{ volume: string; price: string }>;
   };
   className?: string;
 }
@@ -68,36 +66,12 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
         </div>
 
         <div className="grid gap-4">
-          {/* Precios del Mercado */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Precios del Mercado</label>
-            <div className="grid grid-cols-2 gap-2">
-              <MetricCard
-                label="Ask Limit"
-                value={metrics.ask_limit}
-                icon={<Activity className="h-4 w-4" />}
-                valueClassName="text-primary"
-              />
-              <MetricCard
-                label="Bid Limit"
-                value={metrics.bid_limit}
-                icon={<Activity className="h-4 w-4" />}
-                valueClassName="text-destructive"
-              />
-              <MetricCard
-                label="Buy Market"
-                value={metrics.buy_market}
-                icon={<Activity className="h-4 w-4" />}
-                valueClassName="text-primary"
-              />
-              <MetricCard
-                label="Sell Market"
-                value={metrics.sell_market}
-                icon={<Activity className="h-4 w-4" />}
-                valueClassName="text-destructive"
-              />
-            </div>
-          </div>
+          <MetricCard
+            label="Dirección"
+            value={metrics.direccion.toLocaleString()}
+            icon={<Activity className="h-4 w-4" />}
+            valueClassName={metrics.direccion > 68500 ? 'text-primary' : 'text-destructive'}
+          />
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Dominancia</label>
@@ -165,7 +139,10 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
             </div>
           </div>
         </div>
+
         <Separator className="my-4" />
+
+        <TransactionList transactions={metrics.transacciones} />
       </div>
     </Card>
   );
