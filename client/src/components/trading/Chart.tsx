@@ -18,138 +18,76 @@ export default function Chart() {
   const handleSymbolChange = useCallback((newSymbol: string) => {
     if (!newSymbol || newSymbol === currentSymbol) return;
 
-    console.warn(`📊 TradingView - Cambio de símbolo detectado: ${currentSymbol} -> ${newSymbol}`);
+    console.warn('📊 TradingView - Intentando cambiar símbolo:', currentSymbol, '->', newSymbol);
     setCurrentSymbol(newSymbol);
 
     toast({
       title: "Símbolo Actualizado",
-      description: `Cambiado de ${currentSymbol} a ${newSymbol}`,
+      description: `Cambiado a ${newSymbol}`,
       duration: 3000,
     });
   }, [currentSymbol, setCurrentSymbol, toast]);
 
   useEffect(() => {
-    // 1. Verificar si el contenedor existe
     if (!container.current) {
-      console.error('❌ Error: Contenedor no encontrado');
+      console.error('❌ Container no encontrado');
       return;
     }
-    console.warn('✅ Contenedor encontrado:', container.current.id);
 
-    // 2. Verificar si TradingView ya existe
-    if (window.TradingView) {
-      console.warn('⚠️ TradingView ya está cargado');
-    } else {
-      console.warn('📥 Cargando TradingView...');
-    }
-
-    console.warn('📊 TradingView - Iniciando widget...');
+    console.warn('📊 TradingView - Iniciando configuración...');
+    console.warn('📊 TradingView - Símbolo actual:', currentSymbol);
 
     // Cargar el script de TradingView
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
 
-    // 3. Verificar errores de carga del script
-    script.onerror = () => {
-      console.error('❌ Error al cargar el script de TradingView');
-    };
-
     script.onload = () => {
-      console.warn('📊 TradingView - Script cargado');
+      console.warn('📊 TradingView - Script cargado, creando widget');
 
-      // 4. Verificar si TradingView está disponible
-      if (!window.TradingView) {
-        console.error('❌ Error: window.TradingView no está disponible después de cargar el script');
-        return;
-      }
-
-      console.warn('📊 TradingView - Creando widget con símbolo:', currentSymbol);
-
-      // Crear el widget
       try {
         widget.current = new window.TradingView.widget({
           container_id: container.current!.id,
           width: "100%",
           height: "100%",
           symbol: currentSymbol,
-          interval: "D",
+          interval: "1",
           timezone: "Etc/UTC",
           theme: "dark",
           style: "1",
           locale: "es",
-          toolbar_bg: "#f1f3f6",
           enable_publishing: false,
-          hide_side_toolbar: false,
           allow_symbol_change: true,
-          studies: [
-            "Volume@tv-basicstudies",
-            "VWAP@tv-basicstudies"
-          ],
-          supported_resolutions: ["1", "5", "15", "30", "60", "D", "W"],
-          save_image: true,
-          // Configurar callbacks
+          hide_side_toolbar: false,
+          onSymbolChange: (symbolData: any) => {
+            console.warn('📊 TradingView - onSymbolChange evento:', symbolData);
+            handleSymbolChange(symbolData);
+          },
           onChartReady: () => {
-            console.warn('📊 TradingView - Chart listo, configurando listeners...');
+            console.warn('📊 TradingView - Chart listo');
 
-            // 1. Obtener la instancia del chart
-            const chart = widget.current?.chart();
-            if (!chart) {
-              console.error('No se pudo obtener la instancia del chart');
-              return;
-            }
+            // Verificar el símbolo actual cuando el chart esté listo
+            if (widget.current && widget.current.symbolInterval) {
+              const currentWidgetSymbol = widget.current.symbolInterval().symbol;
+              console.warn('📊 TradingView - Símbolo del widget:', currentWidgetSymbol);
 
-            // 2. Suscribirse a eventos nativos del chart
-            chart.onSymbolChanged().subscribe(null, (symbolData: any) => {
-              console.warn('📊 TradingView - Evento onSymbolChanged:', symbolData);
-              handleSymbolChange(symbolData.name);
-            });
-
-            // 3. Configurar MutationObserver para detectar cambios en el DOM
-            const symbolElement = document.querySelector('.chart-container .symbol-text');
-            if (symbolElement) {
-              console.warn('📊 TradingView - Elemento de símbolo encontrado:', symbolElement);
-              const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                  if (mutation.type === 'characterData' || mutation.type === 'childList') {
-                    const newSymbol = (mutation.target as HTMLElement).textContent;
-                    if (newSymbol) {
-                      console.warn('📊 TradingView - Cambio detectado por MutationObserver:', newSymbol);
-                      handleSymbolChange(newSymbol);
-                    }
-                  }
-                });
-              });
-
-              observer.observe(symbolElement, {
-                characterData: true,
-                childList: true,
-                subtree: true
-              });
-            } else {
-              console.error('❌ No se encontró el elemento del símbolo en el DOM');
-            }
-
-            // 4. Verificación periódica como respaldo
-            const checkInterval = setInterval(() => {
-              const chartSymbol = chart.symbol();
-              if (chartSymbol && chartSymbol !== currentSymbol) {
-                console.warn('📊 TradingView - Cambio detectado en verificación periódica:', chartSymbol);
-                handleSymbolChange(chartSymbol);
+              if (currentWidgetSymbol !== currentSymbol) {
+                handleSymbolChange(currentWidgetSymbol);
               }
-            }, 1000);
-
-            // Limpiar observadores cuando el componente se desmonte
-            return () => {
-              clearInterval(checkInterval);
-              symbolElement && observer?.disconnect();
-            };
-          }
+            }
+          },
+          debug: true,
+          autosize: true,
         });
+
         console.warn('✅ Widget creado exitosamente');
       } catch (error) {
-        console.error('❌ Error al crear el widget:', error);
+        console.error('❌ Error al crear widget:', error);
       }
+    };
+
+    script.onerror = () => {
+      console.error('❌ Error al cargar script de TradingView');
     };
 
     document.head.appendChild(script);
