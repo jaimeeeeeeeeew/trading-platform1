@@ -31,7 +31,7 @@ export default function Chart() {
   useEffect(() => {
     if (!container.current) return;
 
-    console.warn('📊 TradingView - Inicializando widget...');
+    console.warn('📊 TradingView - Iniciando widget...');
 
     // Cargar el script de TradingView
     const script = document.createElement('script');
