@@ -31,10 +31,10 @@ async function comparePasswords(supplied: string, stored: string) {
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
     secret: process.env.REPL_ID!,
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     cookie: {
-      secure: false,
+      secure: false, // Set to false for development
       maxAge: 24 * 60 * 60 * 1000,
       sameSite: 'lax',
       path: '/',
