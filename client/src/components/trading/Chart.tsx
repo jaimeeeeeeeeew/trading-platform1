@@ -13,22 +13,10 @@ export default function Chart() {
   const widget = useRef<any>(null);
   const { currentSymbol, setCurrentSymbol } = useTrading();
   const { toast } = useToast();
-  const [priceStats, setPriceStats] = useState<{ max: string | null, min: string | null }>({ max: null, min: null });
-
-  const handleSymbolChange = useCallback((newSymbol: string) => {
-    if (!newSymbol || newSymbol === currentSymbol) return;
-
-    setCurrentSymbol(newSymbol);
-    setPriceStats({ max: null, min: null }); // Reset stats on symbol change
-
-    toast({
-      title: "Símbolo Actualizado",
-      description: `Cambiado a ${newSymbol}`,
-      duration: 3000,
-    });
-  }, [currentSymbol, setCurrentSymbol, toast]);
 
   useEffect(() => {
+    console.log('🔄 Inicializando gráfico...');
+
     if (!container.current) {
       console.error('❌ Container no encontrado');
       return;
@@ -39,12 +27,14 @@ export default function Chart() {
     script.async = true;
 
     script.onload = () => {
+      console.log('📦 Script de TradingView cargado');
+
       try {
         widget.current = new window.TradingView.widget({
           container_id: container.current!.id,
           width: "100%",
           height: "100%",
-          symbol: currentSymbol,
+          symbol: "BTCUSDT", // This line is from edited code, potentially overriding user selection.
           interval: "1",
           timezone: "Etc/UTC",
           theme: "dark",
@@ -53,61 +43,51 @@ export default function Chart() {
           enable_publishing: false,
           allow_symbol_change: true,
           hide_side_toolbar: false,
-          onSymbolChange: (symbolData: any) => {
-            handleSymbolChange(symbolData);
-          },
           onChartReady: () => {
-            const chart = widget.current?.chart();
-            if (chart) {
-              // Calcular precios máximos y mínimos cuando se cargan nuevos datos
-              chart.onDataLoaded().subscribe(
-                null,
-                () => {
-                  const bars = chart.bars();
-                  if (bars && bars.length > 0) {
-                    let maxPrice = -Infinity;
-                    let minPrice = Infinity;
+            console.log('📊 Gráfico listo');
 
-                    bars.forEach((bar: any) => {
+            const chart = widget.current?.chart();
+            if (!chart) {
+              console.error('❌ No se pudo obtener el objeto chart');
+              return;
+            }
+
+            // Calcular precios cuando se cargan datos
+            chart.onDataLoaded().subscribe(
+              null,
+              () => {
+                console.log('📊 Datos cargados, calculando rango de precios...');
+                const bars = chart.series().bars();
+                if (bars && bars.length > 0) {
+                  let maxPrice = -Infinity;
+                  let minPrice = Infinity;
+
+                  for (let i = 0; i < bars.length; i++) {
+                    const bar = bars[i];
+                    if (bar) {
                       maxPrice = Math.max(maxPrice, bar.high);
                       minPrice = Math.min(minPrice, bar.low);
-                    });
-
-                    setPriceStats({
-                      max: maxPrice.toFixed(2),
-                      min: minPrice.toFixed(2)
-                    });
-
-                    // Imprimir de manera más visible el rango de precios
-                    console.log('\n');
-                    console.log('========================================');
-                    console.log('   🔍 RANGO DE PRECIOS DEL GRÁFICO');
-                    console.log('========================================');
-                    console.log(`   📈 Precio Máximo: $${maxPrice.toFixed(2)}`);
-                    console.log(`   📉 Precio Mínimo: $${minPrice.toFixed(2)}`);
-                    console.log('========================================\n');
+                    }
                   }
-                }
-              );
 
-              // Monitorear el precio actual al mover el cursor
-              chart.subscribeCrosshairMove((param: any) => {
-                if (param.time && param.price) {
-                  console.log(`Precio actual: $${param.price.toFixed(2)}`);
+                  console.log('\n');
+                  console.log('========================================');
+                  console.log('   🔍 RANGO DE PRECIOS DEL GRÁFICO');
+                  console.log('========================================');
+                  console.log(`   📈 Precio Máximo: $${maxPrice.toFixed(2)}`);
+                  console.log(`   📉 Precio Mínimo: $${minPrice.toFixed(2)}`);
+                  console.log('========================================\n');
+                } else {
+                  console.log('❌ No se encontraron barras de datos');
                 }
-              });
-            }
-
-            if (widget.current && widget.current.symbolInterval) {
-              const currentWidgetSymbol = widget.current.symbolInterval().symbol;
-              if (currentWidgetSymbol !== currentSymbol) {
-                handleSymbolChange(currentWidgetSymbol);
               }
-            }
+            );
           },
           debug: true,
           autosize: true,
         });
+
+        console.log('✅ Widget de TradingView creado');
       } catch (error) {
         console.error('❌ Error al crear widget:', error);
       }
@@ -124,7 +104,7 @@ export default function Chart() {
         document.head.removeChild(script);
       }
     };
-  }, [currentSymbol, handleSymbolChange]);
+  }, []);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
@@ -133,12 +113,6 @@ export default function Chart() {
         ref={container}
         className="w-full h-full"
       />
-      {priceStats.max !== null && priceStats.min !== null && (
-        <div className="absolute top-4 right-4 bg-background/80 p-2 rounded-lg border border-border">
-          <p className="text-sm font-medium">Máximo: {priceStats.max}</p>
-          <p className="text-sm font-medium">Mínimo: {priceStats.min}</p>
-        </div>
-      )}
     </div>
   );
 }
