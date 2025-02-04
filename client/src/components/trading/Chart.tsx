@@ -12,18 +12,30 @@ export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const widget = useRef<any>(null);
   const chart = useRef<any>(null);
-  const { currentSymbol, updatePriceRange } = useTrading();
+  const { currentSymbol } = useTrading();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!container.current) return;
+    console.log('🔄 Iniciando efecto para cargar TradingView');
+    if (!container.current) {
+      console.error('❌ Container ref no disponible');
+      return;
+    }
 
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
 
     script.onload = () => {
+      console.log('✅ Script de TradingView cargado');
+
+      if (!window.TradingView) {
+        console.error('❌ TradingView no disponible en window');
+        return;
+      }
+
       try {
+        console.log('🎯 Intentando crear widget de TradingView');
         widget.current = new window.TradingView.widget({
           container_id: container.current!.id,
           width: "100%",
@@ -39,43 +51,44 @@ export default function Chart() {
           studies: ["RSI@tv-basicstudies"],
           save_image: true,
           onChartReady: () => {
-            console.log('📊 Chart listo');
+            console.log('📊 Chart listo - Obteniendo objeto chart');
             chart.current = widget.current.chart();
 
-            // Debugging: Imprimir métodos disponibles
-            console.log('Métodos del chart:', Object.keys(chart.current));
-
-            // Intentar acceder a los métodos específicos que necesitamos
-            try {
-              const timeScale = chart.current.timeScale();
-              console.log('TimeScale disponible:', !!timeScale);
-              console.log('Métodos de timeScale:', Object.keys(timeScale));
-            } catch (e) {
-              console.error('Error al acceder a timeScale:', e);
+            if (!chart.current) {
+              console.error('❌ No se pudo obtener el objeto chart');
+              return;
             }
 
-            try {
+            console.log('📊 Objeto chart obtenido:', chart.current);
+            console.log('📊 Métodos disponibles en chart:', Object.getOwnPropertyNames(chart.current));
+
+            // Intentar acceder a métodos específicos
+            if (typeof chart.current.priceScale === 'function') {
+              console.log('✅ Método priceScale disponible');
               const priceScale = chart.current.priceScale('right');
-              console.log('PriceScale disponible:', !!priceScale);
-              console.log('Métodos de priceScale:', Object.keys(priceScale));
-            } catch (e) {
-              console.error('Error al acceder a priceScale:', e);
+              console.log('📊 PriceScale:', priceScale);
+            } else {
+              console.log('❌ Método priceScale no disponible');
             }
 
-            try {
-              const mainSeries = chart.current.mainSeries();
-              console.log('MainSeries disponible:', !!mainSeries);
-              console.log('Métodos de mainSeries:', Object.keys(mainSeries));
-            } catch (e) {
-              console.error('Error al acceder a mainSeries:', e);
+            if (typeof chart.current.timeScale === 'function') {
+              console.log('✅ Método timeScale disponible');
+              const timeScale = chart.current.timeScale();
+              console.log('📊 TimeScale:', timeScale);
+            } else {
+              console.log('❌ Método timeScale no disponible');
             }
 
+            // Actualizar símbolo si es necesario
             if (currentSymbol) {
+              console.log('🔄 Actualizando símbolo a:', currentSymbol);
               const symbolToUse = currentSymbol.includes(':') ? currentSymbol : `BINANCE:${currentSymbol}`;
               widget.current.setSymbol(symbolToUse);
             }
           }
         });
+
+        console.log('✅ Widget creado exitosamente');
 
       } catch (error) {
         console.error('❌ Error al crear widget:', error);
@@ -87,7 +100,8 @@ export default function Chart() {
       }
     };
 
-    script.onerror = () => {
+    script.onerror = (error) => {
+      console.error('❌ Error al cargar script de TradingView:', error);
       toast({
         title: "Error",
         description: "No se pudo cargar TradingView",
@@ -96,44 +110,15 @@ export default function Chart() {
     };
 
     document.head.appendChild(script);
+    console.log('✅ Script agregado al head');
 
     return () => {
       if (document.head.contains(script)) {
+        console.log('🧹 Limpiando script de TradingView');
         document.head.removeChild(script);
       }
     };
-  }, [currentSymbol]); 
-
-  const updateVisiblePriceRange = () => {
-    if (!chart.current) return;
-
-    try {
-      const priceScale = chart.current.priceScale('right');
-      const mainSeries = chart.current.mainSeries();
-
-      if (priceScale && mainSeries) {
-        const visibleBars = mainSeries.barsInLogicalRange(
-          chart.current.timeScale().getVisibleLogicalRange()
-        );
-
-        if (visibleBars) {
-          const priceFormatter = mainSeries.priceFormatter();
-          const highPrice = priceFormatter.format(visibleBars.high);
-          const lowPrice = priceFormatter.format(visibleBars.low);
-
-          // Actualizar el contexto con el nuevo rango de precios
-          updatePriceRange({
-            high: parseFloat(highPrice),
-            low: parseFloat(lowPrice)
-          });
-
-          console.log('📊 Rango de precios visible:', { high: highPrice, low: lowPrice });
-        }
-      }
-    } catch (error) {
-      console.error('Error al obtener rango de precios:', error);
-    }
-  };
+  }, [currentSymbol]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
