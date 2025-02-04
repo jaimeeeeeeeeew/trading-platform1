@@ -15,25 +15,30 @@ export default function Chart() {
   const { toast } = useToast();
 
   const handleSymbolChange = useCallback((symbol: string) => {
-    console.log('TradingView - Símbolo cambiado a:', symbol);
-    setCurrentSymbol(symbol);
-    toast({
-      title: "Símbolo actualizado",
-      description: `Cambiado a ${symbol}`,
-      duration: 2000
-    });
-  }, [setCurrentSymbol, toast]);
+    console.log('TradingView - handleSymbolChange llamado con símbolo:', symbol);
+    if (symbol !== currentSymbol) {
+      console.log('TradingView - Actualizando símbolo de', currentSymbol, 'a', symbol);
+      setCurrentSymbol(symbol);
+      toast({
+        title: "Símbolo actualizado",
+        description: `Cambiado a ${symbol}`,
+        duration: 2000
+      });
+    } else {
+      console.log('TradingView - Símbolo sin cambios:', symbol);
+    }
+  }, [currentSymbol, setCurrentSymbol, toast]);
 
   useEffect(() => {
     if (!container.current) return;
 
-    console.log('Inicializando TradingView widget con símbolo:', currentSymbol);
+    console.log('TradingView - Iniciando widget con símbolo:', currentSymbol);
 
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
     script.onload = () => {
-      console.log('Script de TradingView cargado, creando widget...');
+      console.log('TradingView - Script cargado, creando widget...');
 
       widget.current = new window.TradingView.widget({
         container_id: container.current!.id,
@@ -59,10 +64,11 @@ export default function Chart() {
         onSymbolChange: handleSymbolChange,
         // Agregar callback cuando el widget está listo
         onChartReady: () => {
-          console.log('TradingView chart listo, símbolo actual:', currentSymbol);
-          // Verificar que el símbolo inicial se haya cargado correctamente
+          console.log('TradingView - Chart listo, verificando símbolo inicial');
           const actualSymbol = widget.current?.symbolInterval?.()?.symbol;
+          console.log('TradingView - Símbolo actual del widget:', actualSymbol);
           if (actualSymbol && actualSymbol !== currentSymbol) {
+            console.log('TradingView - Corrigiendo símbolo inicial');
             handleSymbolChange(actualSymbol);
           }
         }

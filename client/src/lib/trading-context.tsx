@@ -13,17 +13,23 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   // Intentar cargar el símbolo guardado, si no existe usar el default
   const [currentSymbol, setCurrentSymbol] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
+    console.log('TradingContext - Cargando símbolo guardado:', saved || 'BINANCE:BTCUSDT');
     return saved || 'BINANCE:BTCUSDT';
   });
 
   useEffect(() => {
     // Guardar el símbolo en localStorage cuando cambie
+    console.log('TradingContext - Guardando nuevo símbolo:', currentSymbol);
     localStorage.setItem(STORAGE_KEY, currentSymbol);
-    console.log('TradingContext - Símbolo actualizado y guardado:', currentSymbol);
   }, [currentSymbol]);
 
+  const handleSymbolChange = (symbol: string) => {
+    console.log('TradingContext - setCurrentSymbol llamado con:', symbol);
+    setCurrentSymbol(symbol);
+  };
+
   return (
-    <TradingContext.Provider value={{ currentSymbol, setCurrentSymbol }}>
+    <TradingContext.Provider value={{ currentSymbol, setCurrentSymbol: handleSymbolChange }}>
       {children}
     </TradingContext.Provider>
   );
