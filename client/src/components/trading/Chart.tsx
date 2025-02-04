@@ -15,21 +15,14 @@ export default function Chart() {
   const { toast } = useToast();
 
   useEffect(() => {
-    console.log('🚀 Iniciando componente Chart');
-
-    if (!container.current) {
-      console.error('❌ Container no encontrado');
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/tv.js';
-    script.async = true;
-
-    script.onload = () => {
-      console.log('📦 Script de TradingView cargado');
+    const loadTradingView = () => {
+      if (!container.current) {
+        console.error('❌ Container no encontrado');
+        return;
+      }
 
       try {
+        // Crear el widget con configuración extendida
         widget.current = new window.TradingView.widget({
           container_id: container.current!.id,
           width: "100%",
@@ -45,116 +38,83 @@ export default function Chart() {
           hide_side_toolbar: false,
           debug: true,
           autosize: true,
-          studies: ["RSI@tv-basicstudies"],
+          studies: [
+            "RSI@tv-basicstudies",
+            "MASimple@tv-basicstudies",
+            "MACD@tv-basicstudies"
+          ],
+          // Eventos del gráfico
           onChartReady: () => {
-            console.log('📊 Chart listo - Comenzando recopilación de datos');
+            const chart = widget.current.chart();
+            console.log("🎯 Chart Ready Event Triggered");
 
-            const collectChartData = () => {
+            // Intentar acceder a la instancia de la biblioteca
+            console.log("📚 TradingView Library:", window.TradingView);
+
+            // Registrar eventos de barra
+            chart.onBarUpdate(() => {
+              const data = chart.chartData();
+              console.log("📊 Bar Update:", data);
+            });
+
+            // Registrar eventos de cursor
+            chart.onCrosshairMove(param => {
+              console.log("🎯 Crosshair Move:", param);
+            });
+
+            // Obtener estudios activos
+            const studies = chart.getAllStudies();
+            console.log("📈 Active Studies:", studies);
+
+            // Suscribirse a cambios en el símbolo
+            chart.onSymbolChange(symbolData => {
+              console.log("💱 Symbol Changed:", symbolData);
+            });
+
+            // Intentar acceder a los datos históricos
+            chart.requestHistoryData({
+              callback: (data) => {
+                console.log("📅 Historical Data:", data);
+              }
+            });
+
+            // Configurar un intervalo para monitorear datos en tiempo real
+            const interval = setInterval(() => {
               try {
-                if (!widget.current) {
-                  console.warn('⚠️ Widget no disponible');
-                  return;
-                }
+                // Obtener datos de la serie principal
+                const mainSeries = chart.mainSeries();
+                const lastPrice = mainSeries.lastPrice();
+                const priceData = mainSeries.priceData();
 
-                const chart = widget.current.chart();
-                if (!chart) {
-                  console.warn('⚠️ Chart no disponible');
-                  return;
-                }
-
-                // Información básica del gráfico
-                const symbolInfo = {
-                  symbol: chart.symbol(),
-                  resolution: chart.resolution(),
-                  timezone: chart.getTimezoneOffset(),
-                };
-                console.log('📈 Información del símbolo:', symbolInfo);
-
-                // Información de precios
-                try {
-                  const priceData = chart.crosshairMove();
-                  if (priceData) {
-                    console.log('💰 Datos de precio actual:', priceData);
-                  }
-                } catch (e) {
-                  console.warn('⚠️ No se pudo obtener precio actual:', e);
-                }
-
-                // Estudios técnicos
-                try {
-                  const studies = chart.getAllStudies();
-                  console.log('📊 Estudios técnicos:', studies);
-                } catch (e) {
-                  console.warn('⚠️ No se pudo obtener estudios:', e);
-                }
-
-                // Series de precios
-                try {
-                  const mainSeries = chart.mainSeries();
-                  if (mainSeries) {
-                    console.log('📉 Serie principal:', {
-                      visible: mainSeries.isVisible(),
-                      style: mainSeries.style(),
-                    });
-                  }
-                } catch (e) {
-                  console.warn('⚠️ No se pudo obtener serie principal:', e);
-                }
-
-                // Marcadores y líneas
-                try {
-                  const shapes = chart.getAllShapes();
-                  console.log('🔷 Formas en el gráfico:', shapes);
-                } catch (e) {
-                  console.warn('⚠️ No se pudo obtener formas:', e);
-                }
-
-                // Rango de precios visible
-                try {
-                  const visibleRange = chart.getVisibleRange();
-                  console.log('👀 Rango visible:', visibleRange);
-                } catch (e) {
-                  console.warn('⚠️ No se pudo obtener rango visible:', e);
-                }
-
-                // Suscribirse a eventos de precio
-                chart.onDataLoaded().subscribe(null, () => {
-                  console.log('🔄 Nuevos datos cargados');
-                  try {
-                    const bars = chart.series().bars();
-                    if (bars && bars.length) {
-                      console.log('📊 Última barra:', bars[bars.length - 1]);
-                    }
-                  } catch (e) {
-                    console.warn('⚠️ Error al acceder a las barras:', e);
-                  }
+                console.log("💰 Current Trading Data:", {
+                  lastPrice,
+                  priceData
                 });
 
-                // Suscribirse a cambios de cursor
-                chart.subscribeCrosshairMove((param: any) => {
-                  if (param && param.price) {
-                    console.log('🎯 Precio en cursor:', param.price);
-                  }
-                });
+                // Obtener información del símbolo
+                const symbolInfo = chart.symbolInfo();
+                console.log("ℹ️ Symbol Info:", symbolInfo);
+
+                // Obtener rango visible
+                const visibleRange = chart.getVisibleRange();
+                console.log("👁️ Visible Range:", visibleRange);
 
               } catch (error) {
-                console.error('❌ Error al recopilar datos:', error);
+                console.error("❌ Error monitoring data:", error);
               }
-            };
+            }, 1000);
 
-            // Recopilar datos inmediatamente y cada 5 segundos
-            collectChartData();
-            const dataInterval = setInterval(collectChartData, 5000);
-
-            return () => {
-              clearInterval(dataInterval);
-            };
+            return () => clearInterval(interval);
           },
+          // Otros eventos
+          onAutoSaveNeeded: () => console.log("💾 Auto Save Needed"),
+          onDataLoaded: () => console.log("📥 Data Loaded"),
+          onMarksUpdated: () => console.log("📌 Marks Updated"),
+          onTimescaleUpdate: () => console.log("⏱️ Timescale Updated"),
         });
 
-        console.log('✅ Widget de TradingView creado exitosamente');
       } catch (error) {
-        console.error('❌ Error al crear widget:', error);
+        console.error('❌ Error initializing TradingView:', error);
         toast({
           title: "Error",
           description: "No se pudo inicializar el gráfico",
@@ -163,8 +123,13 @@ export default function Chart() {
       }
     };
 
+    // Cargar el script de TradingView
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/tv.js';
+    script.async = true;
+    script.onload = loadTradingView;
     script.onerror = () => {
-      console.error('❌ Error al cargar script de TradingView');
+      console.error('❌ Error loading TradingView script');
       toast({
         title: "Error",
         description: "No se pudo cargar TradingView",
@@ -174,6 +139,7 @@ export default function Chart() {
 
     document.head.appendChild(script);
 
+    // Cleanup
     return () => {
       if (document.head.contains(script)) {
         document.head.removeChild(script);
