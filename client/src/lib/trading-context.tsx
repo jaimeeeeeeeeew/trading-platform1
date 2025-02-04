@@ -11,6 +11,19 @@ interface TimeRange {
   interval: string;
 }
 
+interface Order {
+  symbol: string;
+  side: 'BUY' | 'SELL';
+  quantity: number;
+  price: number;
+  stopLoss?: number;
+  takeProfit?: number;
+  trailingStop?: {
+    value: number;
+    distance: number;
+  };
+}
+
 interface TradingContextType {
   currentSymbol: string;
   setCurrentSymbol: (symbol: string) => void;
@@ -18,6 +31,9 @@ interface TradingContextType {
   updatePriceRange: (range: PriceRange) => void;
   timeRange: TimeRange | null;
   updateTimeRange: (range: TimeRange) => void;
+  activeOrders: Order[];
+  placeOrder: (order: Order) => Promise<void>;
+  cancelOrder: (orderId: string) => Promise<void>;
 }
 
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
@@ -36,21 +52,41 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   });
 
   const [timeRange, setTimeRange] = useState<TimeRange | null>(null);
+  const [activeOrders, setActiveOrders] = useState<Order[]>([]);
 
   const handleSymbolChange = (symbol: string) => {
-    console.log('TradingContext - setCurrentSymbol llamado con:', symbol);
     localStorage.setItem(STORAGE_KEY, symbol);
     setCurrentSymbol(symbol);
   };
 
   const updatePriceRange = (range: PriceRange) => {
-    console.log('TradingContext - updatePriceRange llamado con:', range);
     setVisiblePriceRange(range);
   };
 
   const updateTimeRange = (range: TimeRange) => {
-    console.log('TradingContext - updateTimeRange llamado con:', range);
     setTimeRange(range);
+  };
+
+  const placeOrder = async (order: Order) => {
+    try {
+      // Aquí se implementará la lógica de conexión con el backend
+      console.log('Colocando orden:', order);
+      setActiveOrders(prev => [...prev, order]);
+    } catch (error) {
+      console.error('Error al colocar la orden:', error);
+      throw error;
+    }
+  };
+
+  const cancelOrder = async (orderId: string) => {
+    try {
+      // Aquí se implementará la lógica de conexión con el backend
+      console.log('Cancelando orden:', orderId);
+      setActiveOrders(prev => prev.filter(order => order.id !== orderId));
+    } catch (error) {
+      console.error('Error al cancelar la orden:', error);
+      throw error;
+    }
   };
 
   return (
@@ -61,7 +97,10 @@ export function TradingProvider({ children }: { children: ReactNode }) {
         visiblePriceRange,
         updatePriceRange,
         timeRange,
-        updateTimeRange
+        updateTimeRange,
+        activeOrders,
+        placeOrder,
+        cancelOrder
       }}
     >
       {children}

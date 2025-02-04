@@ -1,5 +1,6 @@
 import Chart from '@/components/trading/Chart';
 import MetricsPanel from '@/components/trading/MetricsPanel';
+import OrderPanel from '@/components/trading/OrderPanel';
 import { useAuth } from '@/hooks/use-auth';
 import { useMarketData } from '@/lib/use-market-data';
 import { Loader2 } from 'lucide-react';
@@ -26,8 +27,13 @@ export default function Trading() {
   return (
     <div className="flex h-screen bg-background">
       <div className="flex-1 p-4 flex gap-4">
-        <div className="flex-[3] h-full">
-          <Chart />
+        <div className="flex-[3] h-full flex flex-col gap-4">
+          <div className="flex-[3]">
+            <Chart />
+          </div>
+          <div className="flex-1">
+            <OrderPanel />
+          </div>
         </div>
         <div className="flex-1 h-full">
           <MetricsPanel
