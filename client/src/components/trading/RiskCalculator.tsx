@@ -9,6 +9,7 @@ import { Calculator } from 'lucide-react';
 
 export default function RiskCalculator() {
   const [calculationType, setCalculationType] = useState<'sl' | 'amount'>('sl');
+  const [direction, setDirection] = useState<'long' | 'short'>('long');
   const [accountCapital, setAccountCapital] = useState('');
   const [riskPercentage, setRiskPercentage] = useState('1');
   const [entryPrice, setEntryPrice] = useState('');
@@ -55,17 +56,17 @@ export default function RiskCalculator() {
     if (!validateInputs()) return;
 
     const capital = parseFloat(accountCapital);
-    const risk = parseFloat(riskPercentage) / 100; // Convertir porcentaje a decimal
+    const risk = parseFloat(riskPercentage) / 100;
     const entry = parseFloat(entryPrice);
-    const maxLossAmount = capital * risk; // Cantidad máxima que estamos dispuestos a perder
+    const maxLossAmount = capital * risk;
 
     console.log('Capital:', capital);
     console.log('Riesgo %:', risk * 100);
     console.log('Pérdida máxima:', maxLossAmount);
     console.log('Precio entrada:', entry);
+    console.log('Dirección:', direction);
 
     if (calculationType === 'sl') {
-      // Calculando el Stop Loss basado en el monto a invertir
       const amount = parseFloat(investmentAmount);
       if (isNaN(amount) || amount <= 0) {
         toast({
@@ -76,12 +77,29 @@ export default function RiskCalculator() {
         return;
       }
 
-      // Calcular el Stop Loss
-      // SL = Entrada - (Pérdida máxima / Cantidad)
-      const sl = entry - (maxLossAmount / amount);
-
-      console.log('Monto invertido:', amount);
-      console.log('Stop Loss calculado:', sl);
+      // Calcular el Stop Loss según la dirección
+      let sl;
+      if (direction === 'long') {
+        sl = entry - (maxLossAmount / amount);
+        if (sl >= entry) {
+          toast({
+            title: 'Error',
+            description: 'El stop loss debe ser menor al precio de entrada para posiciones long',
+            variant: 'destructive',
+          });
+          return;
+        }
+      } else { // short
+        sl = entry + (maxLossAmount / amount);
+        if (sl <= entry) {
+          toast({
+            title: 'Error',
+            description: 'El stop loss debe ser mayor al precio de entrada para posiciones short',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
 
       if (sl <= 0) {
         toast({
@@ -92,12 +110,14 @@ export default function RiskCalculator() {
         return;
       }
 
-      // Verificar que la pérdida potencial no exceda el riesgo máximo
-      const potentialLoss = amount * (entry - sl);
-      if (potentialLoss > maxLossAmount) {
+      // Verificar pérdida potencial
+      const priceDiff = direction === 'long' ? entry - sl : sl - entry;
+      const potentialLoss = amount * Math.abs(priceDiff);
+
+      if (Math.abs(potentialLoss - maxLossAmount) > 0.01) {
         toast({
           title: 'Advertencia',
-          description: `La pérdida potencial (${potentialLoss.toFixed(2)}) excede el riesgo máximo permitido (${maxLossAmount.toFixed(2)})`,
+          description: `La pérdida potencial (${potentialLoss.toFixed(2)}) es diferente al riesgo máximo (${maxLossAmount.toFixed(2)})`,
           variant: 'destructive',
         });
         return;
@@ -110,7 +130,6 @@ export default function RiskCalculator() {
       });
 
     } else {
-      // Calculando el monto a invertir basado en el Stop Loss
       const sl = parseFloat(stopLoss);
       if (isNaN(sl) || sl <= 0) {
         toast({
@@ -121,46 +140,41 @@ export default function RiskCalculator() {
         return;
       }
 
-      if (sl >= entry) {
+      // Validar SL según dirección
+      if (direction === 'long' && sl >= entry) {
         toast({
           title: 'Error',
-          description: 'El stop loss debe ser menor al precio de entrada',
+          description: 'Para posiciones long, el stop loss debe ser menor al precio de entrada',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (direction === 'short' && sl <= entry) {
+        toast({
+          title: 'Error',
+          description: 'Para posiciones short, el stop loss debe ser mayor al precio de entrada',
           variant: 'destructive',
         });
         return;
       }
 
       // Calcular el monto a invertir
-      // Monto = Pérdida máxima / |Entrada - SL|
-      const priceDiff = Math.abs(entry - sl);
-      if (priceDiff === 0) {
+      const priceDiff = direction === 'long' ? entry - sl : sl - entry;
+      if (Math.abs(priceDiff) < 0.00001) {
         toast({
           title: 'Error',
-          description: 'La diferencia entre entrada y stop loss no puede ser cero',
+          description: 'La diferencia entre entrada y stop loss es demasiado pequeña',
           variant: 'destructive',
         });
         return;
       }
 
-      const amount = maxLossAmount / priceDiff;
-      console.log('Stop Loss:', sl);
-      console.log('Diferencia de precio:', priceDiff);
-      console.log('Monto calculado:', amount);
-
-      // Verificar que la pérdida potencial no exceda el riesgo máximo
-      const potentialLoss = amount * priceDiff;
-      if (Math.abs(potentialLoss - maxLossAmount) > 0.01) {
-        toast({
-          title: 'Advertencia',
-          description: 'El monto calculado podría generar una pérdida diferente a la esperada',
-          variant: 'destructive',
-        });
-      }
-
-      setInvestmentAmount(amount.toFixed(2));
+      const amount = maxLossAmount / Math.abs(priceDiff);
+      setInvestmentAmount(amount.toFixed(8));
       toast({
         title: 'Cálculo completado',
-        description: `Monto a invertir calculado: ${amount.toFixed(2)}`,
+        description: `Monto a invertir calculado: ${amount.toFixed(8)}`,
       });
     }
   };
@@ -209,6 +223,24 @@ export default function RiskCalculator() {
             placeholder="45000"
             className="h-7 text-xs"
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-[10px]">Dirección</Label>
+          <RadioGroup 
+            value={direction} 
+            onValueChange={(value) => setDirection(value as 'long' | 'short')}
+            className="flex justify-center gap-4"
+          >
+            <div className="flex items-center gap-1">
+              <RadioGroupItem value="long" id="d1" className="h-3 w-3" />
+              <Label htmlFor="d1" className="text-[10px]">Long</Label>
+            </div>
+            <div className="flex items-center gap-1">
+              <RadioGroupItem value="short" id="d2" className="h-3 w-3" />
+              <Label htmlFor="d2" className="text-[10px]">Short</Label>
+            </div>
+          </RadioGroup>
         </div>
 
         <RadioGroup 
