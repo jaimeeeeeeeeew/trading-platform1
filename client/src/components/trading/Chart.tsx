@@ -14,6 +14,18 @@ export default function Chart() {
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
 
+  // Efecto para manejar cambios en el símbolo
+  useEffect(() => {
+    if (widget.current && currentSymbol) {
+      console.log('🔄 Cambiando símbolo a:', currentSymbol);
+      const chart = widget.current.chart();
+      if (chart) {
+        chart.setSymbol(currentSymbol);
+      }
+    }
+  }, [currentSymbol]);
+
+  // Efecto para inicializar el widget
   useEffect(() => {
     const loadTradingView = () => {
       if (!container.current) {
@@ -27,7 +39,7 @@ export default function Chart() {
           container_id: container.current!.id,
           width: "100%",
           height: "100%",
-          symbol: "BTCUSDT",
+          symbol: currentSymbol || "BTCUSDT", // Usar el símbolo actual o BTCUSDT por defecto
           interval: "1",
           timezone: "Etc/UTC",
           theme: "dark",
@@ -45,72 +57,30 @@ export default function Chart() {
           ],
           // Eventos del gráfico
           onChartReady: () => {
+            console.log("🎯 Chart Ready - Símbolo actual:", currentSymbol);
+
             const chart = widget.current.chart();
-            console.log("🎯 Chart Ready Event Triggered");
-
-            // Intentar acceder a la instancia de la biblioteca
-            console.log("📚 TradingView Library:", window.TradingView);
-
-            // Registrar eventos de barra
-            chart.onBarUpdate(() => {
-              const data = chart.chartData();
-              console.log("📊 Bar Update:", data);
-            });
-
-            // Registrar eventos de cursor
-            chart.onCrosshairMove(param => {
-              console.log("🎯 Crosshair Move:", param);
-            });
-
-            // Obtener estudios activos
-            const studies = chart.getAllStudies();
-            console.log("📈 Active Studies:", studies);
 
             // Suscribirse a cambios en el símbolo
             chart.onSymbolChange(symbolData => {
               console.log("💱 Symbol Changed:", symbolData);
             });
 
-            // Intentar acceder a los datos históricos
-            chart.requestHistoryData({
-              callback: (data) => {
-                console.log("📅 Historical Data:", data);
-              }
-            });
-
-            // Configurar un intervalo para monitorear datos en tiempo real
+            // Monitorear datos en tiempo real
             const interval = setInterval(() => {
               try {
-                // Obtener datos de la serie principal
                 const mainSeries = chart.mainSeries();
-                const lastPrice = mainSeries.lastPrice();
-                const priceData = mainSeries.priceData();
-
-                console.log("💰 Current Trading Data:", {
-                  lastPrice,
-                  priceData
-                });
-
-                // Obtener información del símbolo
-                const symbolInfo = chart.symbolInfo();
-                console.log("ℹ️ Symbol Info:", symbolInfo);
-
-                // Obtener rango visible
-                const visibleRange = chart.getVisibleRange();
-                console.log("👁️ Visible Range:", visibleRange);
-
+                if (mainSeries) {
+                  const lastPrice = mainSeries.lastPrice();
+                  console.log("💰 Precio actual:", lastPrice);
+                }
               } catch (error) {
-                console.error("❌ Error monitoring data:", error);
+                console.error("❌ Error monitoreando datos:", error);
               }
             }, 1000);
 
             return () => clearInterval(interval);
           },
-          // Otros eventos
-          onAutoSaveNeeded: () => console.log("💾 Auto Save Needed"),
-          onDataLoaded: () => console.log("📥 Data Loaded"),
-          onMarksUpdated: () => console.log("📌 Marks Updated"),
-          onTimescaleUpdate: () => console.log("⏱️ Timescale Updated"),
         });
 
       } catch (error) {
@@ -145,7 +115,7 @@ export default function Chart() {
         document.head.removeChild(script);
       }
     };
-  }, []);
+  }, []); // Solo se ejecuta una vez al montar el componente
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
