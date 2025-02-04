@@ -27,15 +27,12 @@ export default function Trading() {
   return (
     <div className="flex h-screen bg-background">
       <div className="flex-1 p-4 flex gap-4">
-        <div className="flex-[3]">
+        <div className="flex-[3] h-full">
           <Chart />
         </div>
-        <div className="flex-1 flex flex-col gap-4">
-          <div className="flex-1">
-            <MetricsPanel
-              metrics={metrics}
-              className="h-full"
-            />
+        <div className="flex-1 flex flex-col gap-4 h-full max-h-[calc(100vh-2rem)]">
+          <div className="flex-[2]">
+            <MetricsPanel />
           </div>
           <div className="flex-1">
             <RiskCalculator />
