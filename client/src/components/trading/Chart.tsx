@@ -58,58 +58,46 @@ export default function Chart() {
           ],
           disabled_features: ["header_symbol_search"],
           enabled_features: ["volume_force_overlay"],
-          custom_css_url: './chart.css'
+          custom_css_url: './chart.css',
+          // Agregamos el callback onChartReady
+          onChartReady: () => {
+            const chart = widget.current.activeChart();
+            // Obtener el rango visible inicial
+            const visibleRange = chart.getVisibleRange();
+            console.log('📊 Rango visible inicial:', visibleRange);
+
+            if (visibleRange) {
+              updateTimeRange({
+                from: new Date(visibleRange.from * 1000),
+                to: new Date(visibleRange.to * 1000),
+                interval: chart.resolution()
+              });
+            }
+
+            // Suscribirse a cambios en el rango visible
+            chart.onVisibleRangeChanged().subscribe(null, (range: any) => {
+              console.log('📊 Rango visible cambió:', range);
+              updateTimeRange({
+                from: new Date(range.from * 1000),
+                to: new Date(range.to * 1000),
+                interval: chart.resolution()
+              });
+            });
+
+            // Suscribirse a cambios de precio
+            chart.crosshairMoved().subscribe(null, (param: any) => {
+              if (param.price) {
+                console.log('📊 Precio actual:', param.price);
+                updatePriceRange({
+                  high: param.price * 1.001,
+                  low: param.price * 0.999
+                });
+              }
+            });
+          }
         });
 
         console.log('✅ Widget creado exitosamente');
-
-        // Listen for messages from the TradingView iframe
-        const handleMessage = (event: MessageEvent) => {
-          if (event.source !== widget.current.iframe.contentWindow) {
-            return;
-          }
-
-          try {
-            const data = JSON.parse(event.data);
-            console.log('📊 Mensaje recibido del widget:', data);
-
-            if (data.name === 'price') {
-              console.log('📊 Precio recibido:', data.price);
-              updatePriceRange({
-                high: data.price * 1.001,
-                low: data.price * 0.999
-              });
-            }
-
-            // Procesar información del rango temporal
-            if (data.name === 'timeRange') {
-              console.log('📊 Rango temporal recibido:', data.range);
-              updateTimeRange({
-                from: new Date(data.range.from * 1000),
-                to: new Date(data.range.to * 1000),
-                interval: data.range.interval
-              });
-            }
-          } catch (error) {
-            // Ignore non-JSON messages
-          }
-        };
-
-        window.addEventListener('message', handleMessage);
-
-        // Solicitar información del rango temporal
-        widget.current._ready_handlers.push(() => {
-          console.log('📊 Widget está listo, solicitando información temporal');
-          if (widget.current.iframe && widget.current.iframe.contentWindow) {
-            widget.current.iframe.contentWindow.postMessage({
-              name: 'getTimeRange'
-            }, '*');
-          }
-        });
-
-        return () => {
-          window.removeEventListener('message', handleMessage);
-        };
 
       } catch (error) {
         console.error('❌ Error al crear widget:', error);
