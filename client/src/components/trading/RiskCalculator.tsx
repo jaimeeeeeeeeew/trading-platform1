@@ -30,10 +30,10 @@ export default function RiskCalculator() {
       return false;
     }
 
-    if (isNaN(risk) || risk <= 0) {
+    if (isNaN(risk) || risk <= 0 || risk > 100) {
       toast({
         title: 'Error',
-        description: 'El porcentaje de riesgo debe ser un número positivo',
+        description: 'El porcentaje de riesgo debe estar entre 0 y 100',
         variant: 'destructive',
       });
       return false;
@@ -55,11 +55,17 @@ export default function RiskCalculator() {
     if (!validateInputs()) return;
 
     const capital = parseFloat(accountCapital);
-    const risk = parseFloat(riskPercentage) / 100;
+    const risk = parseFloat(riskPercentage) / 100; // Convertir porcentaje a decimal
     const entry = parseFloat(entryPrice);
-    const capitalAtRisk = capital * risk;
+    const maxLossAmount = capital * risk; // Cantidad máxima que estamos dispuestos a perder
+
+    console.log('Capital:', capital);
+    console.log('Riesgo %:', risk * 100);
+    console.log('Pérdida máxima:', maxLossAmount);
+    console.log('Precio entrada:', entry);
 
     if (calculationType === 'sl') {
+      // Calculando el Stop Loss basado en el monto a invertir
       const amount = parseFloat(investmentAmount);
       if (isNaN(amount) || amount <= 0) {
         toast({
@@ -70,13 +76,28 @@ export default function RiskCalculator() {
         return;
       }
 
-      // SL = Entrada - (Capital a perder / Monto invertido)
-      const sl = entry - (capitalAtRisk / amount);
+      // Calcular el Stop Loss
+      // SL = Entrada - (Pérdida máxima / Cantidad)
+      const sl = entry - (maxLossAmount / amount);
+
+      console.log('Monto invertido:', amount);
+      console.log('Stop Loss calculado:', sl);
 
       if (sl <= 0) {
         toast({
           title: 'Error',
           description: 'El stop loss calculado es inválido. Ajusta el monto o el riesgo.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Verificar que la pérdida potencial no exceda el riesgo máximo
+      const potentialLoss = amount * (entry - sl);
+      if (potentialLoss > maxLossAmount) {
+        toast({
+          title: 'Advertencia',
+          description: `La pérdida potencial (${potentialLoss.toFixed(2)}) excede el riesgo máximo permitido (${maxLossAmount.toFixed(2)})`,
           variant: 'destructive',
         });
         return;
@@ -89,6 +110,7 @@ export default function RiskCalculator() {
       });
 
     } else {
+      // Calculando el monto a invertir basado en el Stop Loss
       const sl = parseFloat(stopLoss);
       if (isNaN(sl) || sl <= 0) {
         toast({
@@ -108,7 +130,8 @@ export default function RiskCalculator() {
         return;
       }
 
-      // Monto a invertir = Capital a perder / |Entrada - SL|
+      // Calcular el monto a invertir
+      // Monto = Pérdida máxima / |Entrada - SL|
       const priceDiff = Math.abs(entry - sl);
       if (priceDiff === 0) {
         toast({
@@ -119,7 +142,21 @@ export default function RiskCalculator() {
         return;
       }
 
-      const amount = capitalAtRisk / priceDiff;
+      const amount = maxLossAmount / priceDiff;
+      console.log('Stop Loss:', sl);
+      console.log('Diferencia de precio:', priceDiff);
+      console.log('Monto calculado:', amount);
+
+      // Verificar que la pérdida potencial no exceda el riesgo máximo
+      const potentialLoss = amount * priceDiff;
+      if (Math.abs(potentialLoss - maxLossAmount) > 0.01) {
+        toast({
+          title: 'Advertencia',
+          description: 'El monto calculado podría generar una pérdida diferente a la esperada',
+          variant: 'destructive',
+        });
+      }
+
       setInvestmentAmount(amount.toFixed(2));
       toast({
         title: 'Cálculo completado',
@@ -195,7 +232,7 @@ export default function RiskCalculator() {
           onChange={(e) => calculationType === 'sl' 
             ? setInvestmentAmount(e.target.value) 
             : setStopLoss(e.target.value)}
-          placeholder={calculationType === 'sl' ? "Monto" : "Stop Loss"}
+          placeholder={calculationType === 'sl' ? "Monto a invertir" : "Stop Loss"}
           className="h-7 text-xs"
         />
 
