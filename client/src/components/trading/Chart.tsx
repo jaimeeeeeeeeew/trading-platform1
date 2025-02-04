@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { useCryptoStore } from '@/hooks/useCryptoData';
 
 declare global {
   interface Window {
@@ -9,7 +8,6 @@ declare global {
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
-  const { setSelectedSymbol } = useCryptoStore();
 
   useEffect(() => {
     if (!container.current) return;
@@ -18,7 +16,7 @@ export default function Chart() {
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
     script.onload = () => {
-      const widget = new window.TradingView.widget({
+      new window.TradingView.widget({
         container_id: container.current!.id,
         width: "100%",
         height: "100%",
@@ -38,21 +36,6 @@ export default function Chart() {
         ],
         supported_resolutions: ["1", "5", "15", "30", "60", "D", "W"],
       });
-
-      // Agregar el listener para cambios de símbolo
-      widget.onChartReady(() => {
-        const chart = widget.chart();
-        chart.onSymbolChanged().subscribe(null, (symbolInfo: any) => {
-          const symbol = symbolInfo.name;
-          if (symbol.includes('BTC')) {
-            setSelectedSymbol('BTCUSDT');
-          } else if (symbol.includes('ETH')) {
-            setSelectedSymbol('ETHUSDT');
-          } else if (symbol.includes('ADA')) {
-            setSelectedSymbol('ADAUSDT');
-          }
-        });
-      });
     };
 
     document.head.appendChild(script);
@@ -60,7 +43,7 @@ export default function Chart() {
     return () => {
       document.head.removeChild(script);
     };
-  }, [setSelectedSymbol]);
+  }, []);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">

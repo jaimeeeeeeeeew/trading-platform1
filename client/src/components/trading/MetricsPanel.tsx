@@ -2,28 +2,19 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import TransactionList from './TransactionList';
 import { Activity } from 'lucide-react';
-import { useCryptoData } from '@/hooks/useCryptoData';
 
 interface MetricsPanelProps {
+  metrics: {
+    direccion: number;
+    dominancia: { left: number; right: number };
+    delta_futuros: { positivo: number; negativo: number };
+    delta_spot: { positivo: number; negativo: number };
+    transacciones: Array<{ volume: string; price: string }>;
+  };
   className?: string;
 }
 
-export default function MetricsPanel({ className = '' }: MetricsPanelProps) {
-  const { data: metrics, isLoading } = useCryptoData();
-
-  if (isLoading || !metrics) {
-    return (
-      <Card className={`p-4 flex flex-col bg-[rgb(26,26,26)] ${className}`}>
-        <div className="animate-pulse space-y-4">
-          <div className="h-10 bg-muted rounded"></div>
-          <div className="h-10 bg-muted rounded"></div>
-          <div className="h-10 bg-muted rounded"></div>
-          <div className="h-10 bg-muted rounded"></div>
-        </div>
-      </Card>
-    );
-  }
-
+export default function MetricsPanel({ metrics, className = '' }: MetricsPanelProps) {
   // Calcular el total para los porcentajes de dominancia
   const dominanciaTotal = metrics.dominancia.left + metrics.dominancia.right;
   const leftPercentage = (metrics.dominancia.left / dominanciaTotal) * 100;
@@ -39,7 +30,7 @@ export default function MetricsPanel({ className = '' }: MetricsPanelProps) {
   const deltaSpotNegativoPercentage = (metrics.delta_spot.negativo / deltaSpotTotal) * 100;
 
   // Precio base para comparar la dirección
-  const precioBase = 68500; // Este valor podría ser dinámico según la moneda
+  const precioBase = 68500;
 
   return (
     <Card className={`p-4 flex flex-col bg-[rgb(26,26,26)] ${className}`}>
