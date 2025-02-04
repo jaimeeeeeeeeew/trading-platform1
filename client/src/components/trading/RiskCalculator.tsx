@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
 import { Calculator } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import TradingAnalytics from './TradingAnalytics';
 
 export default function RiskCalculator() {
   const [showCalculator, setShowCalculator] = useState(true);
@@ -305,9 +306,7 @@ export default function RiskCalculator() {
           </div>
         </div>
       ) : (
-        <div className="h-full flex items-center justify-center">
-          <p className="text-sm text-muted-foreground">Panel alternativo aquí</p>
-        </div>
+        <TradingAnalytics />
       )}
     </Card>
   );
