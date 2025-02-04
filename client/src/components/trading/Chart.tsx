@@ -51,6 +51,13 @@ export default function Chart() {
           enable_publishing: false,
           allow_symbol_change: true,
           save_image: true,
+          studies: [
+            "Volume@tv-basicstudies",
+            "MAExp@tv-basicstudies",
+            "VWAP@tv-basicstudies"
+          ],
+          disabled_features: ["header_symbol_search"],
+          enabled_features: ["volume_force_overlay"]
         });
 
         console.log('✅ Widget creado exitosamente');
@@ -67,6 +74,16 @@ export default function Chart() {
             // Verificar si podemos acceder al contenido del iframe
             if (iframe.contentWindow) {
               console.log('📊 contentWindow disponible');
+
+              // Intentar agregar estudios después de que el chart esté listo
+              if (widget.current.chart) {
+                const chart = widget.current.chart();
+                console.log('📊 Chart objeto disponible');
+
+                // Agregar volumen superpuesto
+                chart.createStudy('Volume', false, true);
+                console.log('📊 Estudio de volumen agregado');
+              }
             }
 
           } catch (error) {
