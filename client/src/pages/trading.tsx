@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 
 export default function Trading() {
   const { user } = useAuth();
-  const { data: metrics, error: connectionError } = useMarketData();
+  const { data: marketData, error: connectionError } = useMarketData();
 
   if (!user || connectionError) {
     return (
@@ -22,6 +22,15 @@ export default function Trading() {
       </div>
     );
   }
+
+  // Asegurarse de que marketData tenga todas las propiedades necesarias
+  const metrics = {
+    direccion: marketData?.direccion || 0,
+    dominancia: marketData?.dominancia || { left: 0, right: 0 },
+    delta_futuros: marketData?.delta_futuros || { positivo: 0, negativo: 0 },
+    delta_spot: marketData?.delta_spot || { positivo: 0, negativo: 0 },
+    transacciones: marketData?.transacciones || []
+  };
 
   return (
     <div className="flex h-screen bg-background">

@@ -21,7 +21,7 @@ export function useMarketData() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const eventSource = new EventSource('/api/market-data');
+    const eventSource = new EventSource('http://0.0.0.0:3001/api/market-data');
 
     eventSource.onmessage = (event) => {
       try {
