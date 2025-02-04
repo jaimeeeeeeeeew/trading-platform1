@@ -42,7 +42,7 @@ export default function Chart() {
           container_id: container.current!.id,
           width: "100%",
           height: "100%",
-          symbol: currentSymbol || "BINANCE:BTCUSDT",
+          symbol: `BINANCE:${currentSymbol}`,
           interval: "1",
           timezone: "Etc/UTC",
           theme: "dark",
