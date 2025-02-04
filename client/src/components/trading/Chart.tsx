@@ -68,49 +68,54 @@ export default function Chart() {
 
           try {
             // Obtener el chart y sus métodos
-            if (widget.current.chart && typeof widget.current.chart === 'function') {
-              const chart = widget.current.chart();
-              console.log('📊 Métodos disponibles del chart:', Object.keys(chart));
+            console.log('📊 Intentando obtener chart()');
+            console.log('📊 Widget actual:', widget.current);
+            console.log('📊 Widget methods:', Object.keys(widget.current));
+
+            if (widget.current.chart) {
+              console.log('📊 chart existe como propiedad');
+              const chartFunction = widget.current.chart;
+              console.log('📊 tipo de chart:', typeof chartFunction);
+
+              const chart = chartFunction();
+              console.log('📊 Chart obtenido:', chart);
+              console.log('📊 Métodos del chart:', Object.keys(chart));
+
+              // Suscribirse a cambios en el chart
+              if (chart.subscribe) {
+                console.log('📊 Intentando suscribirse a eventos del chart');
+                chart.subscribe('onDataLoaded', () => {
+                  console.log('📊 Nuevos datos cargados');
+                });
+              }
 
               // Intentar obtener el precio actual
               if (chart.crossHairMoved) {
+                console.log('📊 Configurando crossHairMoved');
                 chart.crossHairMoved().subscribe(
                   null,
                   (param: any) => {
                     console.log('📊 Precio actual:', param.price);
                     if (param.price && updatePriceRange) {
                       updatePriceRange({
-                        high: param.price * 1.001, // 0.1% arriba
-                        low: param.price * 0.999   // 0.1% abajo
+                        high: param.price * 1.001,
+                        low: param.price * 0.999
                       });
                     }
                   }
                 );
               }
-
-              // Suscribirse a cambios en el rango visible
-              if (chart.onVisibleRangeChanged) {
-                chart.onVisibleRangeChanged().subscribe(
-                  null,
-                  (range: any) => {
-                    console.log('📊 Rango visible cambió:', range);
-                  }
-                );
-              }
-
-              // Suscribirse a cambios en el símbolo
-              if (chart.symbolChanged) {
-                chart.symbolChanged().subscribe(
-                  null,
-                  (symbolInfo: any) => {
-                    console.log('📊 Símbolo cambió:', symbolInfo);
-                  }
-                );
-              }
+            } else {
+              console.log('❌ chart no está disponible en el widget');
             }
 
           } catch (error) {
-            console.error('❌ Error al configurar subscripciones:', error);
+            console.error('❌ Error al configurar chart:', error);
+            console.error('Error details:', {
+              name: error.name,
+              message: error.message,
+              stack: error.stack
+            });
           }
         });
 
