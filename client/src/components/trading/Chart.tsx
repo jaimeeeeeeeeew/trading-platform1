@@ -70,43 +70,6 @@ export default function Chart() {
             } catch (error) {
               console.error('Error al acceder a los datos:', error);
             }
-
-            // Suscribirse a los cambios de datos
-            chart.onDataLoaded().subscribe(
-              null,
-              () => {
-                console.log('🔄 Nuevos datos cargados, intentando calcular rango...');
-                try {
-                  const bars = chart.series().bars();
-                  console.log('Barras disponibles:', bars);
-
-                  if (bars && bars.length > 0) {
-                    let maxPrice = -Infinity;
-                    let minPrice = Infinity;
-
-                    for (let i = 0; i < bars.length; i++) {
-                      const bar = bars[i];
-                      if (bar) {
-                        maxPrice = Math.max(maxPrice, bar.high);
-                        minPrice = Math.min(minPrice, bar.low);
-                      }
-                    }
-
-                    console.log('\n');
-                    console.log('========================================');
-                    console.log('   🔍 RANGO DE PRECIOS DEL GRÁFICO');
-                    console.log('========================================');
-                    console.log(`   📈 Precio Máximo: $${maxPrice.toFixed(2)}`);
-                    console.log(`   📉 Precio Mínimo: $${minPrice.toFixed(2)}`);
-                    console.log('========================================\n');
-                  } else {
-                    console.log('❌ No se encontraron barras de datos');
-                  }
-                } catch (error) {
-                  console.error('Error al calcular el rango de precios:', error);
-                }
-              }
-            );
           },
           debug: true,
           autosize: true,
