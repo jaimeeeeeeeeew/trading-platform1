@@ -27,19 +27,19 @@ export default function Trading() {
   return (
     <div className="flex h-screen bg-background">
       <div className="flex-1 p-4 flex gap-4">
-        <div className="flex-[3] h-full flex flex-col">
+        <div className="flex-[3]">
+          <Chart />
+        </div>
+        <div className="flex-1 h-full flex flex-col gap-4">
           <div className="flex-1">
-            <Chart />
+            <MetricsPanel
+              metrics={metrics}
+              className="h-full"
+            />
           </div>
-          <div className="h-[180px] mt-4">
+          <div className="h-[180px]">
             <RiskCalculator />
           </div>
-        </div>
-        <div className="flex-1 h-full">
-          <MetricsPanel
-            metrics={metrics}
-            className="h-full"
-          />
         </div>
       </div>
     </div>
