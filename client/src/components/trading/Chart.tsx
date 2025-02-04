@@ -11,7 +11,7 @@ declare global {
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const widget = useRef<any>(null);
-  const { currentSymbol, updatePriceRange, updateTimeRange } = useTrading();
+  const { currentSymbol } = useTrading();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -24,77 +24,48 @@ export default function Chart() {
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
+    script.defer = true;
 
     script.onload = () => {
       console.log('✅ Script de TradingView cargado');
-      console.log('TradingView disponible:', !!window.TradingView);
-
-      if (!window.TradingView) {
-        console.error('❌ TradingView no disponible en window');
-        return;
-      }
 
       try {
         console.log('🎯 Intentando crear widget de TradingView');
-        console.log('ID del contenedor:', container.current!.id);
 
         widget.current = new window.TradingView.widget({
-          container_id: container.current!.id,
-          width: "100%",
-          height: "100%",
-          symbol: currentSymbol || "BINANCE:BTCUSDT",
+          autosize: true,
+          symbol: currentSymbol,
           interval: "1",
           timezone: "Etc/UTC",
           theme: "dark",
           style: "1",
           locale: "es",
+          toolbar_bg: "#f1f3f6",
           enable_publishing: false,
           allow_symbol_change: true,
-          save_image: true,
+          container_id: container.current!.id,
+          width: "100%",
+          height: "100%",
+          withdateranges: true,
+          hide_side_toolbar: false,
           studies: [
-            "Volume@tv-basicstudies",
             "MAExp@tv-basicstudies",
             "VWAP@tv-basicstudies"
           ],
-          disabled_features: ["header_symbol_search"],
-          enabled_features: ["volume_force_overlay"],
-          custom_css_url: './chart.css',
-          // Agregamos el callback onChartReady
-          onChartReady: () => {
-            const chart = widget.current.activeChart();
-            // Obtener el rango visible inicial
-            const visibleRange = chart.getVisibleRange();
-            console.log('📊 Rango visible inicial:', visibleRange);
-
-            if (visibleRange) {
-              updateTimeRange({
-                from: new Date(visibleRange.from * 1000),
-                to: new Date(visibleRange.to * 1000),
-                interval: chart.resolution()
-              });
-            }
-
-            // Suscribirse a cambios en el rango visible
-            chart.onVisibleRangeChanged().subscribe(null, (range: any) => {
-              console.log('📊 Rango visible cambió:', range);
-              updateTimeRange({
-                from: new Date(range.from * 1000),
-                to: new Date(range.to * 1000),
-                interval: chart.resolution()
-              });
-            });
-
-            // Suscribirse a cambios de precio
-            chart.crosshairMoved().subscribe(null, (param: any) => {
-              if (param.price) {
-                console.log('📊 Precio actual:', param.price);
-                updatePriceRange({
-                  high: param.price * 1.001,
-                  low: param.price * 0.999
-                });
-              }
-            });
-          }
+          loading_screen: { backgroundColor: "#1a1a1a" },
+          // Configuraciones importantes para seguridad
+          enable_iframe_api: true,
+          customer: "replit",
+          library_path: '/charting_library/',
+          drawings_access: { type: 'replitOnly', tools: [ { name: "Regression Trend" } ] },
+          disabled_features: [
+            "header_symbol_search",
+            "use_localstorage_for_settings"
+          ],
+          enabled_features: [
+            "volume_force_overlay",
+            "iframe_loading_compatibility_mode"
+          ],
         });
 
         console.log('✅ Widget creado exitosamente');
@@ -126,11 +97,14 @@ export default function Chart() {
         console.log('🧹 Limpiando script de TradingView');
         document.head.removeChild(script);
       }
+      if (widget.current && widget.current.remove) {
+        widget.current.remove();
+      }
     };
-  }, [currentSymbol, updatePriceRange, updateTimeRange]);
+  }, [currentSymbol, toast]);
 
   return (
-    <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
+    <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-[#1a1a1a]">
       <div
         id="tradingview_widget"
         ref={container}
