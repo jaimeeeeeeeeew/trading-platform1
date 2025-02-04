@@ -18,7 +18,7 @@ export default function Chart() {
     script.src = 'https://s3.tradingview.com/tv.js';
     script.async = true;
     script.onload = () => {
-      new window.TradingView.widget({
+      const widget = new window.TradingView.widget({
         container_id: container.current!.id,
         width: "100%",
         height: "100%",
@@ -40,19 +40,14 @@ export default function Chart() {
         save_image: false,
         hide_top_toolbar: false,
         withdateranges: true,
-        allow_symbol_change: true,
         details: true,
         hotlist: true,
         calendar: true,
         show_popup_button: true,
         popup_width: "1000",
         popup_height: "650",
-        custom_indicators_getter: function(PineJS) {
-          return Promise.resolve([]);
-        },
         loading_screen: { backgroundColor: "#131722" },
         overrides: { "mainSeriesProperties.style": 1 },
-        studies_overrides: {},
         disabled_features: ["use_localstorage_for_settings"],
         enabled_features: ["study_templates"],
         charts_storage_url: 'https://saveload.tradingview.com',
@@ -61,8 +56,6 @@ export default function Chart() {
         user_id: 'public_user_id',
         autosize: true,
         symbol_search_request_delay: 500,
-        auto_save_delay: 5,
-        debug: false,
         time_frames: [
           { text: "5y", resolution: "W" },
           { text: "1y", resolution: "W" },
@@ -71,28 +64,23 @@ export default function Chart() {
           { text: "1m", resolution: "D" },
           { text: "5d", resolution: "60" },
           { text: "1d", resolution: "30" }
-        ],
-        saved_data: {
-          content: undefined,
-          charts_storage_url: undefined,
-          client_id: undefined,
-          user_id: undefined
-        },
-        datafeed: {
-          onReady: function(callback) {
-            callback({});
-          },
-          searchSymbols: function(userInput, exchange, symbolType, onResultReadyCallback) {
-            // Implementación básica
-          },
-          resolveSymbol: function(symbolName, onSymbolResolvedCallback, onResolveErrorCallback) {
-            // Implementación básica
-          },
-          getBars: function(symbolInfo, resolution, from, to, onHistoryCallback, onErrorCallback, firstDataRequest) {
-            // Implementación básica
-          },
-          subscribeBars: function(symbolInfo, resolution, onRealtimeCallback, subscriberUID, onResetCacheNeededCallback) {
-            const symbol = symbolInfo.name;
+        ]
+      });
+
+      // Crear una variable global para acceder al widget
+      (window as any).tvWidget = widget;
+
+      // Esperar a que el widget esté listo
+      widget.onChartReady && widget.onChartReady(() => {
+        console.log('TradingView chart is ready');
+
+        // Suscribirse a los cambios de símbolo
+        const chart = (window as any).tvWidget.activeChart();
+        if (chart && chart.onSymbolChanged) {
+          chart.onSymbolChanged().subscribe(null, (symbol: string) => {
+            console.log('Symbol changed to:', symbol);
+
+            // Actualizar el símbolo seleccionado
             if (symbol.includes('BTC')) {
               setSelectedSymbol('BTCUSDT');
             } else if (symbol.includes('ETH')) {
@@ -100,10 +88,7 @@ export default function Chart() {
             } else if (symbol.includes('ADA')) {
               setSelectedSymbol('ADAUSDT');
             }
-          },
-          unsubscribeBars: function(subscriberUID) {
-            // Implementación básica
-          }
+          });
         }
       });
     };
@@ -111,6 +96,11 @@ export default function Chart() {
     document.head.appendChild(script);
 
     return () => {
+      // Limpiar el widget al desmontar
+      if ((window as any).tvWidget) {
+        (window as any).tvWidget.remove();
+        delete (window as any).tvWidget;
+      }
       document.head.removeChild(script);
     };
   }, [setSelectedSymbol]);
