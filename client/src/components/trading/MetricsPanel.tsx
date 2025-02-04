@@ -3,7 +3,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Activity } from 'lucide-react';
 import { useTrading } from '@/lib/trading-context';
-import OrderPanel from './OrderPanel';
+import RiskCalculator from './RiskCalculator';
 
 // Lista de criptomonedas disponibles
 const CRYPTOCURRENCIES = [
@@ -141,8 +141,11 @@ export default function MetricsPanel({ metrics, className = '' }: MetricsPanelPr
 
         <Separator className="my-4" />
 
-        {/* Panel de Órdenes */}
-        <OrderPanel />
+        {/* Calculadora de Riesgo */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">Calculadora de Gestión de Riesgo</h3>
+          <RiskCalculator />
+        </div>
       </div>
     </Card>
   );
