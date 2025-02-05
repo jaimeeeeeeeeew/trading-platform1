@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart } from 'lightweight-charts';
+import { createChart, ColorType } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { ZoomIn } from 'lucide-react';
@@ -23,6 +23,11 @@ const INTERVALS = {
 
 type IntervalKey = keyof typeof INTERVALS;
 
+interface VolumeProfileBar {
+  price: number;
+  volume: number;
+}
+
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
@@ -38,11 +43,34 @@ export default function Chart() {
 
   const handleIntervalChange = (newInterval: IntervalKey) => {
     setInterval(newInterval);
-    // Here we'll later implement the data fetching from TradingView
     toast({
       title: 'Interval Changed',
       description: `Changed to ${INTERVALS[newInterval].label} timeframe`,
     });
+  };
+
+  // Calculate volume profile data
+  const calculateVolumeProfile = (data: any[], priceStep: number = 100) => {
+    const volumeByPrice: Map<number, number> = new Map();
+    let minPrice = Infinity;
+    let maxPrice = -Infinity;
+
+    // Aggregate volume by price levels
+    data.forEach(candle => {
+      const price = Math.round(candle.close / priceStep) * priceStep;
+      const currentVolume = volumeByPrice.get(price) || 0;
+      volumeByPrice.set(price, currentVolume + (candle.volume || 1000));
+      minPrice = Math.min(minPrice, candle.low);
+      maxPrice = Math.max(maxPrice, candle.high);
+    });
+
+    // Convert to array and sort by price
+    const volumeProfile: VolumeProfileBar[] = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
+      price,
+      volume,
+    }));
+
+    return { volumeProfile, minPrice, maxPrice };
   };
 
   useEffect(() => {
@@ -96,7 +124,7 @@ export default function Chart() {
       // Save chart reference for the auto-fit button
       chartRef.current = chart;
 
-      // Create candlestick series with dark theme colors
+      // Create candlestick series
       const candlestickSeries = chart.addCandlestickSeries({
         upColor: '#26a69a',
         downColor: '#ef5350',
@@ -105,62 +133,57 @@ export default function Chart() {
         wickDownColor: '#ef5350',
       });
 
-      // Add volume series
-      const volumeSeries = chart.addHistogramSeries({
+      // Create volume profile series
+      const volumeProfileSeries = chart.addHistogramSeries({
         color: '#26a69a',
         priceFormat: {
           type: 'volume',
         },
-        priceScaleId: '', // Set as an overlay
-        scaleMargins: {
-          top: 0.8,
-          bottom: 0,
-        },
+        priceScaleId: 'volume',
+        lastValueVisible: false,
       });
 
-      // Generate more realistic sample data
+      // Generate sample data
       const sampleData = [];
-      const volumeData = [];
-      const startTime = new Date('2023-01-01').getTime(); // Start from a year ago
-      let lastClose = 45000; // Starting price around a realistic BTC value
-      const dailyData = 365; // One year of daily data
+      const startTime = new Date('2023-01-01').getTime();
+      let lastClose = 45000;
+      const dailyData = 365;
 
       for (let i = 0; i < dailyData; i++) {
         const time = new Date(startTime + i * 24 * 60 * 60 * 1000);
-        // More realistic volatility based on price
-        const volatility = (Math.random() * 0.03) * lastClose; // 3% max daily volatility
-        const trend = Math.sin(i / 30) * 0.001; // Add a slight cyclical trend
+        const volatility = (Math.random() * 0.03) * lastClose;
+        const trend = Math.sin(i / 30) * 0.001;
 
-        // Calculate OHLC with more realistic price movements
         const open = lastClose;
-        const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend); // Max 2% move + trend
-        const high = Math.max(open, close) * (1 + Math.random() * 0.01); // Up to 1% above max
-        const low = Math.min(open, close) * (1 - Math.random() * 0.01); // Up to 1% below min
-
-        // Calculate volume with more variation
+        const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend);
+        const high = Math.max(open, close) * (1 + Math.random() * 0.01);
+        const low = Math.min(open, close) * (1 - Math.random() * 0.01);
         const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
 
-        const timeStr = time.toISOString().split('T')[0]; // Format: YYYY-MM-DD
-
         sampleData.push({
-          time: timeStr,
-          open: open,
-          high: high,
-          low: low,
-          close: close,
-        });
-
-        volumeData.push({
-          time: timeStr,
-          value: volume,
-          color: close > open ? '#26a69a80' : '#ef535080',
+          time: time.toISOString().split('T')[0],
+          open,
+          high,
+          low,
+          close,
+          volume,
         });
 
         lastClose = close;
       }
 
+      // Set candlestick data
       candlestickSeries.setData(sampleData);
-      volumeSeries.setData(volumeData);
+
+      // Calculate and set volume profile data
+      const { volumeProfile } = calculateVolumeProfile(sampleData);
+      const volumeProfileData = volumeProfile.map(({ price, volume }) => ({
+        time: sampleData[sampleData.length - 1].time,
+        value: volume,
+        color: '#26a69a40',
+      }));
+
+      volumeProfileSeries.setData(volumeProfileData);
 
       // Handle window resizing
       const handleResize = () => {
@@ -169,16 +192,11 @@ export default function Chart() {
           width,
           height,
         });
-
-        // Auto-fit content after resize
         chart.timeScale().fitContent();
       };
 
       // Initial size and fit
       handleResize();
-
-      // Ensure data is visible initially
-      chart.timeScale().fitContent();
 
       // Listen for resize events
       window.addEventListener('resize', handleResize);
