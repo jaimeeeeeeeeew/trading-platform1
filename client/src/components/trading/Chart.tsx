@@ -4,7 +4,6 @@ import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { ZoomIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { tradingViewService } from '@/lib/tradingview-service';
 import {
   Select,
   SelectContent,
@@ -27,12 +26,9 @@ type IntervalKey = keyof typeof INTERVALS;
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
-  const candlestickSeriesRef = useRef<any>(null);
-  const volumeSeriesRef = useRef<any>(null);
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
   const [interval, setInterval] = useState<IntervalKey>('1h');
-  const [loading, setLoading] = useState(false);
 
   const handleAutoFit = () => {
     if (chartRef.current) {
@@ -40,48 +36,61 @@ export default function Chart() {
     }
   };
 
-  const handleIntervalChange = async (newInterval: IntervalKey) => {
+  const handleIntervalChange = (newInterval: IntervalKey) => {
     setInterval(newInterval);
-    if (chartRef.current && candlestickSeriesRef.current) {
-      try {
-        setLoading(true);
-        const to = Math.floor(Date.now() / 1000);
-        const from = to - (INTERVALS[newInterval].minutes * 60 * 200); // 200 candles
-
-        const data = await tradingViewService.getHistory({
-          symbol: currentSymbol || 'BTCUSD',
-          resolution: tradingViewService.intervalToResolution(newInterval),
-          from,
-          to
-        });
-
-        candlestickSeriesRef.current.setData(data);
-
-        if (volumeSeriesRef.current) {
-          const volumeData = data.map(bar => ({
-            time: bar.time,
-            value: bar.volume || 0,
-            color: bar.close > bar.open ? '#26a69a80' : '#ef535080'
-          }));
-          volumeSeriesRef.current.setData(volumeData);
-        }
-
-        handleAutoFit();
-        toast({
-          title: 'Interval Changed',
-          description: `Changed to ${INTERVALS[newInterval].label} timeframe`,
-        });
-      } catch (error) {
-        console.error('Error loading data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load market data',
-          variant: 'destructive'
-        });
-      } finally {
-        setLoading(false);
-      }
+    if (chartRef.current) {
+      generateAndUpdateData(chartRef.current, newInterval);
+      handleAutoFit();
+      toast({
+        title: 'Interval Changed',
+        description: `Changed to ${INTERVALS[newInterval].label} timeframe`,
+      });
     }
+  };
+
+  const generateAndUpdateData = (chart: any, selectedInterval: IntervalKey) => {
+    const candlestickSeries = chart.getSeries()[0];
+    const volumeSeries = chart.getSeries()[1];
+
+    const sampleData = [];
+    const volumeData = [];
+    const startTime = new Date('2023-01-01').getTime();
+    let lastClose = 45000; // Starting price around a realistic BTC value
+    const minutesPerCandle = INTERVALS[selectedInterval].minutes;
+    const numCandles = 200; // Number of candles to show
+
+    for (let i = 0; i < numCandles; i++) {
+      const time = new Date(startTime + i * minutesPerCandle * 60 * 1000);
+      const volatility = (Math.random() * 0.03) * lastClose;
+      const trend = Math.sin(i / 30) * 0.001;
+
+      const open = lastClose;
+      const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend);
+      const high = Math.max(open, close) * (1 + Math.random() * 0.01);
+      const low = Math.min(open, close) * (1 - Math.random() * 0.01);
+      const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
+
+      const timeStr = time.toISOString().split('T')[0];
+
+      sampleData.push({
+        time: timeStr,
+        open,
+        high,
+        low,
+        close,
+      });
+
+      volumeData.push({
+        time: timeStr,
+        value: volume,
+        color: close > open ? '#26a69a80' : '#ef535080',
+      });
+
+      lastClose = close;
+    }
+
+    candlestickSeries.setData(sampleData);
+    volumeSeries.setData(volumeData);
   };
 
   useEffect(() => {
@@ -131,10 +140,8 @@ export default function Chart() {
         },
       });
 
-      // Save chart reference for the auto-fit button
       chartRef.current = chart;
 
-      // Create candlestick series with dark theme colors
       const candlestickSeries = chart.addCandlestickSeries({
         upColor: '#26a69a',
         downColor: '#ef5350',
@@ -142,9 +149,7 @@ export default function Chart() {
         wickUpColor: '#26a69a',
         wickDownColor: '#ef5350',
       });
-      candlestickSeriesRef.current = candlestickSeries;
 
-      // Add volume series
       const volumeSeries = chart.addHistogramSeries({
         color: '#26a69a',
         priceFormat: {
@@ -156,10 +161,9 @@ export default function Chart() {
           bottom: 0,
         },
       });
-      volumeSeriesRef.current = volumeSeries;
 
-      // Load initial data
-      handleIntervalChange(interval);
+      // Generate initial data
+      generateAndUpdateData(chart, interval);
 
       // Handle window resizing
       const handleResize = () => {
@@ -168,23 +172,16 @@ export default function Chart() {
           width,
           height,
         });
-
-        // Auto-fit content after resize
         chart.timeScale().fitContent();
       };
 
-      // Initial size and fit
       handleResize();
-
-      // Listen for resize events
       window.addEventListener('resize', handleResize);
 
       return () => {
         window.removeEventListener('resize', handleResize);
         chart.remove();
         chartRef.current = null;
-        candlestickSeriesRef.current = null;
-        volumeSeriesRef.current = null;
       };
     } catch (error) {
       console.error('Error creating chart:', error);
