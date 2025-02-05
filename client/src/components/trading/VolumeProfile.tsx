@@ -5,6 +5,7 @@ interface Props {
   data: {
     price: number;
     volume: number;
+    normalizedVolume: number;
   }[];
   width: number;
   height: number;
@@ -26,42 +27,45 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
 
     // Crear escalas
     const xScale = d3.scaleLinear()
-      .domain([0, d3.max(data, d => d.volume) || 0])
-      .range([width, 0]); // Invertir el rango para que crezca hacia la izquierda
+      .domain([0, 1]) // Usar valores normalizados
+      .range([0, width]);
 
     const yScale = d3.scaleLinear()
       .domain([d3.min(data, d => d.price) || 0, d3.max(data, d => d.price) || 0])
-      .range([height, 0]);
+      .range([height - 2, 2]); // Dejar un pequeño margen
 
     // Crear SVG
     const svg = d3.select(svgRef.current)
       .attr('width', width)
-      .attr('height', height)
-      .style('position', 'absolute')
-      .style('right', '0')
-      .style('top', '0')
-      .style('pointer-events', 'none')
-      .style('z-index', '10');
+      .attr('height', height);
+
+    // Calcular altura de cada barra
+    const barHeight = Math.max(1, height / data.length * 0.8); // 80% del espacio disponible
 
     // Dibujar barras horizontales
     svg.selectAll('rect')
       .data(data)
       .enter()
       .append('rect')
-      .attr('y', d => yScale(d.price))
-      .attr('x', d => xScale(d.volume)) // Posicionar desde la derecha
-      .attr('height', Math.max(1, height / data.length))
-      .attr('width', d => width - xScale(d.volume)) // Ancho ajustado para crecer hacia la izquierda
-      .attr('fill', d => d.volume > d3.mean(data, v => v.volume) 
-        ? 'rgba(239, 83, 80, 0.6)' 
-        : 'rgba(38, 166, 154, 0.6)');
+      .attr('y', d => yScale(d.price) - barHeight / 2)
+      .attr('x', 0)
+      .attr('height', barHeight)
+      .attr('width', d => xScale(d.normalizedVolume))
+      .attr('fill', d => {
+        // Color más intenso para volúmenes más altos
+        const intensity = Math.pow(d.normalizedVolume, 0.5); // Ajustar la curva de intensidad
+        const color = d.normalizedVolume > 0.5
+          ? d3.interpolateRgb('#26a69a33', '#26a69aee')(intensity)
+          : d3.interpolateRgb('#ef535033', '#ef5350ee')(intensity);
+        return color;
+      })
+      .attr('opacity', 0.8);
 
   }, [data, width, height]);
 
   return (
     <svg 
       ref={svgRef} 
-      className="pointer-events-none" 
       style={{
         position: 'absolute',
         right: 0,

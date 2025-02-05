@@ -29,10 +29,11 @@ export default function Chart() {
   const chartRef = useRef<any>(null);
   const candlestickSeriesRef = useRef<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const historicalDataRef = useRef<Array<{ close: number; volume: number }>>([]);
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
   const [interval, setInterval] = useState<IntervalKey>('1m');
-  const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number }>>([]);
+  const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number }>>([]);
 
   const handleAutoFit = () => {
     if (chartRef.current) {
@@ -96,10 +97,14 @@ export default function Chart() {
         candlestickSeriesRef.current.setData(candlesticks);
         handleAutoFit();
 
-        updateVolumeProfile(candlesticks.map(c => ({ 
+        // Guardar los datos históricos
+        historicalDataRef.current = candlesticks.map(c => ({ 
           close: c.close, 
           volume: c.volume 
-        })));
+        }));
+
+        // Actualizar el perfil de volumen con todos los datos históricos
+        updateVolumeProfile(historicalDataRef.current);
 
         console.log('Datos históricos cargados exitosamente');
       } else {
@@ -125,30 +130,40 @@ export default function Chart() {
     const maxPrice = Math.max(...prices);
     const priceRange = maxPrice - minPrice;
 
-    // Calcular un paso de precio dinámico (dividimos el rango en 100 niveles)
-    const priceStep = priceRange / 100;
-    console.log('Rendering volume profile with data:', {
-      data: data.slice(0, 1),
-      width: 80,
-      height: container.current?.clientHeight || 800
-    });
+    // Usar un número más alto de niveles para mayor granularidad
+    const numLevels = 200;
+    const priceStep = priceRange / numLevels;
 
     const volumeByPrice = new Map<number, number>();
+    let maxVolume = 0;
 
     // Acumular volumen por nivel de precio
     data.forEach(candle => {
-      const normalizedPrice = Math.floor(candle.close / priceStep) * priceStep;
+      const normalizedPrice = Math.round((candle.close - minPrice) / priceStep) * priceStep + minPrice;
       const currentVolume = volumeByPrice.get(normalizedPrice) || 0;
-      volumeByPrice.set(normalizedPrice, currentVolume + candle.volume);
+      const newVolume = currentVolume + candle.volume;
+      volumeByPrice.set(normalizedPrice, newVolume);
+      maxVolume = Math.max(maxVolume, newVolume);
     });
 
-    // Convertir a array y ordenar por precio
+    // Convertir a array y normalizar los volúmenes
     const profileData = Array.from(volumeByPrice.entries())
       .map(([price, volume]) => ({
         price: Number(price),
         volume: Number(volume),
+        normalizedVolume: volume / maxVolume // Normalizar para mejor visualización
       }))
-      .sort((a, b) => a.price - b.price);
+      .sort((a, b) => a.price - b.price)
+      .filter(item => item.volume > 0); // Eliminar niveles sin volumen
+
+    console.log('Volume Profile Data:', {
+      levels: profileData.length,
+      minPrice,
+      maxPrice,
+      priceStep,
+      maxVolume,
+      sampleData: profileData.slice(0, 3)
+    });
 
     setVolumeProfileData(profileData);
   };
@@ -226,6 +241,7 @@ export default function Chart() {
       chart.remove();
       chartRef.current = null;
       candlestickSeriesRef.current = null;
+      historicalDataRef.current = [];
     };
   }, [currentSymbol]);
 
@@ -264,7 +280,11 @@ export default function Chart() {
 
           console.log('Nueva vela recibida:', bar);
           candlestickSeriesRef.current.update(bar);
-          updateVolumeProfile([{ close: parseFloat(kline.c), volume: parseFloat(kline.v) }]);
+
+          // Actualizar los datos históricos y el perfil de volumen
+          const lastCandle = { close: parseFloat(kline.c), volume: parseFloat(kline.v) };
+          historicalDataRef.current = [...historicalDataRef.current.slice(-1499), lastCandle];
+          updateVolumeProfile(historicalDataRef.current);
         }
       } catch (error) {
         console.error('Error procesando mensaje:', error);
