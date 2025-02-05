@@ -63,8 +63,8 @@ export default function Chart() {
       console.log('Cargando datos históricos para:', formattedSymbol);
 
       const now = Date.now();
-      const oneHourAgo = now - (60 * 60 * 1000);
-      const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&startTime=${oneHourAgo}&endTime=${now}&limit=60`;
+      const oneDayAgo = now - (24 * 60 * 60 * 1000); // 24 horas de datos históricos
+      const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&startTime=${oneDayAgo}&endTime=${now}&limit=1440`;
 
       console.log('Fetching URL:', url);
       const response = await fetch(url);
