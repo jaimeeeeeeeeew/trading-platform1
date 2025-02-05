@@ -9,18 +9,6 @@ interface Bar {
   volume: number;
 }
 
-interface SubscribeMessage {
-  action: string;
-  subs: string[];
-}
-
-interface DataFeedConfiguration {
-  supported_resolutions: string[];
-  supports_marks: boolean;
-  supports_time: boolean;
-  supports_timescale_marks: boolean;
-}
-
 interface PriceData {
   symbol: string;
   price: number;
@@ -32,50 +20,71 @@ interface PriceData {
 export class TradingViewDataFeed {
   private ws: WebSocketClient | null = null;
   private subscribers: Map<string, (data: any) => void> = new Map();
-  private reconnectTimeout: number = 1000;
   private symbol: string;
   private lastBar: Bar | null = null;
-  private intervalId: NodeJS.Timeout | null = null;
+  private socket: WebSocket | null = null;
 
   constructor(symbol: string) {
     this.symbol = symbol;
+    console.log('🚀 Iniciando TradingView DataFeed para:', symbol);
     this.connect();
-    this.startSimulation(); // Temporalmente simulamos datos hasta tener acceso real a TradingView
   }
 
   private connect() {
-    // En un entorno real, aquí conectaríamos con TradingView
-    console.log('📈 Iniciando conexión simulada para:', this.symbol);
-  }
+    // Usar WebSocket de TradingView para datos en tiempo real
+    const wsUrl = 'wss://data.tradingview.com/socket.io/websocket';
 
-  private startSimulation() {
-    // Simulación de datos en tiempo real
-    let lastPrice = 45000 + Math.random() * 1000;
+    try {
+      this.socket = new WebSocket(wsUrl);
 
-    this.intervalId = setInterval(() => {
-      const change = (Math.random() - 0.5) * 100;
-      const newPrice = lastPrice + change;
-      const volume = Math.floor(Math.random() * 10 + 1);
-
-      const priceData: PriceData = {
-        symbol: this.symbol,
-        price: newPrice,
-        volume: volume,
-        high: Math.max(newPrice, lastPrice),
-        low: Math.min(newPrice, lastPrice)
+      this.socket.onopen = () => {
+        console.log('📡 Conexión WebSocket establecida');
+        this.subscribe();
       };
 
-      this.handleMessage({
-        type: 'price_update',
-        ...priceData
-      });
+      this.socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('📊 Datos recibidos:', data);
+          this.handleMessage(data);
+        } catch (error) {
+          console.error('Error procesando mensaje:', error);
+        }
+      };
 
-      lastPrice = newPrice;
-    }, 1000); // Actualizar cada segundo
+      this.socket.onerror = (error) => {
+        console.error('Error en WebSocket:', error);
+      };
+
+      this.socket.onclose = () => {
+        console.log('Conexión WebSocket cerrada');
+        // Reconectar después de un delay
+        setTimeout(() => this.connect(), 5000);
+      };
+
+    } catch (error) {
+      console.error('Error estableciendo conexión:', error);
+    }
+  }
+
+  private subscribe() {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket no está conectado');
+      return;
+    }
+
+    const subscribeMsg = {
+      action: "subscribe",
+      symbols: [this.symbol]
+    };
+
+    console.log('📝 Suscribiendo a:', this.symbol);
+    this.socket.send(JSON.stringify(subscribeMsg));
   }
 
   private handleMessage(data: any) {
     if (data.type === 'price_update') {
+      console.log('💹 Actualización de precio recibida:', data);
       this.notifySubscribers('price', {
         symbol: this.symbol,
         price: data.price,
@@ -87,6 +96,7 @@ export class TradingViewDataFeed {
   }
 
   public onPriceUpdate(callback: (data: PriceData) => void) {
+    console.log('✅ Registrando callback para actualizaciones de precio');
     this.subscribers.set('price', callback);
   }
 
@@ -98,17 +108,15 @@ export class TradingViewDataFeed {
   }
 
   public disconnect() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-    }
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
+    console.log('❌ Desconectando DataFeed');
+    if (this.socket) {
+      this.socket.close();
+      this.socket = null;
     }
     this.subscribers.clear();
   }
 
-  public getConfiguration(): DataFeedConfiguration {
+  public getConfiguration() {
     return {
       supported_resolutions: ['1', '5', '15', '30', '60', '240', 'D', 'W', 'M'],
       supports_marks: true,
