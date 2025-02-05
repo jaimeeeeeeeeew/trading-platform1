@@ -9,71 +9,38 @@ interface Props {
   }[];
   width: number;
   height: number;
-  visiblePriceRange?: {
+  priceScale: {
     min: number;
     max: number;
-  };
+  } | null;
   currentPrice: number;
 }
 
-export const VolumeProfile = ({ data, width, height, visiblePriceRange, currentPrice }: Props) => {
+export const VolumeProfile = ({ data, width, height, priceScale, currentPrice }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data.length) return;
-
-    // Mantener solo los datos que están dentro del rango visible
-    const groupedData = data.reduce((acc, item) => {
-      if (visiblePriceRange && 
-          (item.price < visiblePriceRange.min || item.price > visiblePriceRange.max)) {
-        return acc;
-      }
-
-      const roundedPrice = Math.round(item.price / 10) * 10;
-      const existingGroup = acc.find(g => g.price === roundedPrice);
-
-      if (existingGroup) {
-        existingGroup.volume += item.volume;
-        existingGroup.normalizedVolume = Math.max(existingGroup.normalizedVolume, item.normalizedVolume);
-      } else {
-        acc.push({
-          price: roundedPrice,
-          volume: item.volume,
-          normalizedVolume: item.normalizedVolume
-        });
-      }
-      return acc;
-    }, [] as typeof data);
+    if (!svgRef.current || !data.length || !priceScale) return;
 
     // Crear escalas
     const xScale = d3.scaleLinear()
       .domain([0, 1])
       .range([width, 0]);
 
-    // Usar el rango visible si está disponible, si no usar el rango completo de los datos
     const yScale = d3.scaleLinear()
-      .domain([
-        visiblePriceRange?.min || d3.min(groupedData, d => d.price) || 0,
-        visiblePriceRange?.max || d3.max(groupedData, d => d.price) || 0
-      ])
-      .range([height - 2, 2]);
+      .domain([priceScale.min, priceScale.max])
+      .range([height, 0]);
 
     // Seleccionar o crear SVG
     const svg = d3.select(svgRef.current)
       .attr('width', width)
-      .attr('height', height)
-      .style('overflow', 'visible');
+      .attr('height', height);
 
-    // Calcular altura de cada barra
-    const barHeight = Math.max(1, height / (visiblePriceRange ? 
-      (visiblePriceRange.max - visiblePriceRange.min) / 10 : groupedData.length));
+    // Limpiar SVG existente
+    svg.selectAll('*').remove();
 
-    // Actualizar barras existentes
-    const bars = svg.selectAll('rect')
-      .data(groupedData, (d: any) => d.price);
-
-    // Eliminar barras que ya no existen
-    bars.exit().remove();
+    // Crear grupo para las barras
+    const barGroup = svg.append('g');
 
     // Función para determinar el color de la barra
     const getBarColor = (price: number, normalizedVolume: number) => {
@@ -84,30 +51,23 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange, currentP
         : d3.interpolateRgb('#26a69a88', '#26a69a')(intensity);
     };
 
-    // Actualizar barras existentes
-    bars
-      .attr('y', d => yScale(d.price))
-      .attr('x', d => xScale(d.normalizedVolume))
-      .attr('height', barHeight)
-      .attr('width', d => width - xScale(d.normalizedVolume))
-      .attr('fill', d => getBarColor(d.price, d.normalizedVolume));
+    // Calcular altura mínima de barra basada en el rango de precios visible
+    const priceRange = priceScale.max - priceScale.min;
+    const minBarHeight = Math.max(1, height / (priceRange / 10));
 
-    // Añadir nuevas barras
-    bars.enter()
-      .append('rect')
-      .attr('y', d => yScale(d.price))
-      .attr('x', d => xScale(d.normalizedVolume))
-      .attr('height', barHeight)
-      .attr('width', d => width - xScale(d.normalizedVolume))
-      .attr('fill', d => getBarColor(d.price, d.normalizedVolume));
-
-    // Limpieza
-    return () => {
-      if (svgRef.current) {
-        d3.select(svgRef.current).selectAll('*').remove();
+    // Dibujar barras
+    data.forEach(d => {
+      if (d.price >= priceScale.min && d.price <= priceScale.max) {
+        barGroup.append('rect')
+          .attr('y', yScale(d.price))
+          .attr('x', xScale(d.normalizedVolume))
+          .attr('height', minBarHeight)
+          .attr('width', width - xScale(d.normalizedVolume))
+          .attr('fill', getBarColor(d.price, d.normalizedVolume));
       }
-    };
-  }, [data, width, height, visiblePriceRange, currentPrice]);
+    });
+
+  }, [data, width, height, priceScale, currentPrice]);
 
   return (
     <svg 
