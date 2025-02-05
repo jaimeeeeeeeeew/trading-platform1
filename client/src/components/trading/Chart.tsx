@@ -48,16 +48,53 @@ export default function Chart() {
     });
   };
 
+  // Cargar datos históricos iniciales de la API de Binance
+  const loadInitialData = async (symbol: string) => {
+    try {
+      const now = Date.now();
+      const oneHourAgo = now - (60 * 60 * 1000); // 1 hora de datos históricos
+      const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=1m&startTime=${oneHourAgo}&endTime=${now}&limit=60`;
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      const candlesticks = data.map((d: any) => ({
+        time: d[0] / 1000 as Time,
+        open: parseFloat(d[1]),
+        high: parseFloat(d[2]),
+        low: parseFloat(d[3]),
+        close: parseFloat(d[4]),
+        volume: parseFloat(d[5])
+      }));
+
+      if (candlestickSeriesRef.current) {
+        candlestickSeriesRef.current.setData(candlesticks);
+        updateVolumeProfile(candlesticks.map((c: any) => ({ 
+          close: c.close, 
+          volume: c.volume 
+        })));
+      }
+
+      console.log('Datos históricos cargados:', candlesticks.length, 'velas');
+    } catch (error) {
+      console.error('Error cargando datos históricos:', error);
+    }
+  };
+
   // Efecto para manejar la conexión del WebSocket y suscripción a datos
   useEffect(() => {
     if (!currentSymbol || !candlestickSeriesRef.current) return;
+
+    const symbol = currentSymbol.toLowerCase().replace(':', '').replace('perp', '');
+
+    // Cargar datos históricos primero
+    loadInitialData(symbol);
 
     // Limpiar conexión anterior
     if (wsRef.current) {
       wsRef.current.close();
     }
 
-    const symbol = currentSymbol.toLowerCase().replace(':', '').replace('perp', '');
     const wsUrl = `wss://fstream.binance.com/ws/${symbol}@kline_1m`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -81,8 +118,6 @@ export default function Chart() {
           };
 
           candlestickSeriesRef.current.update(bar);
-
-          // Actualizar perfil de volumen
           updateVolumeProfile([{ close: parseFloat(kline.c), volume: parseFloat(kline.v) }]);
         }
       } catch (error) {
@@ -92,6 +127,11 @@ export default function Chart() {
 
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
+      toast({
+        title: 'Connection Error',
+        description: 'Error connecting to market data',
+        variant: 'destructive',
+      });
     };
 
     ws.onclose = () => {
