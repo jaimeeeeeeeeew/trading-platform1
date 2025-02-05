@@ -28,11 +28,14 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
     // Crear escalas
     const xScale = d3.scaleLinear()
       .domain([0, 1]) // Usar valores normalizados
-      .range([0, width]);
+      .range([width, 0]); // Invertir el rango para que crezca hacia la izquierda
 
     const yScale = d3.scaleLinear()
       .domain([d3.min(data, d => d.price) || 0, d3.max(data, d => d.price) || 0])
       .range([height - 2, 2]); // Dejar un pequeño margen
+
+    // Obtener el precio actual (punto medio del rango)
+    const currentPrice = (d3.min(data, d => d.price)! + d3.max(data, d => d.price)!) / 2;
 
     // Crear SVG
     const svg = d3.select(svgRef.current)
@@ -48,15 +51,25 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
       .enter()
       .append('rect')
       .attr('y', d => yScale(d.price) - barHeight / 2)
-      .attr('x', 0)
+      .attr('x', d => xScale(d.normalizedVolume)) // Posicionar desde la derecha
       .attr('height', barHeight)
-      .attr('width', d => xScale(d.normalizedVolume))
+      .attr('width', d => width - xScale(d.normalizedVolume)) // Ancho ajustado para crecer hacia la izquierda
       .attr('fill', d => {
-        // Color más intenso para volúmenes más altos
+        // Color basado en la posición relativa al precio actual
+        const isAboveCurrent = d.price > currentPrice;
         const intensity = Math.pow(d.normalizedVolume, 0.5); // Ajustar la curva de intensidad
-        return d.normalizedVolume > 0 
-          ? d3.interpolateRgb('#26a69a33', '#26a69aee')(intensity)
-          : '#26a69a11'; // Color muy tenue para barras sin volumen
+
+        if (d.normalizedVolume === 0) {
+          return '#26262611'; // Color muy tenue para barras sin volumen
+        }
+
+        if (isAboveCurrent) {
+          // Rojo para precios por encima
+          return d3.interpolateRgb('#ef535033', '#ef5350ee')(intensity);
+        } else {
+          // Verde para precios por debajo
+          return d3.interpolateRgb('#26a69a33', '#26a69aee')(intensity);
+        }
       })
       .attr('opacity', d => d.normalizedVolume > 0 ? 0.8 : 0.3);
 
