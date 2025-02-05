@@ -26,8 +26,8 @@ type IntervalKey = keyof typeof INTERVALS;
 
 const generateSimulatedVolumeProfile = (currentPrice: number) => {
   const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-  // Generar datos centrados en el precio actual con un rango amplio
-  const range = currentPrice * 0.5; // 50% del precio actual para arriba y abajo
+  // Generar datos con un rango de ±15% desde el precio actual
+  const range = currentPrice * 0.15; // 15% del precio actual para arriba y abajo
   const minPrice = Math.floor((currentPrice - range) / 10) * 10;
   const maxPrice = Math.ceil((currentPrice + range) / 10) * 10;
   let maxVolume = 0;

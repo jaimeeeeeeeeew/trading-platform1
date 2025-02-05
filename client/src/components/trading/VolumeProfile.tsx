@@ -28,12 +28,11 @@ export const VolumeProfile = ({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data.length) return;
+    if (!svgRef.current || !data.length || !visiblePriceRange) return;
 
-    // Mantener solo los datos que están dentro del rango visible
+    // Filtrar y agrupar datos por niveles de precio de $10
     const groupedData = data.reduce((acc, item) => {
-      if (visiblePriceRange && 
-          (item.price < visiblePriceRange.min || item.price > visiblePriceRange.max)) {
+      if (item.price < visiblePriceRange.min || item.price > visiblePriceRange.max) {
         return acc;
       }
 
@@ -53,33 +52,37 @@ export const VolumeProfile = ({
       return acc;
     }, [] as typeof data);
 
-    const xScale = d3.scaleLinear()
-      .domain([0, 1])
-      .range([width, 0]);
-
-    // Usar la coordenada exacta del precio si está disponible
-    const yScale = d3.scaleLinear()
-      .domain([
-        visiblePriceRange?.min || d3.min(groupedData, d => d.price) || 0,
-        visiblePriceRange?.max || d3.max(groupedData, d => d.price) || 0
-      ])
-      .range([height - 2, 2]);
-
     const svg = d3.select(svgRef.current)
       .attr('width', width)
-      .attr('height', height)
-      .style('overflow', 'visible');
+      .attr('height', height);
 
-    // Calcular altura de cada barra
-    const barHeight = Math.max(1, height / (visiblePriceRange ? 
-      (visiblePriceRange.max - visiblePriceRange.min) / 10 : groupedData.length));
+    // Limpiar SVG antes de redibujar
+    svg.selectAll('*').remove();
 
-    // Actualizar barras existentes
-    const bars = svg.selectAll('rect')
-      .data(groupedData, (d: any) => d.price);
+    // Escalas
+    const xScale = d3.scaleLinear()
+      .domain([0, 1])
+      .range([0, width]);
 
-    // Eliminar barras que ya no existen
-    bars.exit().remove();
+    const yScale = d3.scaleLinear()
+      .domain([visiblePriceRange.min, visiblePriceRange.max])
+      .range([height - 2, 2]);
+
+    // Calcular altura de cada barra basada en el rango de precios visible
+    const priceRange = visiblePriceRange.max - visiblePriceRange.min;
+    const barHeight = Math.max(1, (height / priceRange) * 10); // 10 dólares por barra
+
+    // Función para calcular la posición Y de cada barra
+    const getBarY = (price: number) => {
+      if (priceCoordinate !== null && currentPrice) {
+        // Calcular el desplazamiento desde el precio actual
+        const priceOffset = price - currentPrice;
+        // Convertir el desplazamiento a píxeles usando la escala del gráfico
+        const pixelOffset = (priceOffset / priceRange) * height;
+        return priceCoordinate + pixelOffset;
+      }
+      return yScale(price);
+    };
 
     // Función para determinar el color de la barra
     const getBarColor = (price: number, normalizedVolume: number) => {
@@ -90,49 +93,28 @@ export const VolumeProfile = ({
         : d3.interpolateRgb('#26a69a88', '#26a69a')(intensity);
     };
 
-    // Actualizar barras existentes
-    bars
-      .attr('y', d => {
-        // Si tenemos la coordenada exacta del precio, la usamos para ajustar la posición
-        if (priceCoordinate !== null) {
-          const offset = d.price - currentPrice;
-          const yPos = priceCoordinate + (offset * (height / (visiblePriceRange?.max || 0 - visiblePriceRange?.min || 0)));
-          // Solo imprimir para la barra que está en el precio actual
-          if (Math.abs(d.price - currentPrice) < 5) {
-            console.log('Precio de la barra:', d.price);
-            console.log('Posición Y de la barra divisoria:', yPos);
-          }
-          return yPos;
-        }
-        return yScale(d.price);
-      })
-      .attr('x', d => xScale(d.normalizedVolume))
+    // Dibujar las barras
+    svg.selectAll('rect')
+      .data(groupedData)
+      .join('rect')
+      .attr('y', d => getBarY(d.price))
+      .attr('x', d => xScale(0))
       .attr('height', barHeight)
-      .attr('width', d => width - xScale(d.normalizedVolume))
-      .attr('fill', d => getBarColor(d.price, d.normalizedVolume));
+      .attr('width', d => width * d.normalizedVolume)
+      .attr('fill', d => getBarColor(d.price, d.normalizedVolume))
+      .attr('opacity', 0.8);
 
-    // Añadir nuevas barras
-    bars.enter()
-      .append('rect')
-      .attr('y', d => {
-        // Usar la misma lógica para las nuevas barras
-        if (priceCoordinate !== null) {
-          const offset = d.price - currentPrice;
-          return priceCoordinate + (offset * (height / (visiblePriceRange?.max || 0 - visiblePriceRange?.min || 0)));
-        }
-        return yScale(d.price);
-      })
-      .attr('x', d => xScale(d.normalizedVolume))
-      .attr('height', barHeight)
-      .attr('width', d => width - xScale(d.normalizedVolume))
-      .attr('fill', d => getBarColor(d.price, d.normalizedVolume));
+    // Añadir etiquetas de precio
+    svg.selectAll('text')
+      .data(groupedData)
+      .join('text')
+      .attr('x', 5)
+      .attr('y', d => getBarY(d.price) + barHeight / 2)
+      .attr('dy', '0.32em')
+      .attr('fill', '#ffffff')
+      .attr('font-size', '10px')
+      .text(d => d.price.toFixed(0));
 
-    // Limpieza
-    return () => {
-      if (svgRef.current) {
-        d3.select(svgRef.current).selectAll('*').remove();
-      }
-    };
   }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinate]);
 
   return (
