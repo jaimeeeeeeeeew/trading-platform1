@@ -73,10 +73,28 @@ export default function Chart() {
 
   const updatePriceCoordinate = () => {
     if (candlestickSeriesRef.current && currentChartPrice) {
-      const coordinate = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
-      setPriceCoordinate(coordinate);
-      console.log('Precio actual:', currentChartPrice);
-      console.log('Coordenada Y del precio:', coordinate);
+      try {
+        const coordinate = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
+        setPriceCoordinate(coordinate);
+        console.log('Coordenadas del precio:', {
+          precio: currentChartPrice,
+          coordenadaY: coordinate,
+          tieneSerieRef: !!candlestickSeriesRef.current,
+          tieneData: !!candlestickSeriesRef.current?.data()
+        });
+      } catch (error) {
+        console.error('Error al obtener coordenada del precio:', error);
+        console.error('Estado actual:', {
+          currentPrice,
+          hasSeriesRef: !!candlestickSeriesRef.current,
+        });
+      }
+    } else {
+      console.log('No se puede actualizar coordenada:', {
+        tieneSerieRef: !!candlestickSeriesRef.current,
+        tienePrecio: !!currentChartPrice,
+        precioActual: currentChartPrice
+      });
     }
   };
 
