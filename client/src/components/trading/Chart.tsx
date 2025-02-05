@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { ZoomIn } from 'lucide-react';
@@ -47,139 +47,113 @@ export default function Chart() {
   useEffect(() => {
     if (!container.current) return;
 
-    try {
-      const chart = createChart(container.current, {
-        layout: {
-          background: { color: '#151924' },
-          textColor: '#DDD',
+    const chart = createChart(container.current, {
+      layout: {
+        background: { color: '#151924' },
+        textColor: '#DDD',
+      },
+      grid: {
+        vertLines: { color: '#1e222d' },
+        horzLines: { color: '#1e222d' },
+      },
+      crosshair: {
+        mode: 1,
+        vertLine: {
+          color: '#6B7280',
+          width: 1,
+          style: 1,
+          labelBackgroundColor: '#1e222d',
         },
-        grid: {
-          vertLines: { color: '#1e222d' },
-          horzLines: { color: '#1e222d' },
+        horzLine: {
+          color: '#6B7280',
+          width: 1,
+          style: 1,
+          labelBackgroundColor: '#1e222d',
         },
-        crosshair: {
-          mode: 1,
-          vertLine: {
-            color: '#6B7280',
-            width: 1,
-            style: 1,
-            labelBackgroundColor: '#1e222d',
-          },
-          horzLine: {
-            color: '#6B7280',
-            width: 1,
-            style: 1,
-            labelBackgroundColor: '#1e222d',
-          },
-        },
-        timeScale: {
-          borderColor: '#1e222d',
-          timeVisible: true,
-          secondsVisible: false,
-        },
-        rightPriceScale: {
-          borderColor: '#1e222d',
-        },
+      },
+      timeScale: {
+        borderColor: '#1e222d',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      rightPriceScale: {
+        borderColor: '#1e222d',
+      },
+    });
+
+    chartRef.current = chart;
+
+    // Candlestick series
+    const candlestickSeries = chart.addCandlestickSeries({
+      upColor: '#26a69a',
+      downColor: '#ef5350',
+      borderVisible: false,
+      wickUpColor: '#26a69a',
+      wickDownColor: '#ef5350',
+    });
+
+    // Sample data generation
+    const sampleData = [];
+    const startTime = new Date('2023-01-01').getTime();
+    let lastClose = 45000;
+    const dailyData = 365;
+
+    for (let i = 0; i < dailyData; i++) {
+      const time = startTime + i * 24 * 60 * 60 * 1000;
+      const volatility = (Math.random() * 0.03) * lastClose;
+      const trend = Math.sin(i / 30) * 0.001;
+
+      const open = lastClose;
+      const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend);
+      const high = Math.max(open, close) * (1 + Math.random() * 0.01);
+      const low = Math.min(open, close) * (1 - Math.random() * 0.01);
+      const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
+
+      sampleData.push({
+        time: new Date(time).toISOString().split('T')[0],
+        open,
+        high,
+        low,
+        close,
+        volume,
       });
 
-      chartRef.current = chart;
-
-      // Candlestick series
-      const candlestickSeries = chart.addCandlestickSeries({
-        upColor: '#26a69a',
-        downColor: '#ef5350',
-        borderVisible: false,
-        wickUpColor: '#26a69a',
-        wickDownColor: '#ef5350',
-      });
-
-      // Sample data generation
-      const sampleData = [];
-      const startTime = new Date('2023-01-01').getTime();
-      let lastClose = 45000;
-      const dailyData = 365;
-
-      for (let i = 0; i < dailyData; i++) {
-        const time = startTime + i * 24 * 60 * 60 * 1000;
-        const volatility = (Math.random() * 0.03) * lastClose;
-        const trend = Math.sin(i / 30) * 0.001;
-
-        const open = lastClose;
-        const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend);
-        const high = Math.max(open, close) * (1 + Math.random() * 0.01);
-        const low = Math.min(open, close) * (1 - Math.random() * 0.01);
-        const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
-
-        sampleData.push({
-          time,
-          open,
-          high,
-          low,
-          close,
-          volume,
-        });
-
-        lastClose = close;
-      }
-
-      candlestickSeries.setData(sampleData);
-
-      // Crear perfil de volumen
-      const volumeProfile = chart.addHistogramSeries({
-        priceFormat: {
-          type: 'volume',
-        },
-        priceScaleId: 'volume',
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.1,
-        },
-      });
-
-      // Calcular perfil de volumen
-      const priceStep = 100; // Tamaño del intervalo de precio
-      const volumeByPrice = new Map();
-
-      sampleData.forEach(candle => {
-        const price = Math.floor(candle.close / priceStep) * priceStep;
-        const currentVolume = volumeByPrice.get(price) || 0;
-        volumeByPrice.set(price, currentVolume + candle.volume);
-      });
-
-      // Convertir a formato para el gráfico
-      const volumeProfileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
-        time: sampleData[sampleData.length - 1].time,
-        value: volume,
-        color: 'rgba(76, 175, 80, 0.5)'
-      }));
-
-      volumeProfile.setData(volumeProfileData);
-
-      const handleResize = () => {
-        const { width, height } = container.current!.getBoundingClientRect();
-        chart.applyOptions({
-          width,
-          height,
-        });
-        chart.timeScale().fitContent();
-      };
-
-      handleResize();
-      window.addEventListener('resize', handleResize);
-
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        chart.remove();
-        chartRef.current = null;
-      };
-    } catch (error) {
-      console.error('Error creating chart:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to initialize chart',
-        variant: 'destructive'
-      });
+      lastClose = close;
     }
+
+    candlestickSeries.setData(sampleData);
+
+    // Histograma de volumen simple
+    const volumeSeries = chart.addHistogramSeries({
+      color: 'rgba(76, 175, 80, 0.5)',
+      base: 0,
+    });
+
+    // Datos de volumen
+    const volumeData = sampleData.map(d => ({
+      time: d.time,
+      value: d.volume,
+    }));
+
+    volumeSeries.setData(volumeData);
+
+    const handleResize = () => {
+      const { width, height } = container.current!.getBoundingClientRect();
+      chart.applyOptions({
+        width,
+        height,
+      });
+      chart.timeScale().fitContent();
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+      chartRef.current = null;
+    };
   }, [currentSymbol, interval]);
 
   return (
