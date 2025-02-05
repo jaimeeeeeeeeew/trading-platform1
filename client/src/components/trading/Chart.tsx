@@ -204,14 +204,7 @@ export default function Chart() {
             min: minPrice - padding,
             max: maxPrice + padding
           },
-          containerHeight: container.current?.clientHeight,
-          // Agregar información sobre la escala de precios
-          priceScale: {
-            height: priceScale.height(),
-            min: priceScale.coordinateToPrice(priceScale.height()),
-            max: priceScale.coordinateToPrice(0),
-            pixelsPerPrice: priceScale.height() / (maxPrice - minPrice)
-          }
+          containerHeight: container.current?.clientHeight
         });
       }
     } catch (error) {
@@ -415,12 +408,6 @@ export default function Chart() {
               visiblePriceRange={visiblePriceRange}
               currentPrice={currentChartPrice}
               priceCoordinate={priceCoordinate}
-              priceScale={{
-                height: container.current.clientHeight,
-                min: visiblePriceRange?.min || 0,
-                max: visiblePriceRange?.max || 0,
-                pixelsPerPrice: container.current.clientHeight / (visiblePriceRange ? visiblePriceRange.max - visiblePriceRange.min : 1)
-              }}
             />
           </div>
         )}
