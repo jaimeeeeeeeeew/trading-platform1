@@ -9,16 +9,26 @@ interface Props {
   }[];
   width: number;
   height: number;
+  visiblePriceRange?: {
+    min: number;
+    max: number;
+  };
 }
 
-export const VolumeProfile = ({ data, width, height }: Props) => {
+export const VolumeProfile = ({ data, width, height, visiblePriceRange }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
     if (!svgRef.current || !data.length) return;
 
-    // Agrupar datos por intervalos de $10
+    // Agrupar datos por intervalos de $10 y filtrar por rango visible
     const groupedData = data.reduce((acc, item) => {
+      // Solo incluir datos dentro del rango visible si está definido
+      if (visiblePriceRange && 
+          (item.price < visiblePriceRange.min || item.price > visiblePriceRange.max)) {
+        return acc;
+      }
+
       const roundedPrice = Math.round(item.price / 10) * 10;
       const existingGroup = acc.find(g => g.price === roundedPrice);
 
@@ -42,8 +52,8 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
 
     const yScale = d3.scaleLinear()
       .domain([
-        d3.min(groupedData, d => d.price) || 0,
-        d3.max(groupedData, d => d.price) || 0
+        visiblePriceRange?.min || d3.min(groupedData, d => d.price) || 0,
+        visiblePriceRange?.max || d3.max(groupedData, d => d.price) || 0
       ])
       .range([height - 2, 2]);
 
@@ -56,7 +66,8 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
       .style('overflow', 'visible');
 
     // Calcular altura de cada barra
-    const barHeight = Math.max(2, height / groupedData.length);
+    const barHeight = Math.max(2, height / (visiblePriceRange ? 
+      (visiblePriceRange.max - visiblePriceRange.min) / 10 : groupedData.length));
 
     // Actualizar barras existentes
     const bars = svg.selectAll('rect')
@@ -99,7 +110,7 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
         d3.select(svgRef.current).selectAll('*').remove();
       }
     };
-  }, [data, width, height]);
+  }, [data, width, height, visiblePriceRange]);
 
   return (
     <svg 

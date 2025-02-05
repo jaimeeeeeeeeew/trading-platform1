@@ -139,47 +139,31 @@ export default function Chart() {
   };
 
   const updateVisiblePriceRange = () => {
-    if (!chartRef.current) {
-      console.log("Chart ref no disponible");
-      return;
-    }
+    if (!chartRef.current) return;
 
     try {
       const priceScale = chartRef.current.priceScale('right');
-      if (!priceScale) {
-        console.log("Price scale no disponible");
-        return;
-      }
+      if (!priceScale) return;
 
       const visibleLogicalRange = priceScale.getVisibleLogicalRange();
-      if (!visibleLogicalRange) {
-        console.log("Rango lógico visible no disponible");
-        return;
-      }
+      if (!visibleLogicalRange) return;
 
       // Obtener el rango visible de precios del último conjunto de datos
       const visibleData = candlestickSeriesRef.current?.data() || [];
       const currentTime = chartRef.current.timeScale().getVisibleLogicalRange();
 
-      if (!currentTime) {
-        console.log("Rango de tiempo no disponible");
-        return;
-      }
+      if (!currentTime) return;
 
-      const visiblePoints = visibleData.filter(point => 
+      const visiblePoints = visibleData.filter((point: any) => 
         point.time >= currentTime.from && point.time <= currentTime.to
       );
 
-      if (visiblePoints.length === 0) {
-        console.log("No hay puntos visibles");
-        return;
-      }
+      if (visiblePoints.length === 0) return;
 
-      const prices = visiblePoints.map(point => [point.high, point.low]).flat();
+      const prices = visiblePoints.map((point: any) => [point.high, point.low]).flat();
       const minPrice = Math.min(...prices);
       const maxPrice = Math.max(...prices);
 
-      console.log('Rango de precios actualizado:', { minPrice, maxPrice, visiblePoints: visiblePoints.length });
       setVisiblePriceRange({ min: minPrice, max: maxPrice });
     } catch (error) {
       console.error('Error al actualizar el rango de precios visible:', error);
@@ -383,6 +367,7 @@ export default function Chart() {
               data={volumeProfileData}
               width={120}
               height={container.current.clientHeight}
+              visiblePriceRange={visiblePriceRange}
             />
           </div>
         )}
