@@ -122,7 +122,7 @@ export default function Chart() {
       const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
 
       sampleData.push({
-        time: new Date(time).toISOString().split('T')[0],
+        time: Math.floor(time / 1000),  // Convertir a segundos
         open,
         high,
         low,
@@ -135,7 +135,7 @@ export default function Chart() {
 
     candlestickSeries.setData(sampleData);
 
-    // Crear serie para el perfil de volumen
+    // Crear serie para el perfil de volumen en el lado izquierdo
     const volumeProfile = chart.addHistogramSeries({
       priceScaleId: 'left',
       base: 0,
@@ -143,7 +143,7 @@ export default function Chart() {
       lastValueVisible: false,
     });
 
-    // Calcular datos para el perfil de volumen
+    // Usar los datos de volumen existentes de sampleData
     const priceStep = 100;
     const volumeByPrice = new Map();
 
@@ -153,12 +153,13 @@ export default function Chart() {
       volumeByPrice.set(price, currentVolume + candle.volume);
     });
 
-    // Convertir a formato para el histograma
-    const volumeProfileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
-      time: sampleData[sampleData.length - 1].time,
-      value: volume,
-      price,
-    }));
+    // Convertir a formato para el histograma, asegurando timestamps únicos y ordenados
+    const volumeProfileData = Array.from(volumeByPrice.entries())
+      .map(([price, volume], index) => ({
+        time: sampleData[0].time + index,  // Usar timestamps incrementales -  This is still not ideal, ideally unique timestamps should be from the data itself.
+        value: volume,
+      }))
+      .sort((a, b) => a.time - b.time);  // Ordenar por timestamp
 
     volumeProfile.setData(volumeProfileData);
 
