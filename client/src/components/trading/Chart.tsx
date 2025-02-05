@@ -93,6 +93,7 @@ export default function Chart() {
 
       chartRef.current = chart;
 
+      // Crear serie de velas
       const candlestickSeries = chart.addCandlestickSeries({
         upColor: '#26a69a',
         downColor: '#ef5350',
@@ -108,7 +109,7 @@ export default function Chart() {
       const dailyData = 365;
 
       for (let i = 0; i < dailyData; i++) {
-        const time = new Date(startTime + i * 24 * 60 * 60 * 1000);
+        const time = startTime + i * 24 * 60 * 60 * 1000;
         const volatility = (Math.random() * 0.03) * lastClose;
         const trend = Math.sin(i / 30) * 0.001;
 
@@ -119,7 +120,7 @@ export default function Chart() {
         const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
 
         sampleData.push({
-          time: time.toISOString().split('T')[0],
+          time,
           open,
           high,
           low,
@@ -132,38 +133,34 @@ export default function Chart() {
 
       candlestickSeries.setData(sampleData);
 
-      // Configurar histograma de volumen horizontal
-      const volumeProfileSeries = chart.addHistogramSeries({
-        color: 'rgba(38, 166, 154, 0.3)',
-        base: 0,
-        overlay: true,
-        priceFormat: {
-          type: 'volume',
-        },
-        direction: 'left',
-        priceLineVisible: false,
-        lastValueVisible: false,
-        priceScaleId: '',
-      });
+      try {
+        // Configurar histograma de volumen
+        const volumeSeries = chart.addHistogramSeries({
+          priceFormat: {
+            type: 'volume',
+          },
+          priceScaleId: 'overlay',
+          base: 0,
+          overlay: true,
+          color: 'rgba(38, 166, 154, 0.3)',
+        });
 
-      // Calcular volumen por nivel de precio
-      const priceStep = 100;
-      const volumeByPrice = new Map<number, number>();
-      const lastTime = sampleData[sampleData.length - 1].time;
+        // Calcular y establecer datos de volumen
+        const volumeData = sampleData.map(d => ({
+          time: d.time,
+          value: d.volume,
+          color: 'rgba(38, 166, 154, 0.3)',
+        }));
 
-      sampleData.forEach(candle => {
-        const priceLevel = Math.round(candle.close / priceStep) * priceStep;
-        volumeByPrice.set(priceLevel, (volumeByPrice.get(priceLevel) || 0) + candle.volume);
-      });
-
-      // Convertir datos para el histograma horizontal
-      const volumeProfileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
-        time: lastTime,
-        value: volume,
-        color: 'rgba(38, 166, 154, 0.3)',
-      }));
-
-      volumeProfileSeries.setData(volumeProfileData);
+        volumeSeries.setData(volumeData);
+      } catch (volumeError) {
+        console.error('Error al crear el perfil de volumen:', volumeError);
+        toast({
+          title: 'Warning',
+          description: 'Volume profile could not be initialized',
+          variant: 'destructive'
+        });
+      }
 
       const handleResize = () => {
         const { width, height } = container.current!.getBoundingClientRect();
@@ -175,7 +172,6 @@ export default function Chart() {
       };
 
       handleResize();
-
       window.addEventListener('resize', handleResize);
 
       return () => {
