@@ -1,5 +1,12 @@
 import { useEffect, useRef } from 'react';
-import { createChart, ColorType, CandlestickData, HistogramData } from 'lightweight-charts';
+import { 
+  createChart,
+  IChartApi,
+  ISeriesApi,
+  CandlestickData,
+  HistogramData,
+  ColorType
+} from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { TradingViewDataFeed } from '@/lib/tradingview-feed';
@@ -15,7 +22,7 @@ interface Bar {
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
-  const chart = useRef<ReturnType<typeof createChart> | null>(null);
+  const chart = useRef<IChartApi | null>(null);
   const dataFeed = useRef<TradingViewDataFeed | null>(null);
   const { currentSymbol, updatePriceRange, updateTimeRange } = useTrading();
   const { toast } = useToast();
@@ -23,7 +30,7 @@ export default function Chart() {
   useEffect(() => {
     if (!container.current) return;
 
-    // Create the chart with default configuration
+    // Create the chart instance
     const chartInstance = createChart(container.current, {
       width: container.current.clientWidth,
       height: container.current.clientHeight,
@@ -50,8 +57,7 @@ export default function Chart() {
     dataFeed.current = new TradingViewDataFeed(currentSymbol);
 
     // Create candlestick series
-    const mainSeries = chartInstance.addCandlestickSeries();
-    mainSeries.applyOptions({
+    const mainSeries = chartInstance.addCandlestickSeries({
       upColor: '#26a69a',
       downColor: '#ef5350',
       borderVisible: false,
@@ -108,14 +114,14 @@ export default function Chart() {
     });
 
     // Handle time range changes
-    chartInstance.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (range) {
+    chartInstance.timeScale().subscribeCrosshairMove((param) => {
+      if (param) {
         const timeRange = chartInstance.timeScale().getVisibleRange();
         if (timeRange) {
           updateTimeRange({
-            from: new Date(timeRange.from * 1000),
-            to: new Date(timeRange.to * 1000),
-            interval: range.to - range.from > 200 ? 'D' : '1'
+            from: new Date(timeRange.from as number * 1000),
+            to: new Date(timeRange.to as number * 1000),
+            interval: '1'
           });
         }
       }
