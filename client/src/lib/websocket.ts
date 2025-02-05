@@ -7,6 +7,76 @@ interface WebSocketOptions {
   retryDelay?: number;
 }
 
+export class WebSocketClient {
+  private ws: WebSocket | null = null;
+  private url: string;
+  private onOpenCallback: (() => void) | null = null;
+  private onMessageCallback: ((data: string) => void) | null = null;
+  private onCloseCallback: (() => void) | null = null;
+  private onErrorCallback: ((error: Event) => void) | null = null;
+
+  constructor(url: string) {
+    this.url = url;
+    this.connect();
+  }
+
+  private connect() {
+    try {
+      this.ws = new WebSocket(this.url);
+
+      this.ws.addEventListener('open', () => {
+        this.onOpenCallback?.();
+      });
+
+      this.ws.addEventListener('message', (event) => {
+        this.onMessageCallback?.(event.data);
+      });
+
+      this.ws.addEventListener('close', () => {
+        this.onCloseCallback?.();
+      });
+
+      this.ws.addEventListener('error', (error) => {
+        this.onErrorCallback?.(error);
+      });
+
+    } catch (error) {
+      console.error('Error al crear conexión WebSocket:', error);
+    }
+  }
+
+  public send(data: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(data);
+    } else {
+      console.error('WebSocket no está conectado');
+    }
+  }
+
+  public onOpen(callback: () => void) {
+    this.onOpenCallback = callback;
+  }
+
+  public onMessage(callback: (data: string) => void) {
+    this.onMessageCallback = callback;
+  }
+
+  public onClose(callback: () => void) {
+    this.onCloseCallback = callback;
+  }
+
+  public onError(callback: (error: Event) => void) {
+    this.onErrorCallback = callback;
+  }
+
+  public close() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+  }
+}
+
 export function useWebSocket({
   onError,
   enabled = true,
@@ -27,7 +97,6 @@ export function useWebSocket({
 
     const connect = () => {
       try {
-        // Usar el protocolo correcto basado en la página
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws`;
 
@@ -58,12 +127,11 @@ export function useWebSocket({
 
         ws.addEventListener('error', (error) => {
           console.error('Error de WebSocket:', error);
-          // No cerrar la conexión aquí, dejar que el evento 'close' maneje la reconexión
         });
 
         ws.addEventListener('message', (event) => {
           try {
-            JSON.parse(event.data); // Validar que los datos son JSON válido
+            JSON.parse(event.data);
             console.log('Datos recibidos correctamente');
           } catch (error) {
             console.error('Error al procesar datos recibidos:', error);
