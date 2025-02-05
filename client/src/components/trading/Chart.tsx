@@ -81,9 +81,12 @@ export default function Chart() {
       rightPriceScale: {
         borderColor: '#1e222d',
         scaleMargins: {
-          top: 0.1,
-          bottom: 0.1,
+          top: 0.35, // Aumentamos el margen superior
+          bottom: 0.35, // Aumentamos el margen inferior para centrar el precio
         },
+        alignLabels: true,
+        autoScale: true,
+        mode: 1, // Modo logarítmico para mejor visualización
       },
       leftPriceScale: {
         visible: true,
@@ -99,6 +102,11 @@ export default function Chart() {
       borderVisible: false,
       wickUpColor: '#26a69a',
       wickDownColor: '#ef5350',
+      priceFormat: {
+        type: 'price',
+        precision: 2,
+        minMove: 0.01,
+      },
     });
 
     // Generar datos de muestra
@@ -147,17 +155,23 @@ export default function Chart() {
       volume: Number(volume),
     }));
 
-    console.log("Generated volume profile data:", profileData);
     setVolumeProfileData(profileData);
 
     const handleResize = () => {
       if (!container.current) return;
       const { width, height } = container.current.getBoundingClientRect();
-      console.log("Container dimensions:", { width, height });
       chart.applyOptions({
         width,
         height,
+        rightPriceScale: {
+          ...chart.options().rightPriceScale,
+          scaleMargins: {
+            top: 0.35,
+            bottom: 0.35,
+          },
+        },
       });
+      // Centramos el contenido después de cada resize
       chart.timeScale().fitContent();
     };
 
