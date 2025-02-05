@@ -190,7 +190,7 @@ export default function Chart() {
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
         <div 
-          className="absolute right-12 top-0 h-full" 
+          className="absolute right-20 top-0 h-full" 
           style={{ 
             width: '80px',
             zIndex: 2,
