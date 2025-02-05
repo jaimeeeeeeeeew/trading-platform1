@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, IChartApi, ChartOptions, DeepPartial } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { TradingViewDataFeed } from '@/lib/tradingview-feed';
@@ -15,7 +15,7 @@ interface Bar {
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
-  const chart = useRef<ReturnType<typeof createChart> | null>(null);
+  const chart = useRef<IChartApi | null>(null);
   const dataFeed = useRef<TradingViewDataFeed | null>(null);
   const { currentSymbol, updatePriceRange, updateTimeRange } = useTrading();
   const { toast } = useToast();
@@ -23,8 +23,8 @@ export default function Chart() {
   useEffect(() => {
     if (!container.current) return;
 
-    // Initialize Chart
-    chart.current = createChart(container.current, {
+    // Initialize Chart with proper type
+    const chartOptions: DeepPartial<ChartOptions> = {
       width: container.current.clientWidth,
       height: container.current.clientHeight,
       layout: {
@@ -42,13 +42,16 @@ export default function Chart() {
         timeVisible: true,
         secondsVisible: false,
       },
-    });
+    };
+
+    chart.current = createChart(container.current, chartOptions);
 
     // Initialize DataFeed
     dataFeed.current = new TradingViewDataFeed(currentSymbol);
 
-    // Create main series
+    // Create main series (without initial options)
     const candleSeries = chart.current.addCandlestickSeries();
+    // Apply options after creation
     candleSeries.applyOptions({
       upColor: '#26a69a',
       downColor: '#ef5350',
