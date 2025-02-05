@@ -49,35 +49,11 @@ export default function Chart() {
     });
   };
 
-  // Calculate volume profile data
-  const calculateVolumeProfile = (data: any[], priceStep: number = 100) => {
-    const volumeByPrice: Map<number, number> = new Map();
-    let minPrice = Infinity;
-    let maxPrice = -Infinity;
-
-    // Aggregate volume by price levels
-    data.forEach(candle => {
-      const price = Math.round(candle.close / priceStep) * priceStep;
-      const currentVolume = volumeByPrice.get(price) || 0;
-      volumeByPrice.set(price, currentVolume + (candle.volume || 1000));
-      minPrice = Math.min(minPrice, candle.low);
-      maxPrice = Math.max(maxPrice, candle.high);
-    });
-
-    // Convert to array and sort by price
-    const volumeProfile: VolumeProfileBar[] = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
-      price,
-      volume,
-    }));
-
-    return { volumeProfile, minPrice, maxPrice };
-  };
 
   useEffect(() => {
     if (!container.current) return;
 
     try {
-      // Create chart instance with dark theme
       const chart = createChart(container.current, {
         layout: {
           background: { color: '#151924' },
@@ -121,10 +97,8 @@ export default function Chart() {
         },
       });
 
-      // Save chart reference for the auto-fit button
       chartRef.current = chart;
 
-      // Create candlestick series
       const candlestickSeries = chart.addCandlestickSeries({
         upColor: '#26a69a',
         downColor: '#ef5350',
@@ -133,19 +107,6 @@ export default function Chart() {
         wickDownColor: '#ef5350',
       });
 
-      // Create volume profile series
-      const volumeProfileSeries = chart.addHistogramSeries({
-        priceFormat: {
-          type: 'price',
-        },
-        base: 0,
-        overlay: true,
-        priceLineVisible: false,
-        lastValueVisible: false,
-        color: 'rgba(38, 166, 154, 0.3)',
-      });
-
-      // Generate sample data
       const sampleData = [];
       const startTime = new Date('2023-01-01').getTime();
       let lastClose = 45000;
@@ -163,7 +124,7 @@ export default function Chart() {
         const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
 
         sampleData.push({
-          time: time.toISOString().split('T')[0],
+          time: time.getTime(), 
           open,
           high,
           low,
@@ -174,20 +135,41 @@ export default function Chart() {
         lastClose = close;
       }
 
-      // Set candlestick data
       candlestickSeries.setData(sampleData);
 
-      // Calculate and set volume profile data
-      const { volumeProfile } = calculateVolumeProfile(sampleData);
-      const volumeProfileData = volumeProfile.map(({ price, volume }) => ({
-        time: sampleData[sampleData.length - 1].time,
-        value: volume,
+      // Create volume profile series
+      const volumeProfileSeries = chart.addHistogramSeries({
+        base: 0,
+        overlay: true,
+        priceFormat: {
+          type: 'price',
+        },
+        priceLineVisible: false,
+        lastValueVisible: false,
         color: 'rgba(38, 166, 154, 0.3)',
-      }));
+      });
 
+      // Calculate volume profile
+      const priceStep = 100; 
+      const volumeByPrice = new Map<number, number>();
+
+      sampleData.forEach(candle => {
+        const price = Math.round(candle.close / priceStep) * priceStep;
+        volumeByPrice.set(price, (volumeByPrice.get(price) || 0) + candle.volume);
+      });
+
+      // Create volume profile data
+      const volumeProfileData = Array.from(volumeByPrice.entries())
+        .map(([price, volume]) => ({
+          time: sampleData[sampleData.length - 1].time,
+          value: volume,
+          color: 'rgba(38, 166, 154, 0.3)',
+        }));
+
+      // Set volume profile data
       volumeProfileSeries.setData(volumeProfileData);
 
-      // Handle window resizing
+
       const handleResize = () => {
         const { width, height } = container.current!.getBoundingClientRect();
         chart.applyOptions({
@@ -197,10 +179,8 @@ export default function Chart() {
         chart.timeScale().fitContent();
       };
 
-      // Initial size and fit
       handleResize();
 
-      // Listen for resize events
       window.addEventListener('resize', handleResize);
 
       return () => {
