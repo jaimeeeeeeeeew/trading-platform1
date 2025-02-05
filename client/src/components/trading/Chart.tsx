@@ -48,26 +48,41 @@ export default function Chart() {
     });
   };
 
+  // Función para formatear el símbolo para la API de Binance
+  const formatSymbolForBinance = (symbol: string) => {
+    return symbol
+      .toUpperCase()
+      .replace('BINANCE:', '')
+      .replace('PERP', '');
+  };
+
   // Cargar datos históricos iniciales de la API de Binance
   const loadInitialData = async (symbol: string) => {
     try {
-      console.log('Cargando datos históricos para:', symbol);
+      const formattedSymbol = formatSymbolForBinance(symbol);
+      console.log('Cargando datos históricos para:', formattedSymbol);
+
       const now = Date.now();
-      const oneHourAgo = now - (60 * 60 * 1000); // 1 hora de datos históricos
-      const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=1m&startTime=${oneHourAgo}&endTime=${now}&limit=60`;
+      const oneHourAgo = now - (60 * 60 * 1000);
+      const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&startTime=${oneHourAgo}&endTime=${now}&limit=60`;
 
       console.log('Fetching URL:', url);
       const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       console.log('Datos recibidos:', data.length, 'velas');
 
-      if (!candlestickSeriesRef.current) {
-        console.error('candlestickSeries no está inicializado');
+      if (!Array.isArray(data)) {
+        console.error('Los datos recibidos no son un array:', data);
         return;
       }
 
       const candlesticks = data.map((d: any) => ({
-        time: d[0] / 1000 as Time,
+        time: Math.floor(d[0] / 1000) as Time,
         open: parseFloat(d[1]),
         high: parseFloat(d[2]),
         low: parseFloat(d[3]),
@@ -78,15 +93,19 @@ export default function Chart() {
       console.log('Primer candlestick:', candlesticks[0]);
       console.log('Último candlestick:', candlesticks[candlesticks.length - 1]);
 
-      candlestickSeriesRef.current.setData(candlesticks);
-      handleAutoFit();
+      if (candlestickSeriesRef.current && candlesticks.length > 0) {
+        candlestickSeriesRef.current.setData(candlesticks);
+        handleAutoFit();
 
-      updateVolumeProfile(candlesticks.map((c: any) => ({ 
-        close: c.close, 
-        volume: c.volume 
-      })));
+        updateVolumeProfile(candlesticks.map(c => ({ 
+          close: c.close, 
+          volume: c.volume 
+        })));
 
-      console.log('Datos históricos cargados y establecidos en el gráfico');
+        console.log('Datos históricos cargados exitosamente');
+      } else {
+        console.error('candlestickSeries no está listo o no hay datos para cargar');
+      }
     } catch (error) {
       console.error('Error cargando datos históricos:', error);
       toast({
@@ -97,11 +116,30 @@ export default function Chart() {
     }
   };
 
+  // Actualizar el perfil de volumen
+  const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
+    const priceStep = 100;
+    const volumeByPrice = new Map();
+
+    data.forEach(candle => {
+      const price = Math.floor(candle.close / priceStep) * priceStep;
+      const currentVolume = volumeByPrice.get(price) || 0;
+      volumeByPrice.set(price, currentVolume + candle.volume);
+    });
+
+    const profileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
+      price: Number(price),
+      volume: Number(volume),
+    }));
+
+    setVolumeProfileData(profileData);
+  };
+
   // Inicializar el gráfico
   useEffect(() => {
-    if (!container.current) return;
+    if (!container.current || !currentSymbol) return;
 
-    console.log('Inicializando gráfico');
+    console.log('Inicializando gráfico para:', currentSymbol);
     const chart = createChart(container.current, {
       layout: {
         background: { color: '#151924' },
@@ -152,11 +190,8 @@ export default function Chart() {
 
     candlestickSeriesRef.current = candlestickSeries;
 
-    // Una vez que el gráfico está listo, cargamos los datos iniciales
-    if (currentSymbol) {
-      const symbol = currentSymbol.toLowerCase().replace(':', '').replace('perp', '');
-      loadInitialData(symbol);
-    }
+    // Cargar datos históricos después de inicializar el gráfico
+    loadInitialData(currentSymbol);
 
     const handleResize = () => {
       if (!container.current) return;
@@ -174,40 +209,20 @@ export default function Chart() {
       chartRef.current = null;
       candlestickSeriesRef.current = null;
     };
-  }, [currentSymbol]); // Añadimos currentSymbol como dependencia
-
-  // Actualizar el perfil de volumen
-  const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
-    const priceStep = 100;
-    const volumeByPrice = new Map();
-
-    data.forEach(candle => {
-      const price = Math.floor(candle.close / priceStep) * priceStep;
-      const currentVolume = volumeByPrice.get(price) || 0;
-      volumeByPrice.set(price, currentVolume + candle.volume);
-    });
-
-    const profileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
-      price: Number(price),
-      volume: Number(volume),
-    }));
-
-    setVolumeProfileData(profileData);
-  };
+  }, [currentSymbol]);
 
   // Efecto para manejar el WebSocket
   useEffect(() => {
     if (!currentSymbol || !candlestickSeriesRef.current) return;
 
-    const symbol = currentSymbol.toLowerCase().replace(':', '').replace('perp', '');
-    console.log('Conectando WebSocket para:', symbol);
+    const formattedSymbol = formatSymbolForBinance(currentSymbol);
+    console.log('Conectando WebSocket para:', formattedSymbol);
 
-    // Limpiar conexión anterior
     if (wsRef.current) {
       wsRef.current.close();
     }
 
-    const wsUrl = `wss://fstream.binance.com/ws/${symbol}@kline_1m`;
+    const wsUrl = `wss://fstream.binance.com/ws/${formattedSymbol.toLowerCase()}@kline_1m`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -221,7 +236,7 @@ export default function Chart() {
         if (data.e === 'kline') {
           const kline = data.k;
           const bar = {
-            time: kline.t / 1000 as Time,
+            time: Math.floor(kline.t / 1000) as Time,
             open: parseFloat(kline.o),
             high: parseFloat(kline.h),
             low: parseFloat(kline.l),
