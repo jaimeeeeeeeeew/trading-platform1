@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { createChart, IChartApi, UTCTimestamp, ISeriesApi, CandlestickData, HistogramData } from 'lightweight-charts';
+import { createChart, ColorType } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { TradingViewDataFeed } from '@/lib/tradingview-feed';
@@ -15,7 +15,7 @@ interface Bar {
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
-  const chart = useRef<IChartApi | null>(null);
+  const chart = useRef<ReturnType<typeof createChart> | null>(null);
   const dataFeed = useRef<TradingViewDataFeed | null>(null);
   const { currentSymbol, updatePriceRange, updateTimeRange } = useTrading();
   const { toast } = useToast();
@@ -28,7 +28,7 @@ export default function Chart() {
       width: container.current.clientWidth,
       height: container.current.clientHeight,
       layout: {
-        background: { type: 'solid', color: '#1a1a1a' },
+        background: { color: '#1a1a1a' },
         textColor: '#DDD',
       },
       grid: {
@@ -86,22 +86,19 @@ export default function Chart() {
     // Subscribe to historical data
     dataFeed.current.subscribeBars((bars: Bar[]) => {
       if (bars.length > 0) {
-        const candleData: CandlestickData[] = bars.map(bar => ({
-          time: bar.time as UTCTimestamp,
+        candleSeries.setData(bars.map(bar => ({
+          time: bar.time,
           open: bar.open,
           high: bar.high,
           low: bar.low,
           close: bar.close
-        }));
+        })));
 
-        const volumeData: HistogramData[] = bars.map(bar => ({
-          time: bar.time as UTCTimestamp,
+        volumeSeries.setData(bars.map(bar => ({
+          time: bar.time,
           value: bar.volume,
           color: bar.close >= bar.open ? '#26a69a50' : '#ef535050'
-        }));
-
-        candleSeries.setData(candleData);
-        volumeSeries.setData(volumeData);
+        })));
       }
     });
 
