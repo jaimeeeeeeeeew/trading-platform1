@@ -160,13 +160,11 @@ export default function Chart() {
       volumeByPrice.set(price, currentVolume + candle.volume);
     });
 
-    // Crear datos del perfil de volumen con timestamps incrementales
-    const volumeProfileData: HistogramData[] = Array.from(volumeByPrice.entries())
-      .sort((a, b) => a[0] - b[0]) // Ordenar por precio ascendente
+    // Crear datos del perfil de volumen con solo precio y volumen
+    const volumeProfileData = Array.from(volumeByPrice.entries())
       .map(([price, volume]) => ({
-        time: sampleData[0].time,
         value: volume,
-        color: 'rgba(76, 175, 80, 0.5)',
+        time: sampleData[0].time,  // Usamos un tiempo fijo para todas las barras
       }));
 
     volumeProfileSeries.setData(volumeProfileData);
