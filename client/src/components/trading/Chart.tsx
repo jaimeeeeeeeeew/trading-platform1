@@ -117,19 +117,38 @@ export default function Chart() {
 
   // Actualizar el perfil de volumen
   const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
-    const priceStep = 100;
-    const volumeByPrice = new Map();
+    if (!data.length) return;
 
-    data.forEach(candle => {
-      const price = Math.floor(candle.close / priceStep) * priceStep;
-      const currentVolume = volumeByPrice.get(price) || 0;
-      volumeByPrice.set(price, currentVolume + candle.volume);
+    // Encontrar el rango de precios
+    const prices = data.map(d => d.close);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const priceRange = maxPrice - minPrice;
+
+    // Calcular un paso de precio dinámico (dividimos el rango en 100 niveles)
+    const priceStep = priceRange / 100;
+    console.log('Rendering volume profile with data:', {
+      data: data.slice(0, 1),
+      width: 80,
+      height: container.current?.clientHeight || 800
     });
 
-    const profileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
-      price: Number(price),
-      volume: Number(volume),
-    }));
+    const volumeByPrice = new Map<number, number>();
+
+    // Acumular volumen por nivel de precio
+    data.forEach(candle => {
+      const normalizedPrice = Math.floor(candle.close / priceStep) * priceStep;
+      const currentVolume = volumeByPrice.get(normalizedPrice) || 0;
+      volumeByPrice.set(normalizedPrice, currentVolume + candle.volume);
+    });
+
+    // Convertir a array y ordenar por precio
+    const profileData = Array.from(volumeByPrice.entries())
+      .map(([price, volume]) => ({
+        price: Number(price),
+        volume: Number(volume),
+      }))
+      .sort((a, b) => a.price - b.price);
 
     setVolumeProfileData(profileData);
   };
