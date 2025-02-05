@@ -143,14 +143,17 @@ export default function Chart() {
     });
 
     const profileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
-      price,
-      volume,
+      price: Number(price),
+      volume: Number(volume),
     }));
 
+    console.log("Generated volume profile data:", profileData);
     setVolumeProfileData(profileData);
 
     const handleResize = () => {
-      const { width, height } = container.current!.getBoundingClientRect();
+      if (!container.current) return;
+      const { width, height } = container.current.getBoundingClientRect();
+      console.log("Container dimensions:", { width, height });
       chart.applyOptions({
         width,
         height,
@@ -184,16 +187,20 @@ export default function Chart() {
           </SelectContent>
         </Select>
       </div>
-      <div className="w-full h-full relative">
-        <div
-          ref={container}
-          className="w-full h-full"
-        />
-        <div className="absolute left-12 top-0 h-full" style={{ width: '80px' }}>
+      <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
+        <div ref={container} className="w-full h-full" />
+        <div 
+          className="absolute left-12 top-0 h-full" 
+          style={{ 
+            width: '80px',
+            zIndex: 2,
+            pointerEvents: 'none'
+          }}
+        >
           <VolumeProfile
             data={volumeProfileData}
             width={80}
-            height={container.current?.clientHeight || 0}
+            height={container.current?.clientHeight || 400}
           />
         </div>
       </div>
