@@ -38,65 +38,18 @@ export default function Chart() {
 
   const handleIntervalChange = (newInterval: IntervalKey) => {
     setInterval(newInterval);
-    if (chartRef.current) {
-      generateAndUpdateData(chartRef.current, newInterval);
-      handleAutoFit();
-      toast({
-        title: 'Interval Changed',
-        description: `Changed to ${INTERVALS[newInterval].label} timeframe`,
-      });
-    }
-  };
-
-  const generateAndUpdateData = (chart: any, selectedInterval: IntervalKey) => {
-    const candlestickSeries = chart.getSeries()[0];
-    const volumeSeries = chart.getSeries()[1];
-
-    const sampleData = [];
-    const volumeData = [];
-    const startTime = new Date('2023-01-01').getTime();
-    let lastClose = 45000; // Starting price around a realistic BTC value
-    const minutesPerCandle = INTERVALS[selectedInterval].minutes;
-    const numCandles = 200; // Number of candles to show
-
-    for (let i = 0; i < numCandles; i++) {
-      const time = new Date(startTime + i * minutesPerCandle * 60 * 1000);
-      const volatility = (Math.random() * 0.03) * lastClose;
-      const trend = Math.sin(i / 30) * 0.001;
-
-      const open = lastClose;
-      const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend);
-      const high = Math.max(open, close) * (1 + Math.random() * 0.01);
-      const low = Math.min(open, close) * (1 - Math.random() * 0.01);
-      const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
-
-      const timeStr = time.toISOString().split('T')[0];
-
-      sampleData.push({
-        time: timeStr,
-        open,
-        high,
-        low,
-        close,
-      });
-
-      volumeData.push({
-        time: timeStr,
-        value: volume,
-        color: close > open ? '#26a69a80' : '#ef535080',
-      });
-
-      lastClose = close;
-    }
-
-    candlestickSeries.setData(sampleData);
-    volumeSeries.setData(volumeData);
+    // Here we'll later implement the data fetching from TradingView
+    toast({
+      title: 'Interval Changed',
+      description: `Changed to ${INTERVALS[newInterval].label} timeframe`,
+    });
   };
 
   useEffect(() => {
     if (!container.current) return;
 
     try {
+      // Create chart instance with dark theme
       const chart = createChart(container.current, {
         layout: {
           background: { color: '#151924' },
@@ -140,8 +93,10 @@ export default function Chart() {
         },
       });
 
+      // Save chart reference for the auto-fit button
       chartRef.current = chart;
 
+      // Create candlestick series with dark theme colors
       const candlestickSeries = chart.addCandlestickSeries({
         upColor: '#26a69a',
         downColor: '#ef5350',
@@ -150,20 +105,62 @@ export default function Chart() {
         wickDownColor: '#ef5350',
       });
 
+      // Add volume series
       const volumeSeries = chart.addHistogramSeries({
         color: '#26a69a',
         priceFormat: {
           type: 'volume',
         },
-        priceScaleId: '',
+        priceScaleId: '', // Set as an overlay
         scaleMargins: {
           top: 0.8,
           bottom: 0,
         },
       });
 
-      // Generate initial data
-      generateAndUpdateData(chart, interval);
+      // Generate more realistic sample data
+      const sampleData = [];
+      const volumeData = [];
+      const startTime = new Date('2023-01-01').getTime(); // Start from a year ago
+      let lastClose = 45000; // Starting price around a realistic BTC value
+      const dailyData = 365; // One year of daily data
+
+      for (let i = 0; i < dailyData; i++) {
+        const time = new Date(startTime + i * 24 * 60 * 60 * 1000);
+        // More realistic volatility based on price
+        const volatility = (Math.random() * 0.03) * lastClose; // 3% max daily volatility
+        const trend = Math.sin(i / 30) * 0.001; // Add a slight cyclical trend
+
+        // Calculate OHLC with more realistic price movements
+        const open = lastClose;
+        const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend); // Max 2% move + trend
+        const high = Math.max(open, close) * (1 + Math.random() * 0.01); // Up to 1% above max
+        const low = Math.min(open, close) * (1 - Math.random() * 0.01); // Up to 1% below min
+
+        // Calculate volume with more variation
+        const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
+
+        const timeStr = time.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
+        sampleData.push({
+          time: timeStr,
+          open: open,
+          high: high,
+          low: low,
+          close: close,
+        });
+
+        volumeData.push({
+          time: timeStr,
+          value: volume,
+          color: close > open ? '#26a69a80' : '#ef535080',
+        });
+
+        lastClose = close;
+      }
+
+      candlestickSeries.setData(sampleData);
+      volumeSeries.setData(volumeData);
 
       // Handle window resizing
       const handleResize = () => {
@@ -172,10 +169,18 @@ export default function Chart() {
           width,
           height,
         });
+
+        // Auto-fit content after resize
         chart.timeScale().fitContent();
       };
 
+      // Initial size and fit
       handleResize();
+
+      // Ensure data is visible initially
+      chart.timeScale().fitContent();
+
+      // Listen for resize events
       window.addEventListener('resize', handleResize);
 
       return () => {
@@ -191,7 +196,7 @@ export default function Chart() {
         variant: 'destructive'
       });
     }
-  }, [currentSymbol]);
+  }, [currentSymbol, interval]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
