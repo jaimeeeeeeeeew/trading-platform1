@@ -1,17 +1,12 @@
 import { useEffect, useRef } from 'react';
+import { createChart, IChartApi, TimeRange, LogicalRange } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { TradingViewDataFeed } from '@/lib/tradingview-feed';
 
-declare global {
-  interface Window {
-    TradingView: any;
-  }
-}
-
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
-  const widget = useRef<any>(null);
+  const chart = useRef<IChartApi | null>(null);
   const dataFeed = useRef<TradingViewDataFeed | null>(null);
   const { currentSymbol, updatePriceRange, updateTimeRange } = useTrading();
   const { toast } = useToast();
@@ -19,12 +14,55 @@ export default function Chart() {
   useEffect(() => {
     if (!container.current) return;
 
-    // Inicializar DataFeed
+    // Initialize Chart
+    chart.current = createChart(container.current, {
+      width: container.current.clientWidth,
+      height: container.current.clientHeight,
+      layout: {
+        background: { color: '#1a1a1a' },
+        textColor: '#DDD',
+      },
+      grid: {
+        vertLines: { color: '#2B2B43' },
+        horzLines: { color: '#2B2B43' },
+      },
+      crosshair: {
+        mode: 1,
+      },
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
+
+    // Initialize DataFeed
     dataFeed.current = new TradingViewDataFeed(currentSymbol);
 
-    // Suscribirse a actualizaciones de escala
+    // Create main series
+    const candleSeries = chart.current.addCandlestickSeries({
+      upColor: '#26a69a', 
+      downColor: '#ef5350',
+      borderVisible: false,
+      wickUpColor: '#26a69a',
+      wickDownColor: '#ef5350'
+    });
+
+    // Create volume series
+    const volumeSeries = chart.current.addHistogramSeries({
+      color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: '',
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0,
+      },
+    });
+
+    // Subscribe to data updates
     dataFeed.current.onScaleUpdate((data) => {
-      console.log('📊 Actualización de escala:', data);
+      console.log('📊 Scale update:', data);
       if (data.priceRange) {
         updatePriceRange({
           high: data.priceRange.high,
@@ -35,67 +73,53 @@ export default function Chart() {
       }
     });
 
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/tv.js';
-    script.async = true;
+    // Subscribe to historical data
+    dataFeed.current.subscribeBars((bars) => {
+      if (bars.length > 0) {
+        candleSeries.setData(bars.map(bar => ({
+          time: bar.time,
+          open: bar.open,
+          high: bar.high,
+          low: bar.low,
+          close: bar.close
+        })));
 
-    script.onload = () => {
-      if (!window.TradingView) return;
+        volumeSeries.setData(bars.map(bar => ({
+          time: bar.time,
+          value: bar.volume,
+          color: bar.close >= bar.open ? '#26a69a50' : '#ef535050'
+        })));
+      }
+    });
 
-      try {
-        widget.current = new window.TradingView.widget({
-          container_id: container.current!.id,
-          width: "100%",
-          height: "100%",
-          symbol: currentSymbol,
-          interval: "1",
-          timezone: "Etc/UTC",
-          theme: "dark",
-          style: "1",
-          locale: "es",
-          enable_publishing: false,
-          allow_symbol_change: true,
-          save_image: true,
-          studies: [
-            "Volume@tv-basicstudies",
-            "MAExp@tv-basicstudies",
-            "VWAP@tv-basicstudies"
-          ],
-          disabled_features: ["header_symbol_search"],
-          enabled_features: ["volume_force_overlay"],
-          custom_css_url: './chart.css',
-          datafeed: dataFeed.current,
-          library_path: "charting_library/",
-          onChartReady: () => {
-            console.log('📈 Gráfico listo');
-            const chart = widget.current.activeChart();
-
-            // Configurar handlers adicionales para el gráfico
-            chart.onVisibleRangeChanged().subscribe(null, (range: any) => {
-              updateTimeRange({
-                from: new Date(range.from * 1000),
-                to: new Date(range.to * 1000),
-                interval: chart.resolution()
-              });
-            });
-          }
+    // Handle time range changes
+    chart.current.timeScale().subscribeVisibleTimeRangeChange((range: TimeRange | null) => {
+      if (range) {
+        const logicalRange = chart.current!.timeScale().getVisibleLogicalRange() as LogicalRange;
+        updateTimeRange({
+          from: new Date(range.from * 1000),
+          to: new Date(range.to * 1000),
+          interval: logicalRange.to - logicalRange.from > 200 ? 'D' : '1'
         });
+      }
+    });
 
-      } catch (error) {
-        console.error('❌ Error al crear widget:', error);
-        toast({
-          title: "Error",
-          description: "No se pudo inicializar el gráfico",
-          duration: 3000,
+    // Handle window resizing
+    const handleResize = () => {
+      if (container.current && chart.current) {
+        chart.current.applyOptions({
+          width: container.current.clientWidth,
+          height: container.current.clientHeight
         });
       }
     };
 
-    document.head.appendChild(script);
+    window.addEventListener('resize', handleResize);
 
     return () => {
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
+      window.removeEventListener('resize', handleResize);
+      if (chart.current) {
+        chart.current.remove();
       }
       if (dataFeed.current) {
         dataFeed.current.disconnect();
@@ -106,7 +130,6 @@ export default function Chart() {
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
       <div
-        id="tradingview_widget"
         ref={container}
         className="w-full h-full"
       />
