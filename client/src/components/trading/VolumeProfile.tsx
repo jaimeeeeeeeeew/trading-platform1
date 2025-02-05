@@ -57,7 +57,10 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange }: Props)
       ])
       .range([height - 2, 2]);
 
-    const currentPrice = (d3.min(groupedData, d => d.price)! + d3.max(groupedData, d => d.price)!) / 2;
+    // Usar el precio actual como punto central
+    const currentPrice = visiblePriceRange 
+      ? (visiblePriceRange.min + visiblePriceRange.max) / 2 
+      : d3.mean(groupedData, d => d.price) || 0;
 
     // Seleccionar o crear SVG
     const svg = d3.select(svgRef.current)
@@ -66,7 +69,7 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange }: Props)
       .style('overflow', 'visible');
 
     // Calcular altura de cada barra
-    const barHeight = Math.max(2, height / (visiblePriceRange ? 
+    const barHeight = Math.max(1, height / (visiblePriceRange ? 
       (visiblePriceRange.max - visiblePriceRange.min) / 10 : groupedData.length));
 
     // Actualizar barras existentes
@@ -77,7 +80,8 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange }: Props)
     bars.exit().remove();
 
     // Actualizar barras existentes
-    bars.attr('y', d => yScale(d.price))
+    bars
+      .attr('y', d => yScale(d.price))
       .attr('x', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('width', d => width - xScale(d.normalizedVolume))

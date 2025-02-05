@@ -26,14 +26,17 @@ type IntervalKey = keyof typeof INTERVALS;
 
 const generateSimulatedVolumeProfile = (currentPrice: number) => {
   const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-  const minPrice = Math.floor(currentPrice * 0.85 / 10) * 10;
-  const maxPrice = Math.ceil(currentPrice * 1.15 / 10) * 10;
+  // Generar datos centrados en el precio actual
+  const range = currentPrice * 0.5; // 50% del precio actual para arriba y abajo
+  const minPrice = Math.floor((currentPrice - range) / 10) * 10;
+  const maxPrice = Math.ceil((currentPrice + range) / 10) * 10;
   let maxVolume = 0;
 
   // Generar volúmenes para intervalos de $10
   for (let price = minPrice; price <= maxPrice; price += 10) {
     const distanceFromCurrent = Math.abs(price - currentPrice);
-    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / (currentPrice * 0.15)));
+    // Ajustar la fórmula para que el volumen sea más alto cerca del precio actual
+    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / range));
     const randomFactor = 0.5 + Math.random();
     const volume = volumeBase * randomFactor * 1000;
 
@@ -160,11 +163,17 @@ export default function Chart() {
 
       if (visiblePoints.length === 0) return;
 
+      // Calcular el rango de precios visible
       const prices = visiblePoints.map((point: any) => [point.high, point.low]).flat();
       const minPrice = Math.min(...prices);
       const maxPrice = Math.max(...prices);
 
-      setVisiblePriceRange({ min: minPrice, max: maxPrice });
+      // Ajustar el rango para incluir un poco más de espacio
+      const padding = (maxPrice - minPrice) * 0.1;
+      setVisiblePriceRange({ 
+        min: minPrice - padding, 
+        max: maxPrice + padding 
+      });
     } catch (error) {
       console.error('Error al actualizar el rango de precios visible:', error);
     }
