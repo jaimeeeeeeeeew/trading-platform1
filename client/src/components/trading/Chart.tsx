@@ -126,8 +126,18 @@ export default function Chart() {
 
       // Volume series with horizontal bars
       const volumeSeries = chart.addHistogramSeries({
+        priceScaleId: '', // Usar escala independiente
+        scaleMargins: {
+          top: 0.8,
+          bottom: 0,
+        },
         color: 'rgba(38, 166, 154, 0.3)',
         direction: 'right',
+        priceFormat: {
+          type: 'volume',
+        },
+        priceLineVisible: false,
+        lastValueVisible: false,
       });
 
       const volumeData = sampleData.map(d => ({
