@@ -163,8 +163,8 @@ export default function Chart() {
     // Crear datos del perfil de volumen con timestamps incrementales
     const volumeProfileData: HistogramData[] = Array.from(volumeByPrice.entries())
       .sort((a, b) => a[0] - b[0]) // Ordenar por precio ascendente
-      .map(([price, volume], index) => ({
-        time: sampleData[0].time,  // Usar un tiempo fijo para todas las barras
+      .map(([price, volume]) => ({
+        time: sampleData[0].time,
         value: volume,
         color: 'rgba(76, 175, 80, 0.5)',
       }));
