@@ -88,7 +88,6 @@ export default function Chart() {
       leftPriceScale: {
         visible: true,
         borderColor: '#1e222d',
-        width: 100, // Espacio para el perfil de volumen
       },
     });
 
@@ -185,18 +184,18 @@ export default function Chart() {
           </SelectContent>
         </Select>
       </div>
-      <div className="flex w-full h-full">
-        <div className="w-[100px] h-full relative">
+      <div className="w-full h-full relative">
+        <div
+          ref={container}
+          className="w-full h-full"
+        />
+        <div className="absolute left-12 top-0 h-full" style={{ width: '80px' }}>
           <VolumeProfile
             data={volumeProfileData}
-            width={100}
+            width={80}
             height={container.current?.clientHeight || 0}
           />
         </div>
-        <div
-          ref={container}
-          className="flex-1 h-full"
-        />
       </div>
       <Button
         onClick={handleAutoFit}

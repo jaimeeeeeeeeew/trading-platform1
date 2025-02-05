@@ -34,7 +34,8 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
       .attr('height', height)
       .style('position', 'absolute')
       .style('left', '0')
-      .style('top', '0');
+      .style('top', '0')
+      .style('pointer-events', 'none');
 
     // Dibujar barras horizontales
     svg.selectAll('rect')
@@ -45,7 +46,7 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
       .attr('x', 0)
       .attr('height', height / data.length)
       .attr('width', d => xScale(d.volume))
-      .attr('fill', d => d.volume > d3.mean(data, v => v.volume) ? 'rgba(239, 83, 80, 0.5)' : 'rgba(38, 166, 154, 0.5)');
+      .attr('fill', d => d.volume > d3.mean(data, v => v.volume) ? 'rgba(239, 83, 80, 0.3)' : 'rgba(38, 166, 154, 0.3)');
 
   }, [data, width, height]);
 
