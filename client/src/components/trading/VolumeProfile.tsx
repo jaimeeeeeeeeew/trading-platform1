@@ -15,69 +15,90 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data.length) {
-      console.log("No SVG ref or no data", { hasRef: !!svgRef.current, dataLength: data.length });
-      return;
-    }
+    if (!svgRef.current || !data.length) return;
 
-    console.log("Rendering volume profile with data:", {
-      dataPoints: data.length,
-      width,
-      height,
-      sampleData: data.slice(0, 3)
-    });
+    // Agrupar datos por intervalos de $10
+    const groupedData = data.reduce((acc, item) => {
+      const roundedPrice = Math.round(item.price / 10) * 10;
+      const existingGroup = acc.find(g => g.price === roundedPrice);
 
-    // Limpiar SVG existente
-    d3.select(svgRef.current).selectAll("*").remove();
+      if (existingGroup) {
+        existingGroup.volume += item.volume;
+        existingGroup.normalizedVolume = Math.max(existingGroup.normalizedVolume, item.normalizedVolume);
+      } else {
+        acc.push({
+          price: roundedPrice,
+          volume: item.volume,
+          normalizedVolume: item.normalizedVolume
+        });
+      }
+      return acc;
+    }, [] as typeof data);
 
     // Crear escalas
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([width, 0]); // Invertir el rango para que crezca hacia la izquierda
+      .range([width, 0]);
 
     const yScale = d3.scaleLinear()
-      .domain([d3.min(data, d => d.price) || 0, d3.max(data, d => d.price) || 0])
+      .domain([
+        d3.min(groupedData, d => d.price) || 0,
+        d3.max(groupedData, d => d.price) || 0
+      ])
       .range([height - 2, 2]);
 
-    const currentPrice = (d3.min(data, d => d.price)! + d3.max(data, d => d.price)!) / 2;
+    const currentPrice = (d3.min(groupedData, d => d.price)! + d3.max(groupedData, d => d.price)!) / 2;
 
-    // Crear SVG
+    // Seleccionar o crear SVG
     const svg = d3.select(svgRef.current)
       .attr('width', width)
       .attr('height', height)
       .style('overflow', 'visible');
 
     // Calcular altura de cada barra
-    const barHeight = Math.max(2, height / data.length);
+    const barHeight = Math.max(2, height / groupedData.length);
 
-    console.log("Dibujando barras con:", {
-      numBars: data.length,
-      barHeight,
-      currentPrice,
-      yRange: [d3.min(data, d => d.price), d3.max(data, d => d.price)]
-    });
+    // Actualizar barras existentes
+    const bars = svg.selectAll('rect')
+      .data(groupedData, (d: any) => d.price);
 
-    // Dibujar barras horizontales
-    svg.selectAll('rect')
-      .data(data)
-      .enter()
-      .append('rect')
-      .attr('y', d => yScale(d.price))
-      .attr('x', d => xScale(d.normalizedVolume)) // Posicionar desde la derecha
+    // Eliminar barras que ya no existen
+    bars.exit().remove();
+
+    // Actualizar barras existentes
+    bars.attr('y', d => yScale(d.price))
+      .attr('x', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
-      .attr('width', d => width - xScale(d.normalizedVolume)) // Ancho ajustado para crecer hacia la izquierda
+      .attr('width', d => width - xScale(d.normalizedVolume))
       .attr('fill', d => {
         const isAboveCurrent = d.price > currentPrice;
         const intensity = Math.pow(d.normalizedVolume, 0.5);
+        return isAboveCurrent 
+          ? d3.interpolateRgb('#ef535088', '#ef5350')(intensity)
+          : d3.interpolateRgb('#26a69a88', '#26a69a')(intensity);
+      });
 
-        if (isAboveCurrent) {
-          return d3.interpolateRgb('#ef535088', '#ef5350')(intensity);
-        } else {
-          return d3.interpolateRgb('#26a69a88', '#26a69a')(intensity);
-        }
-      })
-      .attr('opacity', 1);
+    // Añadir nuevas barras
+    bars.enter()
+      .append('rect')
+      .attr('y', d => yScale(d.price))
+      .attr('x', d => xScale(d.normalizedVolume))
+      .attr('height', barHeight)
+      .attr('width', d => width - xScale(d.normalizedVolume))
+      .attr('fill', d => {
+        const isAboveCurrent = d.price > currentPrice;
+        const intensity = Math.pow(d.normalizedVolume, 0.5);
+        return isAboveCurrent 
+          ? d3.interpolateRgb('#ef535088', '#ef5350')(intensity)
+          : d3.interpolateRgb('#26a69a88', '#26a69a')(intensity);
+      });
 
+    // Limpieza
+    return () => {
+      if (svgRef.current) {
+        d3.select(svgRef.current).selectAll('*').remove();
+      }
+    };
   }, [data, width, height]);
 
   return (

@@ -25,31 +25,28 @@ const INTERVALS = {
 type IntervalKey = keyof typeof INTERVALS;
 
 const generateSimulatedVolumeProfile = (currentPrice: number) => {
-    const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-    const minPrice = Math.floor(currentPrice * 0.85);
-    const maxPrice = Math.ceil(currentPrice * 1.15);
-    let maxVolume = 0;
+  const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
+  const minPrice = Math.floor(currentPrice * 0.85 / 10) * 10;
+  const maxPrice = Math.ceil(currentPrice * 1.15 / 10) * 10;
+  let maxVolume = 0;
 
-    // Generar volúmenes aleatorios para cada dólar en el rango
-    for (let price = minPrice; price <= maxPrice; price++) {
-      // Crear un volumen base que disminuye a medida que se aleja del precio actual
-      const distanceFromCurrent = Math.abs(price - currentPrice);
-      const volumeBase = Math.max(0, 1 - (distanceFromCurrent / (currentPrice * 0.15)));
+  // Generar volúmenes para intervalos de $10
+  for (let price = minPrice; price <= maxPrice; price += 10) {
+    const distanceFromCurrent = Math.abs(price - currentPrice);
+    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / (currentPrice * 0.15)));
+    const randomFactor = 0.5 + Math.random();
+    const volume = volumeBase * randomFactor * 1000;
 
-      // Añadir algo de aleatoriedad al volumen
-      const randomFactor = 0.5 + Math.random();
-      const volume = volumeBase * randomFactor * 1000;
+    maxVolume = Math.max(maxVolume, volume);
+    volumeProfileData.push({ price, volume, normalizedVolume: 0 });
+  }
 
-      maxVolume = Math.max(maxVolume, volume);
-      volumeProfileData.push({ price, volume, normalizedVolume: 0 });
-    }
-
-    // Normalizar los volúmenes
-    return volumeProfileData.map(data => ({
-      ...data,
-      normalizedVolume: data.volume / maxVolume
-    }));
-  };
+  // Normalizar los volúmenes
+  return volumeProfileData.map(data => ({
+    ...data,
+    normalizedVolume: data.volume / maxVolume
+  }));
+};
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
