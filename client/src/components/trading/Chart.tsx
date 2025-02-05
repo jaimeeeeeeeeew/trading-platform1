@@ -76,23 +76,15 @@ export default function Chart() {
           borderColor: '#1e222d',
           timeVisible: true,
           secondsVisible: false,
-          rightOffset: 5,
-          barSpacing: 10,
-          fixLeftEdge: true,
-          lockVisibleTimeRangeOnResize: true,
         },
         rightPriceScale: {
           borderColor: '#1e222d',
-          autoScale: true,
-          scaleMargins: {
-            top: 0.1,
-            bottom: 0.1,
-          },
         },
       });
 
       chartRef.current = chart;
 
+      // Candlestick series
       const candlestickSeries = chart.addCandlestickSeries({
         upColor: '#26a69a',
         downColor: '#ef5350',
@@ -101,7 +93,7 @@ export default function Chart() {
         wickDownColor: '#ef5350',
       });
 
-      // Generar datos de muestra
+      // Sample data generation
       const sampleData = [];
       const startTime = new Date('2023-01-01').getTime();
       let lastClose = 45000;
@@ -132,46 +124,19 @@ export default function Chart() {
 
       candlestickSeries.setData(sampleData);
 
-      try {
-        // Crear una escala de precio adicional para el volumen en el lado derecho
-        const rightScale = chart.addPriceScale('volume', {
-          position: 'right',
-          scaleMargins: {
-            top: 0.1,
-            bottom: 0.1,
-          },
-          borderVisible: true,
-          borderColor: '#1e222d',
-        });
+      // Volume series with horizontal bars
+      const volumeSeries = chart.addHistogramSeries({
+        color: 'rgba(38, 166, 154, 0.3)',
+        direction: 'right',
+      });
 
-        // Configurar histograma horizontal para el volumen
-        const volumeSeries = chart.addHistogramSeries({
-          priceFormat: {
-            type: 'volume',
-          },
-          priceScaleId: 'volume',
-          base: 0,
-          color: 'rgba(38, 166, 154, 0.3)',
-          direction: 'right', // Barras horizontales hacia la derecha
-          lastValueVisible: true,
-        });
+      const volumeData = sampleData.map(d => ({
+        time: d.time,
+        value: d.volume,
+        color: d.close >= d.open ? 'rgba(38, 166, 154, 0.3)' : 'rgba(239, 83, 80, 0.3)',
+      }));
 
-        // Preparar datos de volumen para visualización horizontal
-        const volumeData = sampleData.map(d => ({
-          time: d.time,
-          value: d.volume,
-          color: d.close >= d.open ? 'rgba(38, 166, 154, 0.3)' : 'rgba(239, 83, 80, 0.3)',
-        }));
-
-        volumeSeries.setData(volumeData);
-      } catch (volumeError) {
-        console.error('Error al crear el perfil de volumen:', volumeError);
-        toast({
-          title: 'Warning',
-          description: 'Volume profile could not be initialized',
-          variant: 'destructive'
-        });
-      }
+      volumeSeries.setData(volumeData);
 
       const handleResize = () => {
         const { width, height } = container.current!.getBoundingClientRect();
