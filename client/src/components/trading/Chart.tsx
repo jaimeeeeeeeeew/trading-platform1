@@ -374,7 +374,7 @@ export default function Chart() {
         <div ref={container} className="w-full h-full" />
         {container.current && volumeProfileData.length > 0 && (
           <div 
-            className="absolute right-0 top-0 h-full" 
+            className="absolute right-20 top-0 h-full" 
             style={{ 
               width: '120px',
               zIndex: 2,
