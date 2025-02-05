@@ -23,11 +23,6 @@ const INTERVALS = {
 
 type IntervalKey = keyof typeof INTERVALS;
 
-interface VolumeProfileBar {
-  price: number;
-  volume: number;
-}
-
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
@@ -48,7 +43,6 @@ export default function Chart() {
       description: `Changed to ${INTERVALS[newInterval].label} timeframe`,
     });
   };
-
 
   useEffect(() => {
     if (!container.current) return;
@@ -124,7 +118,7 @@ export default function Chart() {
         const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
 
         sampleData.push({
-          time: time.getTime(), 
+          time: time.toISOString().split('T')[0],
           open,
           high,
           low,
@@ -137,20 +131,20 @@ export default function Chart() {
 
       candlestickSeries.setData(sampleData);
 
-      // Create volume profile series
+      // Crear histograma horizontal para el perfil de volumen
       const volumeProfileSeries = chart.addHistogramSeries({
         base: 0,
-        overlay: true,
         priceFormat: {
           type: 'price',
         },
         priceLineVisible: false,
         lastValueVisible: false,
         color: 'rgba(38, 166, 154, 0.3)',
+        direction: 'left',
       });
 
-      // Calculate volume profile
-      const priceStep = 100; 
+      // Calcular perfil de volumen
+      const priceStep = 100;
       const volumeByPrice = new Map<number, number>();
 
       sampleData.forEach(candle => {
@@ -158,7 +152,7 @@ export default function Chart() {
         volumeByPrice.set(price, (volumeByPrice.get(price) || 0) + candle.volume);
       });
 
-      // Create volume profile data
+      // Crear datos del perfil de volumen
       const volumeProfileData = Array.from(volumeByPrice.entries())
         .map(([price, volume]) => ({
           time: sampleData[sampleData.length - 1].time,
@@ -166,9 +160,8 @@ export default function Chart() {
           color: 'rgba(38, 166, 154, 0.3)',
         }));
 
-      // Set volume profile data
+      // Establecer datos del perfil de volumen
       volumeProfileSeries.setData(volumeProfileData);
-
 
       const handleResize = () => {
         const { width, height } = container.current!.getBoundingClientRect();
