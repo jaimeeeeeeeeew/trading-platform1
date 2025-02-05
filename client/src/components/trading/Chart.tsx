@@ -41,9 +41,18 @@ export default function Chart() {
           borderColor: '#1e222d',
           timeVisible: true,
           secondsVisible: false,
+          rightOffset: 5,
+          barSpacing: 10,
+          fixLeftEdge: true,
+          lockVisibleTimeRangeOnResize: true,
         },
         rightPriceScale: {
           borderColor: '#1e222d',
+          autoScale: true,
+          scaleMargins: {
+            top: 0.1,
+            bottom: 0.1,
+          },
         },
       });
 
@@ -89,15 +98,20 @@ export default function Chart() {
           width,
           height,
         });
+
+        // Auto-fit content after resize
+        chart.timeScale().fitContent();
       };
 
-      // Initial size
+      // Initial size and fit
       handleResize();
+
+      // Ensure data is visible initially
+      chart.timeScale().fitContent();
 
       // Listen for resize events
       window.addEventListener('resize', handleResize);
 
-      // Clean up
       return () => {
         window.removeEventListener('resize', handleResize);
         chart.remove();
