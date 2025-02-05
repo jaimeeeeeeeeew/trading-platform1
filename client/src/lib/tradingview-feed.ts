@@ -21,11 +21,12 @@ interface DataFeedConfiguration {
   supports_timescale_marks: boolean;
 }
 
-interface PriceRange {
+interface PriceData {
+  symbol: string;
+  price: number;
+  volume: number;
   high: number;
   low: number;
-  max: number;
-  min: number;
 }
 
 export class TradingViewDataFeed {
@@ -33,48 +34,44 @@ export class TradingViewDataFeed {
   private subscribers: Map<string, (data: any) => void> = new Map();
   private reconnectTimeout: number = 1000;
   private symbol: string;
+  private lastBar: Bar | null = null;
+  private intervalId: NodeJS.Timeout | null = null;
 
   constructor(symbol: string) {
     this.symbol = symbol;
     this.connect();
+    this.startSimulation(); // Temporalmente simulamos datos hasta tener acceso real a TradingView
   }
 
   private connect() {
-    this.ws = new WebSocketClient(`wss://data.tradingview.com/socket.io/websocket`);
-
-    this.ws.onOpen(() => {
-      console.log('📈 Conectado al DataFeed de TradingView');
-      this.subscribe();
-    });
-
-    this.ws.onMessage((data) => {
-      try {
-        const parsedData = JSON.parse(data);
-        this.handleMessage(parsedData);
-      } catch (error) {
-        console.error('Error parsing message:', error);
-      }
-    });
-
-    this.ws.onClose(() => {
-      console.log('❌ Desconectado del DataFeed de TradingView');
-      setTimeout(() => this.connect(), this.reconnectTimeout);
-    });
-
-    this.ws.onError((error) => {
-      console.error('Error en WebSocket:', error);
-    });
+    // En un entorno real, aquí conectaríamos con TradingView
+    console.log('📈 Iniciando conexión simulada para:', this.symbol);
   }
 
-  private subscribe() {
-    if (!this.ws) return;
+  private startSimulation() {
+    // Simulación de datos en tiempo real
+    let lastPrice = 45000 + Math.random() * 1000;
 
-    const subscribeMsg: SubscribeMessage = {
-      action: 'subscribe',
-      subs: [`${this.symbol}`]
-    };
+    this.intervalId = setInterval(() => {
+      const change = (Math.random() - 0.5) * 100;
+      const newPrice = lastPrice + change;
+      const volume = Math.floor(Math.random() * 10 + 1);
 
-    this.ws.send(JSON.stringify(subscribeMsg));
+      const priceData: PriceData = {
+        symbol: this.symbol,
+        price: newPrice,
+        volume: volume,
+        high: Math.max(newPrice, lastPrice),
+        low: Math.min(newPrice, lastPrice)
+      };
+
+      this.handleMessage({
+        type: 'price_update',
+        ...priceData
+      });
+
+      lastPrice = newPrice;
+    }, 1000); // Actualizar cada segundo
   }
 
   private handleMessage(data: any) {
@@ -86,20 +83,11 @@ export class TradingViewDataFeed {
         high: data.high,
         low: data.low
       });
-    } else if (data.type === 'timescale_update') {
-      this.notifySubscribers('scale', {
-        visibleRange: data.visible_range,
-        priceRange: data.price_range
-      });
     }
   }
 
-  public onPriceUpdate(callback: (data: any) => void) {
+  public onPriceUpdate(callback: (data: PriceData) => void) {
     this.subscribers.set('price', callback);
-  }
-
-  public onScaleUpdate(callback: (data: any) => void) {
-    this.subscribers.set('scale', callback);
   }
 
   private notifySubscribers(type: string, data: any) {
@@ -109,6 +97,17 @@ export class TradingViewDataFeed {
     }
   }
 
+  public disconnect() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+    }
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    this.subscribers.clear();
+  }
+
   public getConfiguration(): DataFeedConfiguration {
     return {
       supported_resolutions: ['1', '5', '15', '30', '60', '240', 'D', 'W', 'M'],
@@ -116,12 +115,5 @@ export class TradingViewDataFeed {
       supports_time: true,
       supports_timescale_marks: true
     };
-  }
-
-  public disconnect() {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
   }
 }

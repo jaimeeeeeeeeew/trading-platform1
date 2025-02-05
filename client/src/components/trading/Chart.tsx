@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ZoomIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VolumeProfile } from './VolumeProfile';
+import { TradingViewDataFeed } from '@/lib/tradingview-feed';
 import {
   Select,
   SelectContent,
@@ -27,6 +28,8 @@ type IntervalKey = keyof typeof INTERVALS;
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
+  const candlestickSeriesRef = useRef<any>(null);
+  const dataFeedRef = useRef<TradingViewDataFeed | null>(null);
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
   const [interval, setInterval] = useState<IntervalKey>('1h');
@@ -45,6 +48,60 @@ export default function Chart() {
       description: `Changed to ${INTERVALS[newInterval].label} timeframe`,
     });
   };
+
+  // Efecto para manejar la conexión del WebSocket y suscripción a datos
+  useEffect(() => {
+    if (!currentSymbol || !candlestickSeriesRef.current) return;
+
+    // Desconectar feed anterior si existe
+    if (dataFeedRef.current) {
+      dataFeedRef.current.disconnect();
+    }
+
+    // Crear nuevo feed
+    const feed = new TradingViewDataFeed(currentSymbol);
+    dataFeedRef.current = feed;
+
+    // Suscribirse a actualizaciones de precio
+    feed.onPriceUpdate((data) => {
+      if (candlestickSeriesRef.current) {
+        // Actualizar la última vela o crear una nueva
+        const bar = {
+          time: Math.floor(Date.now() / 1000),
+          open: data.price,
+          high: data.high,
+          low: data.low,
+          close: data.price,
+          volume: data.volume
+        };
+
+        candlestickSeriesRef.current.update(bar);
+
+        // Actualizar perfil de volumen
+        setVolumeProfileData(prevData => {
+          const price = Math.floor(data.price / 100) * 100;
+          const existingIndex = prevData.findIndex(item => item.price === price);
+
+          if (existingIndex >= 0) {
+            const newData = [...prevData];
+            newData[existingIndex] = {
+              ...newData[existingIndex],
+              volume: newData[existingIndex].volume + data.volume
+            };
+            return newData;
+          }
+
+          return [...prevData, { price, volume: data.volume }];
+        });
+      }
+    });
+
+    return () => {
+      if (dataFeedRef.current) {
+        dataFeedRef.current.disconnect();
+      }
+    };
+  }, [currentSymbol, interval]);
 
   useEffect(() => {
     if (!container.current) return;
@@ -81,12 +138,12 @@ export default function Chart() {
       rightPriceScale: {
         borderColor: '#1e222d',
         scaleMargins: {
-          top: 0.35, // Aumentamos el margen superior
-          bottom: 0.35, // Aumentamos el margen inferior para centrar el precio
+          top: 0.35,
+          bottom: 0.35,
         },
         alignLabels: true,
         autoScale: true,
-        mode: 1, // Modo logarítmico para mejor visualización
+        mode: 1,
       },
       leftPriceScale: {
         visible: true,
@@ -109,53 +166,7 @@ export default function Chart() {
       },
     });
 
-    // Generar datos de muestra
-    const sampleData = [];
-    const startTime = new Date('2023-01-01').getTime();
-    let lastClose = 45000;
-    const dailyData = 365;
-
-    for (let i = 0; i < dailyData; i++) {
-      const time = startTime + i * 24 * 60 * 60 * 1000;
-      const volatility = (Math.random() * 0.03) * lastClose;
-      const trend = Math.sin(i / 30) * 0.001;
-
-      const open = lastClose;
-      const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend);
-      const high = Math.max(open, close) * (1 + Math.random() * 0.01);
-      const low = Math.min(open, close) * (1 - Math.random() * 0.01);
-      const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
-
-      sampleData.push({
-        time: new Date(time).toISOString().split('T')[0],
-        open,
-        high,
-        low,
-        close,
-        volume,
-      });
-
-      lastClose = close;
-    }
-
-    candlestickSeries.setData(sampleData);
-
-    // Calcular datos para el perfil de volumen
-    const priceStep = 100;
-    const volumeByPrice = new Map();
-
-    sampleData.forEach(candle => {
-      const price = Math.floor(candle.close / priceStep) * priceStep;
-      const currentVolume = volumeByPrice.get(price) || 0;
-      volumeByPrice.set(price, currentVolume + candle.volume);
-    });
-
-    const profileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
-      price: Number(price),
-      volume: Number(volume),
-    }));
-
-    setVolumeProfileData(profileData);
+    candlestickSeriesRef.current = candlestickSeries;
 
     const handleResize = () => {
       if (!container.current) return;
@@ -171,7 +182,6 @@ export default function Chart() {
           },
         },
       });
-      // Centramos el contenido después de cada resize
       chart.timeScale().fitContent();
     };
 
@@ -182,8 +192,9 @@ export default function Chart() {
       window.removeEventListener('resize', handleResize);
       chart.remove();
       chartRef.current = null;
+      candlestickSeriesRef.current = null;
     };
-  }, [currentSymbol, interval]);
+  }, []);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
