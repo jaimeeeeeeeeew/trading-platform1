@@ -34,6 +34,7 @@ export default function Chart() {
   const { toast } = useToast();
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number }>>([]);
+  const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number} | null>(null);
 
   const handleAutoFit = () => {
     if (chartRef.current) {
@@ -49,7 +50,6 @@ export default function Chart() {
     });
   };
 
-  // Función para formatear el símbolo para la API de Binance
   const formatSymbolForBinance = (symbol: string) => {
     return symbol
       .toUpperCase()
@@ -57,13 +57,11 @@ export default function Chart() {
       .replace('PERP', '');
   };
 
-  // Cargar datos históricos iniciales de la API de Binance
   const loadInitialData = async (symbol: string) => {
     try {
       const formattedSymbol = formatSymbolForBinance(symbol);
       console.log('Cargando datos históricos para:', formattedSymbol);
 
-      // Obtener los últimos 3000 datos históricos (aproximadamente 2 días de datos por minuto)
       const responses = await Promise.all([
         fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&limit=1500`),
         fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&limit=1500&endTime=${Date.now() - 90000000}`)
@@ -95,13 +93,11 @@ export default function Chart() {
         candlestickSeriesRef.current.setData(candlesticks);
         handleAutoFit();
 
-        // Guardar todos los datos históricos
         historicalDataRef.current = candlesticks.map(c => ({ 
           close: c.close, 
           volume: c.volume 
         }));
 
-        // Actualizar el perfil de volumen con todos los datos históricos
         updateVolumeProfile(historicalDataRef.current);
 
         console.log('Datos históricos cargados exitosamente');
@@ -118,32 +114,37 @@ export default function Chart() {
     }
   };
 
-  // Actualizar el perfil de volumen
+  const updateVisiblePriceRange = () => {
+    if (!chartRef.current) return;
+
+    const priceScale = chartRef.current.priceScale('right');
+    const coordinateToPrice = priceScale.coordinateToPrice.bind(priceScale);
+    const logicalRange = priceScale.getVisibleLogicalRange();
+
+    if (logicalRange) {
+      const minPrice = coordinateToPrice(logicalRange.from);
+      const maxPrice = coordinateToPrice(logicalRange.to);
+      setVisiblePriceRange({ min: minPrice, max: maxPrice });
+    }
+  };
+
   const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
-    if (!data.length) return;
+    if (!data.length || !visiblePriceRange) return;
 
-    // Obtener el precio actual del último dato
-    const currentPrice = data[data.length - 1].close;
-
-    // Calcular rango de ±15%
-    const minPrice = currentPrice * 0.85;  // 15% por debajo
-    const maxPrice = currentPrice * 1.15;  // 15% por arriba
+    const { min: minPrice, max: maxPrice } = visiblePriceRange;
     const priceRange = maxPrice - minPrice;
 
-    // Usar un número fijo de niveles para la granularidad
     const numLevels = 100;
     const priceStep = priceRange / numLevels;
 
     const volumeByPrice = new Map<number, number>();
     let maxVolume = 0;
 
-    // Inicializar todos los niveles de precio en el rango con volumen 0
     for (let i = 0; i <= numLevels; i++) {
       const price = minPrice + (i * priceStep);
       volumeByPrice.set(price, 0);
     }
 
-    // Acumular volumen por nivel de precio
     data.forEach(candle => {
       if (candle.close >= minPrice && candle.close <= maxPrice) {
         const normalizedPrice = Math.round((candle.close - minPrice) / priceStep) * priceStep + minPrice;
@@ -154,20 +155,17 @@ export default function Chart() {
       }
     });
 
-    // Convertir a array y normalizar los volúmenes
     const profileData = Array.from(volumeByPrice.entries())
       .map(([price, volume]) => ({
         price: Number(price),
         volume: Number(volume),
-        normalizedVolume: maxVolume > 0 ? volume / maxVolume : 0 // Evitar división por cero
+        normalizedVolume: maxVolume > 0 ? volume / maxVolume : 0
       }))
       .sort((a, b) => a.price - b.price);
 
     console.log('Volume Profile Data:', {
       levels: profileData.length,
-      currentPrice,
-      minPrice,
-      maxPrice,
+      visibleRange: visiblePriceRange,
       priceStep,
       maxVolume,
       sampleData: profileData.slice(0, 3)
@@ -176,7 +174,6 @@ export default function Chart() {
     setVolumeProfileData(profileData);
   };
 
-  // Inicializar el gráfico
   useEffect(() => {
     if (!container.current || !currentSymbol) return;
 
@@ -231,7 +228,6 @@ export default function Chart() {
 
     candlestickSeriesRef.current = candlestickSeries;
 
-    // Cargar datos históricos después de inicializar el gráfico
     loadInitialData(currentSymbol);
 
     const handleResize = () => {
@@ -244,8 +240,19 @@ export default function Chart() {
     handleResize();
     window.addEventListener('resize', handleResize);
 
+    chart.subscribeCrosshairMove(() => {
+      updateVisiblePriceRange();
+    });
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+      updateVisiblePriceRange();
+    });
+
+
     return () => {
       window.removeEventListener('resize', handleResize);
+      chart.unsubscribeCrosshairMove();
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange();
       chart.remove();
       chartRef.current = null;
       candlestickSeriesRef.current = null;
@@ -253,7 +260,6 @@ export default function Chart() {
     };
   }, [currentSymbol]);
 
-  // Efecto para manejar el WebSocket
   useEffect(() => {
     if (!currentSymbol || !candlestickSeriesRef.current) return;
 
@@ -289,7 +295,6 @@ export default function Chart() {
           console.log('Nueva vela recibida:', bar);
           candlestickSeriesRef.current.update(bar);
 
-          // Actualizar los datos históricos y el perfil de volumen
           const lastCandle = { close: parseFloat(kline.c), volume: parseFloat(kline.v) };
           historicalDataRef.current = [...historicalDataRef.current.slice(-1499), lastCandle];
           updateVolumeProfile(historicalDataRef.current);
