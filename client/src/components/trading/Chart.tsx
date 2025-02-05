@@ -49,6 +49,39 @@ export default function Chart() {
     });
   };
 
+  // Generar datos históricos iniciales
+  const generateInitialData = () => {
+    const sampleData = [];
+    const startTime = new Date().getTime() - (365 * 24 * 60 * 60 * 1000); // Último año
+    let lastClose = 45000;
+    const dailyData = 365;
+
+    for (let i = 0; i < dailyData; i++) {
+      const time = startTime + i * 24 * 60 * 60 * 1000;
+      const volatility = (Math.random() * 0.03) * lastClose;
+      const trend = Math.sin(i / 30) * 0.001;
+
+      const open = lastClose;
+      const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend);
+      const high = Math.max(open, close) * (1 + Math.random() * 0.01);
+      const low = Math.min(open, close) * (1 - Math.random() * 0.01);
+      const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
+
+      sampleData.push({
+        time: Math.floor(time / 1000),
+        open,
+        high,
+        low,
+        close,
+        volume,
+      });
+
+      lastClose = close;
+    }
+
+    return sampleData;
+  };
+
   // Actualizar el perfil de volumen
   const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
     const priceStep = 100;
@@ -81,23 +114,10 @@ export default function Chart() {
     const feed = new TradingViewDataFeed(currentSymbol);
     dataFeedRef.current = feed;
 
-    // Obtener datos históricos
-    const from = Math.floor(Date.now() / 1000) - (365 * 24 * 60 * 60); // Último año
-    const to = Math.floor(Date.now() / 1000);
-
-    feed.getInitialData(from, to).then(historicalData => {
-      if (candlestickSeriesRef.current && historicalData.length > 0) {
-        candlestickSeriesRef.current.setData(historicalData);
-        updateVolumeProfile(historicalData.map(bar => ({
-          close: bar.close,
-          volume: bar.volume
-        })));
-      }
-    });
-
     // Suscribirse a actualizaciones de precio
     feed.onPriceUpdate((data) => {
       if (candlestickSeriesRef.current) {
+        // Actualizar la última vela o crear una nueva
         const bar = {
           time: Math.floor(Date.now() / 1000),
           open: data.price,
@@ -108,6 +128,8 @@ export default function Chart() {
         };
 
         candlestickSeriesRef.current.update(bar);
+
+        // Actualizar perfil de volumen con los nuevos datos
         updateVolumeProfile([{ close: data.price, volume: data.volume }]);
       }
     });
@@ -184,6 +206,12 @@ export default function Chart() {
 
     candlestickSeriesRef.current = candlestickSeries;
 
+    // Cargar datos históricos iniciales
+    const initialData = generateInitialData();
+    candlestickSeries.setData(initialData);
+
+    // Actualizar perfil de volumen inicial
+    updateVolumeProfile(initialData);
 
     const handleResize = () => {
       if (!container.current) return;
