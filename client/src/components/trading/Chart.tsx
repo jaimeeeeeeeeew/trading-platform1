@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { createChart, IChartApi, ChartOptions, DeepPartial } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickData, HistogramData } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { TradingViewDataFeed } from '@/lib/tradingview-feed';
@@ -15,7 +15,7 @@ interface Bar {
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
-  const chart = useRef<IChartApi | null>(null);
+  const chart = useRef<ReturnType<typeof createChart> | null>(null);
   const dataFeed = useRef<TradingViewDataFeed | null>(null);
   const { currentSymbol, updatePriceRange, updateTimeRange } = useTrading();
   const { toast } = useToast();
@@ -23,12 +23,12 @@ export default function Chart() {
   useEffect(() => {
     if (!container.current) return;
 
-    // Initialize Chart with proper type
-    const chartOptions: DeepPartial<ChartOptions> = {
+    // Create the chart with default configuration
+    const chartInstance = createChart(container.current, {
       width: container.current.clientWidth,
       height: container.current.clientHeight,
       layout: {
-        background: { color: '#1a1a1a' },
+        background: { type: ColorType.Solid, color: '#1a1a1a' },
         textColor: '#DDD',
       },
       grid: {
@@ -42,17 +42,16 @@ export default function Chart() {
         timeVisible: true,
         secondsVisible: false,
       },
-    };
+    });
 
-    chart.current = createChart(container.current, chartOptions);
+    chart.current = chartInstance;
 
     // Initialize DataFeed
     dataFeed.current = new TradingViewDataFeed(currentSymbol);
 
-    // Create main series (without initial options)
-    const candleSeries = chart.current.addCandlestickSeries();
-    // Apply options after creation
-    candleSeries.applyOptions({
+    // Create candlestick series
+    const mainSeries = chartInstance.addCandlestickSeries();
+    mainSeries.applyOptions({
       upColor: '#26a69a',
       downColor: '#ef5350',
       borderVisible: false,
@@ -61,7 +60,7 @@ export default function Chart() {
     });
 
     // Create volume series
-    const volumeSeries = chart.current.addHistogramSeries({
+    const volumeSeries = chartInstance.addHistogramSeries({
       color: '#26a69a',
       priceFormat: {
         type: 'volume',
@@ -89,26 +88,29 @@ export default function Chart() {
     // Subscribe to historical data
     dataFeed.current.subscribeBars((bars: Bar[]) => {
       if (bars.length > 0) {
-        candleSeries.setData(bars.map(bar => ({
+        const candleData = bars.map(bar => ({
           time: bar.time,
           open: bar.open,
           high: bar.high,
           low: bar.low,
           close: bar.close
-        })));
+        }));
 
-        volumeSeries.setData(bars.map(bar => ({
+        const volumeData = bars.map(bar => ({
           time: bar.time,
           value: bar.volume,
           color: bar.close >= bar.open ? '#26a69a50' : '#ef535050'
-        })));
+        }));
+
+        mainSeries.setData(candleData);
+        volumeSeries.setData(volumeData);
       }
     });
 
     // Handle time range changes
-    chart.current.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+    chartInstance.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (range) {
-        const timeRange = chart.current!.timeScale().getVisibleRange();
+        const timeRange = chartInstance.timeScale().getVisibleRange();
         if (timeRange) {
           updateTimeRange({
             from: new Date(timeRange.from * 1000),
