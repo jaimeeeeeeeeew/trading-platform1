@@ -28,7 +28,7 @@ export const VolumeProfile = ({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data.length || !visiblePriceRange) return;
+    if (!svgRef.current || !data.length || !visiblePriceRange || priceCoordinate === null) return;
 
     // Filtrar y agrupar datos por niveles de precio de $10
     const groupedData = data.reduce((acc, item) => {
@@ -62,28 +62,23 @@ export const VolumeProfile = ({
     // Escalas - Invertir el rango del xScale para que vaya de derecha a izquierda
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([width, 0]);  // Cambiado de [0, width] a [width, 0]
+      .range([width, 0]);
 
-    const yScale = d3.scaleLinear()
-      .domain([visiblePriceRange.min, visiblePriceRange.max])
-      .range([height - 2, 2]);
-
-    // Calcular altura de cada barra basada en el rango de precios visible
+    // Calcular la relación de escala usando el rango de precios visible
     const priceRange = visiblePriceRange.max - visiblePriceRange.min;
-    const barHeight = Math.max(1, (height / priceRange) * 10); // 10 dólares por barra
+    const pixelsPerPrice = height / priceRange;
 
     // Función para calcular la posición Y de cada barra
     const getBarY = (price: number) => {
-      if (priceCoordinate !== null && currentPrice) {
-        // Calcular el desplazamiento desde el precio actual
-        const priceOffset = price - currentPrice;
-        // Usar la misma escala que el gráfico principal
-        return yScale(price);
-      }
-      return yScale(price);
+      // Calcular el desplazamiento desde el precio actual
+      const priceOffset = price - currentPrice;
+      // Usar la misma escala que el gráfico principal
+      return priceCoordinate + (priceOffset * pixelsPerPrice);
     };
 
-    // Función para determinar el color de la barra - Invertir los colores
+    const barHeight = Math.max(1, pixelsPerPrice * 10); // 10 dólares por barra
+
+    // Función para determinar el color de la barra
     const getBarColor = (price: number, normalizedVolume: number) => {
       const isAboveCurrent = price > currentPrice;
       const intensity = Math.pow(normalizedVolume, 0.5);
