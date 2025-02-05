@@ -45,6 +45,13 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
     // Calcular altura de cada barra
     const barHeight = Math.max(1, height / data.length * 0.8); // 80% del espacio disponible
 
+    console.log("Dibujando barras con:", {
+      numBars: data.length,
+      barHeight,
+      currentPrice,
+      yRange: [d3.min(data, d => d.price), d3.max(data, d => d.price)]
+    });
+
     // Dibujar barras horizontales
     svg.selectAll('rect')
       .data(data)
@@ -83,7 +90,8 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
         right: 0,
         top: 0,
         zIndex: 10,
-        background: 'transparent'
+        background: 'transparent',
+        pointerEvents: 'none'
       }}
     />
   );

@@ -115,31 +115,47 @@ export default function Chart() {
   };
 
   const updateVisiblePriceRange = () => {
-    if (!chartRef.current) return;
+    if (!chartRef.current) {
+      console.log("Chart ref no disponible");
+      return;
+    }
 
     try {
       const priceScale = chartRef.current.priceScale('right');
-      if (!priceScale) return;
+      if (!priceScale) {
+        console.log("Price scale no disponible");
+        return;
+      }
 
       const visibleLogicalRange = priceScale.getVisibleLogicalRange();
-      if (!visibleLogicalRange) return;
+      if (!visibleLogicalRange) {
+        console.log("Rango lógico visible no disponible");
+        return;
+      }
 
       // Obtener el rango visible de precios del último conjunto de datos
       const visibleData = candlestickSeriesRef.current?.data() || [];
       const currentTime = chartRef.current.timeScale().getVisibleLogicalRange();
 
-      if (!currentTime) return;
+      if (!currentTime) {
+        console.log("Rango de tiempo no disponible");
+        return;
+      }
 
       const visiblePoints = visibleData.filter(point => 
         point.time >= currentTime.from && point.time <= currentTime.to
       );
 
-      if (visiblePoints.length === 0) return;
+      if (visiblePoints.length === 0) {
+        console.log("No hay puntos visibles");
+        return;
+      }
 
       const prices = visiblePoints.map(point => [point.high, point.low]).flat();
       const minPrice = Math.min(...prices);
       const maxPrice = Math.max(...prices);
 
+      console.log('Rango de precios actualizado:', { minPrice, maxPrice, visiblePoints: visiblePoints.length });
       setVisiblePriceRange({ min: minPrice, max: maxPrice });
     } catch (error) {
       console.error('Error al actualizar el rango de precios visible:', error);
@@ -369,20 +385,22 @@ export default function Chart() {
       </div>
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
-        <div 
-          className="absolute right-20 top-0 h-full" 
-          style={{ 
-            width: '80px',
-            zIndex: 2,
-            pointerEvents: 'none'
-          }}
-        >
-          <VolumeProfile
-            data={volumeProfileData}
-            width={80}
-            height={container.current?.clientHeight || 400}
-          />
-        </div>
+        {container.current && (
+          <div 
+            className="absolute right-20 top-0 h-full" 
+            style={{ 
+              width: '80px',
+              zIndex: 2,
+              pointerEvents: 'none'
+            }}
+          >
+            <VolumeProfile
+              data={volumeProfileData}
+              width={80}
+              height={container.current.clientHeight}
+            />
+          </div>
+        )}
       </div>
       <Button
         onClick={handleAutoFit}
