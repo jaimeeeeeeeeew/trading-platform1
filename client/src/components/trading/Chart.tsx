@@ -217,7 +217,6 @@ export default function Chart() {
       <div
         ref={container}
         className="w-full h-full"
-        style={{ height: '500px' }}
       />
       <Button 
         onClick={handleAutoFit}
