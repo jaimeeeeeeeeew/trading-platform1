@@ -1,20 +1,48 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createChart } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { ZoomIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+const INTERVALS = {
+  '1m': { label: '1m', minutes: 1 },
+  '5m': { label: '5m', minutes: 5 },
+  '15m': { label: '15m', minutes: 15 },
+  '1h': { label: '1H', minutes: 60 },
+  '4h': { label: '4H', minutes: 240 },
+  '1d': { label: '1D', minutes: 1440 },
+} as const;
+
+type IntervalKey = keyof typeof INTERVALS;
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
+  const [interval, setInterval] = useState<IntervalKey>('1h');
 
   const handleAutoFit = () => {
     if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
     }
+  };
+
+  const handleIntervalChange = (newInterval: IntervalKey) => {
+    setInterval(newInterval);
+    // Here we'll later implement the data fetching from TradingView
+    toast({
+      title: 'Interval Changed',
+      description: `Changed to ${INTERVALS[newInterval].label} timeframe`,
+    });
   };
 
   useEffect(() => {
@@ -168,10 +196,24 @@ export default function Chart() {
         variant: 'destructive'
       });
     }
-  }, [currentSymbol]);
+  }, [currentSymbol, interval]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
+      <div className="absolute top-2 left-2 z-10 flex items-center gap-2">
+        <Select value={interval} onValueChange={handleIntervalChange}>
+          <SelectTrigger className="w-20 bg-background">
+            <SelectValue placeholder="Interval" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(INTERVALS).map(([key, { label }]) => (
+              <SelectItem key={key} value={key}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div
         ref={container}
         className="w-full h-full"
