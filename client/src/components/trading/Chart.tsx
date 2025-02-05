@@ -51,12 +51,20 @@ export default function Chart() {
   // Cargar datos históricos iniciales de la API de Binance
   const loadInitialData = async (symbol: string) => {
     try {
+      console.log('Cargando datos históricos para:', symbol);
       const now = Date.now();
       const oneHourAgo = now - (60 * 60 * 1000); // 1 hora de datos históricos
       const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.toUpperCase()}&interval=1m&startTime=${oneHourAgo}&endTime=${now}&limit=60`;
 
+      console.log('Fetching URL:', url);
       const response = await fetch(url);
       const data = await response.json();
+      console.log('Datos recibidos:', data.length, 'velas');
+
+      if (!candlestickSeriesRef.current) {
+        console.error('candlestickSeries no está inicializado');
+        return;
+      }
 
       const candlesticks = data.map((d: any) => ({
         time: d[0] / 1000 as Time,
@@ -67,106 +75,33 @@ export default function Chart() {
         volume: parseFloat(d[5])
       }));
 
-      if (candlestickSeriesRef.current) {
-        candlestickSeriesRef.current.setData(candlesticks);
-        updateVolumeProfile(candlesticks.map((c: any) => ({ 
-          close: c.close, 
-          volume: c.volume 
-        })));
-      }
+      console.log('Primer candlestick:', candlesticks[0]);
+      console.log('Último candlestick:', candlesticks[candlesticks.length - 1]);
 
-      console.log('Datos históricos cargados:', candlesticks.length, 'velas');
+      candlestickSeriesRef.current.setData(candlesticks);
+      handleAutoFit();
+
+      updateVolumeProfile(candlesticks.map((c: any) => ({ 
+        close: c.close, 
+        volume: c.volume 
+      })));
+
+      console.log('Datos históricos cargados y establecidos en el gráfico');
     } catch (error) {
       console.error('Error cargando datos históricos:', error);
-    }
-  };
-
-  // Efecto para manejar la conexión del WebSocket y suscripción a datos
-  useEffect(() => {
-    if (!currentSymbol || !candlestickSeriesRef.current) return;
-
-    const symbol = currentSymbol.toLowerCase().replace(':', '').replace('perp', '');
-
-    // Cargar datos históricos primero
-    loadInitialData(symbol);
-
-    // Limpiar conexión anterior
-    if (wsRef.current) {
-      wsRef.current.close();
-    }
-
-    const wsUrl = `wss://fstream.binance.com/ws/${symbol}@kline_1m`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log('Connected to Binance Futures WebSocket');
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.e === 'kline') {
-          const kline = data.k;
-          const bar = {
-            time: kline.t / 1000 as Time,
-            open: parseFloat(kline.o),
-            high: parseFloat(kline.h),
-            low: parseFloat(kline.l),
-            close: parseFloat(kline.c),
-            volume: parseFloat(kline.v)
-          };
-
-          candlestickSeriesRef.current.update(bar);
-          updateVolumeProfile([{ close: parseFloat(kline.c), volume: parseFloat(kline.v) }]);
-        }
-      } catch (error) {
-        console.error('Error processing message:', error);
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
       toast({
-        title: 'Connection Error',
-        description: 'Error connecting to market data',
+        title: 'Error',
+        description: 'Error loading historical data',
         variant: 'destructive',
       });
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket connection closed');
-    };
-
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, [currentSymbol, interval]);
-
-  // Actualizar el perfil de volumen
-  const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
-    const priceStep = 100;
-    const volumeByPrice = new Map();
-
-    data.forEach(candle => {
-      const price = Math.floor(candle.close / priceStep) * priceStep;
-      const currentVolume = volumeByPrice.get(price) || 0;
-      volumeByPrice.set(price, currentVolume + candle.volume);
-    });
-
-    const profileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
-      price: Number(price),
-      volume: Number(volume),
-    }));
-
-    setVolumeProfileData(profileData);
+    }
   };
 
+  // Inicializar el gráfico
   useEffect(() => {
     if (!container.current) return;
 
+    console.log('Inicializando gráfico');
     const chart = createChart(container.current, {
       layout: {
         background: { color: '#151924' },
@@ -202,13 +137,6 @@ export default function Chart() {
           top: 0.35,
           bottom: 0.35,
         },
-        alignLabels: true,
-        autoScale: true,
-        mode: 1,
-      },
-      leftPriceScale: {
-        visible: true,
-        borderColor: '#1e222d',
       },
     });
 
@@ -220,29 +148,20 @@ export default function Chart() {
       borderVisible: false,
       wickUpColor: '#26a69a',
       wickDownColor: '#ef5350',
-      priceFormat: {
-        type: 'price',
-        precision: 2,
-        minMove: 0.01,
-      },
     });
 
     candlestickSeriesRef.current = candlestickSeries;
 
+    // Una vez que el gráfico está listo, cargamos los datos iniciales
+    if (currentSymbol) {
+      const symbol = currentSymbol.toLowerCase().replace(':', '').replace('perp', '');
+      loadInitialData(symbol);
+    }
+
     const handleResize = () => {
       if (!container.current) return;
       const { width, height } = container.current.getBoundingClientRect();
-      chart.applyOptions({
-        width,
-        height,
-        rightPriceScale: {
-          ...chart.options().rightPriceScale,
-          scaleMargins: {
-            top: 0.35,
-            bottom: 0.35,
-          },
-        },
-      });
+      chart.applyOptions({ width, height });
       chart.timeScale().fitContent();
     };
 
@@ -255,7 +174,89 @@ export default function Chart() {
       chartRef.current = null;
       candlestickSeriesRef.current = null;
     };
-  }, []);
+  }, [currentSymbol]); // Añadimos currentSymbol como dependencia
+
+  // Actualizar el perfil de volumen
+  const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
+    const priceStep = 100;
+    const volumeByPrice = new Map();
+
+    data.forEach(candle => {
+      const price = Math.floor(candle.close / priceStep) * priceStep;
+      const currentVolume = volumeByPrice.get(price) || 0;
+      volumeByPrice.set(price, currentVolume + candle.volume);
+    });
+
+    const profileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
+      price: Number(price),
+      volume: Number(volume),
+    }));
+
+    setVolumeProfileData(profileData);
+  };
+
+  // Efecto para manejar el WebSocket
+  useEffect(() => {
+    if (!currentSymbol || !candlestickSeriesRef.current) return;
+
+    const symbol = currentSymbol.toLowerCase().replace(':', '').replace('perp', '');
+    console.log('Conectando WebSocket para:', symbol);
+
+    // Limpiar conexión anterior
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    const wsUrl = `wss://fstream.binance.com/ws/${symbol}@kline_1m`;
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('WebSocket conectado');
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.e === 'kline') {
+          const kline = data.k;
+          const bar = {
+            time: kline.t / 1000 as Time,
+            open: parseFloat(kline.o),
+            high: parseFloat(kline.h),
+            low: parseFloat(kline.l),
+            close: parseFloat(kline.c),
+            volume: parseFloat(kline.v)
+          };
+
+          console.log('Nueva vela recibida:', bar);
+          candlestickSeriesRef.current.update(bar);
+          updateVolumeProfile([{ close: parseFloat(kline.c), volume: parseFloat(kline.v) }]);
+        }
+      } catch (error) {
+        console.error('Error procesando mensaje:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      toast({
+        title: 'Connection Error',
+        description: 'Error connecting to market data',
+        variant: 'destructive',
+      });
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket desconectado');
+    };
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [currentSymbol, interval]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
