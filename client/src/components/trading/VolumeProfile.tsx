@@ -20,30 +20,35 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
       return;
     }
 
-    console.log("Rendering volume profile with data:", { data, width, height });
+    console.log("Rendering volume profile with data:", {
+      dataPoints: data.length,
+      width,
+      height,
+      sampleData: data.slice(0, 3)
+    });
 
     // Limpiar SVG existente
     d3.select(svgRef.current).selectAll("*").remove();
 
     // Crear escalas
     const xScale = d3.scaleLinear()
-      .domain([0, 1]) // Usar valores normalizados
-      .range([width, 0]); // Invertir el rango para que crezca hacia la izquierda
+      .domain([0, 1])
+      .range([0, width]); // Ahora las barras crecen hacia la derecha
 
     const yScale = d3.scaleLinear()
       .domain([d3.min(data, d => d.price) || 0, d3.max(data, d => d.price) || 0])
-      .range([height - 2, 2]); // Dejar un pequeño margen
+      .range([height - 2, 2]);
 
-    // Obtener el precio actual (punto medio del rango)
     const currentPrice = (d3.min(data, d => d.price)! + d3.max(data, d => d.price)!) / 2;
 
     // Crear SVG
     const svg = d3.select(svgRef.current)
       .attr('width', width)
-      .attr('height', height);
+      .attr('height', height)
+      .style('overflow', 'visible');
 
     // Calcular altura de cada barra
-    const barHeight = Math.max(1, height / data.length * 0.8); // 80% del espacio disponible
+    const barHeight = Math.max(2, height / data.length);
 
     console.log("Dibujando barras con:", {
       numBars: data.length,
@@ -57,28 +62,21 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
       .data(data)
       .enter()
       .append('rect')
-      .attr('y', d => yScale(d.price) - barHeight / 2)
-      .attr('x', d => xScale(d.normalizedVolume)) // Posicionar desde la derecha
+      .attr('y', d => yScale(d.price))
+      .attr('x', 0)
       .attr('height', barHeight)
-      .attr('width', d => width - xScale(d.normalizedVolume)) // Ancho ajustado para crecer hacia la izquierda
+      .attr('width', d => xScale(d.normalizedVolume))
       .attr('fill', d => {
-        // Color basado en la posición relativa al precio actual
         const isAboveCurrent = d.price > currentPrice;
-        const intensity = Math.pow(d.normalizedVolume, 0.5); // Ajustar la curva de intensidad
-
-        if (d.normalizedVolume === 0) {
-          return '#26262611'; // Color muy tenue para barras sin volumen
-        }
+        const intensity = Math.pow(d.normalizedVolume, 0.5);
 
         if (isAboveCurrent) {
-          // Rojo para precios por encima
-          return d3.interpolateRgb('#ef535033', '#ef5350ee')(intensity);
+          return d3.interpolateRgb('#ef535088', '#ef5350')(intensity);
         } else {
-          // Verde para precios por debajo
-          return d3.interpolateRgb('#26a69a33', '#26a69aee')(intensity);
+          return d3.interpolateRgb('#26a69a88', '#26a69a')(intensity);
         }
       })
-      .attr('opacity', d => d.normalizedVolume > 0 ? 0.8 : 0.3);
+      .attr('opacity', 1);
 
   }, [data, width, height]);
 
@@ -89,9 +87,9 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
         position: 'absolute',
         right: 0,
         top: 0,
-        zIndex: 10,
+        width: '100%',
+        height: '100%',
         background: 'transparent',
-        pointerEvents: 'none'
       }}
     />
   );

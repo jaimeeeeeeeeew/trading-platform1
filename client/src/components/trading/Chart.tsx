@@ -385,13 +385,14 @@ export default function Chart() {
       </div>
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
-        {container.current && (
+        {container.current && volumeProfileData.length > 0 && (
           <div 
-            className="absolute right-20 top-0 h-full" 
+            className="absolute right-0 top-0 h-full" 
             style={{ 
               width: '80px',
               zIndex: 2,
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              background: 'rgba(0,0,0,0.1)'
             }}
           >
             <VolumeProfile
