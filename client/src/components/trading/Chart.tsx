@@ -153,25 +153,44 @@ export default function Chart() {
   };
 
   const updateVisiblePriceRange = () => {
-    if (!chartRef.current) return;
+    if (!chartRef.current) {
+      console.log('Chart reference not available');
+      return;
+    }
 
     try {
       const priceScale = chartRef.current.priceScale('right');
-      if (!priceScale) return;
+      if (!priceScale) {
+        console.log('Price scale not available');
+        return;
+      }
 
       const visibleLogicalRange = priceScale.getVisibleLogicalRange();
-      if (!visibleLogicalRange) return;
+      if (!visibleLogicalRange) {
+        console.log('Visible logical range not available');
+        return;
+      }
 
-      const visibleData = candlestickSeriesRef.current?.data() || [];
+      const visibleData = candlestickSeriesRef.current?.data();
+      if (!visibleData || !Array.isArray(visibleData)) {
+        console.log('No visible data available:', visibleData);
+        return;
+      }
+
       const currentTime = chartRef.current.timeScale().getVisibleLogicalRange();
-
-      if (!currentTime) return;
+      if (!currentTime) {
+        console.log('Current time range not available');
+        return;
+      }
 
       const visiblePoints = visibleData.filter((point: any) => 
         point.time >= currentTime.from && point.time <= currentTime.to
       );
 
-      if (visiblePoints.length === 0) return;
+      if (visiblePoints.length === 0) {
+        console.log('No visible points in current range');
+        return;
+      }
 
       // Calcular el rango de precios visible
       const prices = visiblePoints.map((point: any) => [point.high, point.low]).flat();
@@ -180,7 +199,17 @@ export default function Chart() {
 
       // Obtener el último precio (precio actual)
       const lastPoint = visiblePoints[visiblePoints.length - 1];
-      setCurrentChartPrice(lastPoint.close);
+      const currentPrice = lastPoint.close;
+      setCurrentChartPrice(currentPrice);
+
+      // Log detailed price information
+      console.log('Price Range Update:', {
+        minPrice,
+        maxPrice,
+        currentPrice,
+        visiblePoints: visiblePoints.length,
+        coordinate: candlestickSeriesRef.current?.priceToCoordinate(currentPrice)
+      });
 
       // Ajustar el rango para incluir un poco más de espacio
       const padding = (maxPrice - minPrice) * 0.1;
@@ -190,6 +219,7 @@ export default function Chart() {
       });
     } catch (error) {
       console.error('Error al actualizar el rango de precios visible:', error);
+      console.error('Stack trace:', (error as Error).stack);
     }
   };
 
