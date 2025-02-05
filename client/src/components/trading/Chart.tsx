@@ -12,20 +12,16 @@ export default function Chart() {
     if (!container.current) return;
 
     try {
-      // Create chart instance with minimal configuration
-      const chartInstance = createChart(container.current, {
-        width: container.current.clientWidth,
-        height: container.current.clientHeight,
-        layout: {
-          background: { color: '#1a1a1a' },
-          textColor: '#DDD',
-        },
+      // Basic chart configuration
+      const chart = createChart(container.current, {
+        width: 600,  // Fixed width
+        height: 300, // Fixed height
       });
 
-      // Create a basic candlestick series
-      const candlestickSeries = chartInstance.createSeries('candlestick');
+      // Create a candlestick series
+      const candlestickSeries = chart.addCandlestickSeries();
 
-      // Set some initial test data
+      // Add initial data
       const initialData = [
         { time: '2024-02-01', open: 100, high: 105, low: 95, close: 102 },
         { time: '2024-02-02', open: 102, high: 108, low: 98, close: 105 },
@@ -34,21 +30,10 @@ export default function Chart() {
 
       candlestickSeries.setData(initialData);
 
-      // Handle window resizing
-      const handleResize = () => {
-        chartInstance.applyOptions({
-          width: container.current!.clientWidth,
-          height: container.current!.clientHeight
-        });
-      };
-
-      window.addEventListener('resize', handleResize);
-
+      // Clean up
       return () => {
-        window.removeEventListener('resize', handleResize);
-        chartInstance.remove();
+        chart.remove();
       };
-
     } catch (error) {
       console.error('Error creating chart:', error);
       toast({
@@ -64,6 +49,7 @@ export default function Chart() {
       <div
         ref={container}
         className="w-full h-full"
+        style={{ minHeight: '300px' }}
       />
     </div>
   );
