@@ -415,6 +415,12 @@ export default function Chart() {
               visiblePriceRange={visiblePriceRange}
               currentPrice={currentChartPrice}
               priceCoordinate={priceCoordinate}
+              priceScale={{
+                height: container.current.clientHeight,
+                min: visiblePriceRange?.min || 0,
+                max: visiblePriceRange?.max || 0,
+                pixelsPerPrice: container.current.clientHeight / (visiblePriceRange ? visiblePriceRange.max - visiblePriceRange.min : 1)
+              }}
             />
           </div>
         )}
