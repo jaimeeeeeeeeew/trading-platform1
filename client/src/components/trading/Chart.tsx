@@ -26,7 +26,7 @@ type IntervalKey = keyof typeof INTERVALS;
 
 const generateSimulatedVolumeProfile = (currentPrice: number) => {
   const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-  // Generar datos centrados en el precio actual
+  // Generar datos centrados en el precio actual con un rango amplio
   const range = currentPrice * 0.5; // 50% del precio actual para arriba y abajo
   const minPrice = Math.floor((currentPrice - range) / 10) * 10;
   const maxPrice = Math.ceil((currentPrice + range) / 10) * 10;
@@ -62,6 +62,7 @@ export default function Chart() {
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number }>>([]);
   const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number} | null>(null);
+  const [currentChartPrice, setCurrentChartPrice] = useState<number | null>(null);
 
   const handleAutoFit = () => {
     if (chartRef.current) {
@@ -151,7 +152,6 @@ export default function Chart() {
       const visibleLogicalRange = priceScale.getVisibleLogicalRange();
       if (!visibleLogicalRange) return;
 
-      // Obtener el rango visible de precios del último conjunto de datos
       const visibleData = candlestickSeriesRef.current?.data() || [];
       const currentTime = chartRef.current.timeScale().getVisibleLogicalRange();
 
@@ -168,6 +168,10 @@ export default function Chart() {
       const minPrice = Math.min(...prices);
       const maxPrice = Math.max(...prices);
 
+      // Obtener el último precio (precio actual)
+      const lastPoint = visiblePoints[visiblePoints.length - 1];
+      setCurrentChartPrice(lastPoint.close);
+
       // Ajustar el rango para incluir un poco más de espacio
       const padding = (maxPrice - minPrice) * 0.1;
       setVisiblePriceRange({ 
@@ -183,14 +187,8 @@ export default function Chart() {
     if (!data.length) return;
 
     const currentPrice = data[data.length - 1].close;
+    setCurrentChartPrice(currentPrice);
     const simulatedData = generateSimulatedVolumeProfile(currentPrice);
-
-    console.log('Volume Profile Data:', {
-      levels: simulatedData.length,
-      currentPrice,
-      sampleData: simulatedData.slice(0, 3)
-    });
-
     setVolumeProfileData(simulatedData);
   };
 
@@ -362,7 +360,7 @@ export default function Chart() {
       </div>
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
-        {container.current && volumeProfileData.length > 0 && (
+        {container.current && volumeProfileData.length > 0 && currentChartPrice && (
           <div 
             className="absolute right-20 top-0 h-full" 
             style={{ 
@@ -377,6 +375,7 @@ export default function Chart() {
               width={120}
               height={container.current.clientHeight}
               visiblePriceRange={visiblePriceRange}
+              currentPrice={currentChartPrice}
             />
           </div>
         )}

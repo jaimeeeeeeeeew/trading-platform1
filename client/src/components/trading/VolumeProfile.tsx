@@ -13,17 +13,17 @@ interface Props {
     min: number;
     max: number;
   };
+  currentPrice: number;
 }
 
-export const VolumeProfile = ({ data, width, height, visiblePriceRange }: Props) => {
+export const VolumeProfile = ({ data, width, height, visiblePriceRange, currentPrice }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
     if (!svgRef.current || !data.length) return;
 
-    // Agrupar datos por intervalos de $10 y filtrar por rango visible
+    // Mantener solo los datos que están dentro del rango visible
     const groupedData = data.reduce((acc, item) => {
-      // Solo incluir datos dentro del rango visible si está definido
       if (visiblePriceRange && 
           (item.price < visiblePriceRange.min || item.price > visiblePriceRange.max)) {
         return acc;
@@ -50,17 +50,13 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange }: Props)
       .domain([0, 1])
       .range([width, 0]);
 
+    // Usar el rango visible si está disponible, si no usar el rango completo de los datos
     const yScale = d3.scaleLinear()
       .domain([
         visiblePriceRange?.min || d3.min(groupedData, d => d.price) || 0,
         visiblePriceRange?.max || d3.max(groupedData, d => d.price) || 0
       ])
       .range([height - 2, 2]);
-
-    // Usar el precio actual como punto central
-    const currentPrice = visiblePriceRange 
-      ? (visiblePriceRange.min + visiblePriceRange.max) / 2 
-      : d3.mean(groupedData, d => d.price) || 0;
 
     // Seleccionar o crear SVG
     const svg = d3.select(svgRef.current)
@@ -79,19 +75,22 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange }: Props)
     // Eliminar barras que ya no existen
     bars.exit().remove();
 
+    // Función para determinar el color de la barra
+    const getBarColor = (price: number, normalizedVolume: number) => {
+      const isAboveCurrent = price > currentPrice;
+      const intensity = Math.pow(normalizedVolume, 0.5);
+      return isAboveCurrent 
+        ? d3.interpolateRgb('#ef535088', '#ef5350')(intensity)
+        : d3.interpolateRgb('#26a69a88', '#26a69a')(intensity);
+    };
+
     // Actualizar barras existentes
     bars
       .attr('y', d => yScale(d.price))
       .attr('x', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('width', d => width - xScale(d.normalizedVolume))
-      .attr('fill', d => {
-        const isAboveCurrent = d.price > currentPrice;
-        const intensity = Math.pow(d.normalizedVolume, 0.5);
-        return isAboveCurrent 
-          ? d3.interpolateRgb('#ef535088', '#ef5350')(intensity)
-          : d3.interpolateRgb('#26a69a88', '#26a69a')(intensity);
-      });
+      .attr('fill', d => getBarColor(d.price, d.normalizedVolume));
 
     // Añadir nuevas barras
     bars.enter()
@@ -100,13 +99,7 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange }: Props)
       .attr('x', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('width', d => width - xScale(d.normalizedVolume))
-      .attr('fill', d => {
-        const isAboveCurrent = d.price > currentPrice;
-        const intensity = Math.pow(d.normalizedVolume, 0.5);
-        return isAboveCurrent 
-          ? d3.interpolateRgb('#ef535088', '#ef5350')(intensity)
-          : d3.interpolateRgb('#26a69a88', '#26a69a')(intensity);
-      });
+      .attr('fill', d => getBarColor(d.price, d.normalizedVolume));
 
     // Limpieza
     return () => {
@@ -114,7 +107,7 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange }: Props)
         d3.select(svgRef.current).selectAll('*').remove();
       }
     };
-  }, [data, width, height, visiblePriceRange]);
+  }, [data, width, height, visiblePriceRange, currentPrice]);
 
   return (
     <svg 
