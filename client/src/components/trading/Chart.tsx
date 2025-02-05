@@ -16,6 +16,63 @@ export default function Chart() {
   const { currentSymbol, updatePriceRange, updateTimeRange } = useTrading();
   const { toast } = useToast();
 
+  // Función para dibujar en el gráfico
+  const drawOnChart = (chart: any) => {
+    // Crear una línea de tendencia
+    chart.createTrendLine({
+      points: [{ time: Date.now() / 1000 - 3600, price: 45000 }, { time: Date.now() / 1000, price: 46000 }],
+      text: "Línea de tendencia",
+      quantity: "100%",
+      adjustForDividends: true,
+      extendLeft: false,
+      extendRight: true,
+      lineColor: "#00ff00",
+      lineWidth: 2,
+      lineStyle: 0
+    });
+
+    // Crear una etiqueta de texto
+    chart.createTextLabel({
+      point: { time: Date.now() / 1000, price: 47000 },
+      text: "Resistencia",
+      backgroundColor: "#ff0000",
+      fontFamily: "Arial",
+      fontSize: 14,
+      fontStyle: "bold",
+      color: "#ffffff"
+    });
+
+    // Agregar un estudio (por ejemplo, RSI)
+    chart.createStudy('RSI@tv-basicstudies', false, false, {
+      length: 14,
+      "plot.color": "#2196F3"
+    });
+  };
+
+  // Función para obtener datos del gráfico
+  const getChartData = async (chart: any) => {
+    try {
+      // Obtener datos visibles
+      const visibleRange = await chart.getVisibleRange();
+      console.log('📊 Rango visible:', visibleRange);
+
+      // Obtener todos los estudios
+      const studies = await chart.getAllStudies();
+      console.log('📈 Estudios activos:', studies);
+
+      // Exportar datos de la serie
+      const chartData = await chart.exportData({
+        includeTime: true,
+        includeSeries: true,
+        includeVolume: true
+      });
+      console.log('📊 Datos exportados:', chartData);
+
+    } catch (error) {
+      console.error('Error al obtener datos:', error);
+    }
+  };
+
   useEffect(() => {
     if (!container.current) return;
 
@@ -62,13 +119,24 @@ export default function Chart() {
             "VWAP@tv-basicstudies"
           ],
           disabled_features: ["header_symbol_search"],
-          enabled_features: ["volume_force_overlay"],
+          enabled_features: [
+            "volume_force_overlay",
+            "create_volume_indicator_by_default",
+            "study_templates",
+            "use_localstorage_for_settings"
+          ],
           custom_css_url: './chart.css',
           datafeed: dataFeed.current,
           library_path: "charting_library/",
           onChartReady: () => {
             console.log('📈 Gráfico listo');
             const chart = widget.current.activeChart();
+
+            // Dibujar en el gráfico
+            drawOnChart(chart);
+
+            // Obtener datos del gráfico
+            getChartData(chart);
 
             // Configurar handlers adicionales para el gráfico
             chart.onVisibleRangeChanged().subscribe(null, (range: any) => {
@@ -77,6 +145,16 @@ export default function Chart() {
                 to: new Date(range.to * 1000),
                 interval: chart.resolution()
               });
+            });
+
+            // Suscribirse a eventos de dibujo
+            chart.subscribe('drawing', (params: any) => {
+              console.log('🎨 Nuevo dibujo:', params);
+            });
+
+            // Suscribirse a eventos de estudio
+            chart.subscribe('study', (params: any) => {
+              console.log('📊 Cambio en estudio:', params);
             });
           }
         });
