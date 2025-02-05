@@ -197,16 +197,18 @@ export default function Chart() {
       const priceCoord = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
       if (typeof priceCoord === 'number') {
         setPriceCoordinate(priceCoord);
-        console.log('Price Coordinate Debug:');
-        console.log('Current Price:', lastPoint.close);
-        console.log('Y Coordinate:', priceCoord);
-        console.log('Price Range:', { min: minPrice - padding, max: maxPrice + padding });
+        console.log('Price Coordinate Debug:', {
+          currentPrice: lastPoint.close,
+          yCoordinate: priceCoord,
+          visibleRange: {
+            min: minPrice - padding,
+            max: maxPrice + padding
+          },
+          containerHeight: container.current?.clientHeight
+        });
       }
     } catch (error) {
       console.error('Error al actualizar el rango de precios visible:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', error.message);
-      }
     }
   };
 

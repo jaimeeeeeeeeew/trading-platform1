@@ -73,7 +73,24 @@ export const VolumeProfile = ({
       // Calcular el desplazamiento desde el precio actual
       const priceOffset = price - currentPrice;
       // Usar la misma escala que el gráfico principal
-      return priceCoordinate + (priceOffset * pixelsPerPrice);
+      const yPosition = priceCoordinate + (priceOffset * pixelsPerPrice);
+
+      // Imprimir información de debug
+      console.log('Debug Posición Barra:', {
+        price,
+        currentPrice,
+        priceOffset,
+        pixelsPerPrice,
+        priceCoordinate,
+        calculatedY: yPosition,
+        visibleRange: {
+          min: visiblePriceRange.min,
+          max: visiblePriceRange.max,
+          range: priceRange
+        }
+      });
+
+      return yPosition;
     };
 
     const barHeight = Math.max(1, pixelsPerPrice * 10); // 10 dólares por barra
