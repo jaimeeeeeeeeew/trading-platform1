@@ -135,12 +135,14 @@ export default function Chart() {
 
       // Create volume profile series
       const volumeProfileSeries = chart.addHistogramSeries({
-        color: '#26a69a',
         priceFormat: {
-          type: 'volume',
+          type: 'price',
         },
-        priceScaleId: 'volume',
+        base: 0,
+        overlay: true,
+        priceLineVisible: false,
         lastValueVisible: false,
+        color: 'rgba(38, 166, 154, 0.3)',
       });
 
       // Generate sample data
@@ -180,7 +182,7 @@ export default function Chart() {
       const volumeProfileData = volumeProfile.map(({ price, volume }) => ({
         time: sampleData[sampleData.length - 1].time,
         value: volume,
-        color: '#26a69a40',
+        color: 'rgba(38, 166, 154, 0.3)',
       }));
 
       volumeProfileSeries.setData(volumeProfileData);
