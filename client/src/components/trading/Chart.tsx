@@ -63,25 +63,23 @@ export default function Chart() {
       const formattedSymbol = formatSymbolForBinance(symbol);
       console.log('Cargando datos históricos para:', formattedSymbol);
 
-      // Usamos el límite máximo de velas que permite la API (1500)
-      const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&limit=1500`;
+      // Obtener los últimos 3000 datos históricos (aproximadamente 2 días de datos por minuto)
+      const responses = await Promise.all([
+        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&limit=1500`),
+        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&limit=1500&endTime=${Date.now() - 90000000}`)
+      ]);
 
-      console.log('Fetching URL:', url);
-      const response = await fetch(url);
+      const datas = await Promise.all(responses.map(r => r.json()));
+      const allData = [...datas[1], ...datas[0]];
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      console.log('Datos recibidos:', allData.length, 'velas');
 
-      const data = await response.json();
-      console.log('Datos recibidos:', data.length, 'velas');
-
-      if (!Array.isArray(data)) {
-        console.error('Los datos recibidos no son un array:', data);
+      if (!Array.isArray(allData)) {
+        console.error('Los datos recibidos no son un array:', allData);
         return;
       }
 
-      const candlesticks = data.map((d: any) => ({
+      const candlesticks = allData.map((d: any) => ({
         time: Math.floor(d[0] / 1000) as Time,
         open: parseFloat(d[1]),
         high: parseFloat(d[2]),
@@ -97,7 +95,7 @@ export default function Chart() {
         candlestickSeriesRef.current.setData(candlesticks);
         handleAutoFit();
 
-        // Guardar los datos históricos
+        // Guardar todos los datos históricos
         historicalDataRef.current = candlesticks.map(c => ({ 
           close: c.close, 
           volume: c.volume 
