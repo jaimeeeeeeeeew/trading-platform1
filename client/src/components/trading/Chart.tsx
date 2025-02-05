@@ -62,9 +62,8 @@ export default function Chart() {
       const formattedSymbol = formatSymbolForBinance(symbol);
       console.log('Cargando datos históricos para:', formattedSymbol);
 
-      const now = Date.now();
-      const oneDayAgo = now - (24 * 60 * 60 * 1000); // 24 horas de datos históricos
-      const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&startTime=${oneDayAgo}&endTime=${now}&limit=1440`;
+      // Usamos el límite máximo de velas que permite la API (1500)
+      const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&limit=1500`;
 
       console.log('Fetching URL:', url);
       const response = await fetch(url);
