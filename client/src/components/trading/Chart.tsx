@@ -80,6 +80,15 @@ export default function Chart() {
       },
       rightPriceScale: {
         borderColor: '#1e222d',
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.1,
+        },
+      },
+      leftPriceScale: {
+        visible: true,
+        borderColor: '#1e222d',
+        width: 100, // Espacio para el perfil de volumen
       },
     });
 
@@ -134,7 +143,6 @@ export default function Chart() {
       volumeByPrice.set(price, currentVolume + candle.volume);
     });
 
-    // Convertir para el componente VolumeProfile
     const profileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
       price,
       volume,
@@ -145,7 +153,7 @@ export default function Chart() {
     const handleResize = () => {
       const { width, height } = container.current!.getBoundingClientRect();
       chart.applyOptions({
-        width: width - 100, // Reservar espacio para el perfil de volumen
+        width,
         height,
       });
       chart.timeScale().fitContent();
@@ -178,17 +186,17 @@ export default function Chart() {
         </Select>
       </div>
       <div className="flex w-full h-full">
-        <div
-          ref={container}
-          className="flex-1 h-full"
-        />
-        <div className="w-[100px] h-full">
+        <div className="w-[100px] h-full relative">
           <VolumeProfile
             data={volumeProfileData}
             width={100}
             height={container.current?.clientHeight || 0}
           />
         </div>
+        <div
+          ref={container}
+          className="flex-1 h-full"
+        />
       </div>
       <Button
         onClick={handleAutoFit}
