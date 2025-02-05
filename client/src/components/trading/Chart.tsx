@@ -4,6 +4,7 @@ import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { ZoomIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { tradingViewService } from '@/lib/tradingview-service';
 import {
   Select,
   SelectContent,
@@ -26,9 +27,12 @@ type IntervalKey = keyof typeof INTERVALS;
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
+  const candlestickSeriesRef = useRef<any>(null);
+  const volumeSeriesRef = useRef<any>(null);
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
   const [interval, setInterval] = useState<IntervalKey>('1h');
+  const [loading, setLoading] = useState(false);
 
   const handleAutoFit = () => {
     if (chartRef.current) {
@@ -36,20 +40,54 @@ export default function Chart() {
     }
   };
 
-  const handleIntervalChange = (newInterval: IntervalKey) => {
+  const handleIntervalChange = async (newInterval: IntervalKey) => {
     setInterval(newInterval);
-    // Here we'll later implement the data fetching from TradingView
-    toast({
-      title: 'Interval Changed',
-      description: `Changed to ${INTERVALS[newInterval].label} timeframe`,
-    });
+    if (chartRef.current && candlestickSeriesRef.current) {
+      try {
+        setLoading(true);
+        const to = Math.floor(Date.now() / 1000);
+        const from = to - (INTERVALS[newInterval].minutes * 60 * 200); // 200 candles
+
+        const data = await tradingViewService.getHistory({
+          symbol: currentSymbol || 'BTCUSD',
+          resolution: tradingViewService.intervalToResolution(newInterval),
+          from,
+          to
+        });
+
+        candlestickSeriesRef.current.setData(data);
+
+        if (volumeSeriesRef.current) {
+          const volumeData = data.map(bar => ({
+            time: bar.time,
+            value: bar.volume || 0,
+            color: bar.close > bar.open ? '#26a69a80' : '#ef535080'
+          }));
+          volumeSeriesRef.current.setData(volumeData);
+        }
+
+        handleAutoFit();
+        toast({
+          title: 'Interval Changed',
+          description: `Changed to ${INTERVALS[newInterval].label} timeframe`,
+        });
+      } catch (error) {
+        console.error('Error loading data:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load market data',
+          variant: 'destructive'
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   useEffect(() => {
     if (!container.current) return;
 
     try {
-      // Create chart instance with dark theme
       const chart = createChart(container.current, {
         layout: {
           background: { color: '#151924' },
@@ -104,6 +142,7 @@ export default function Chart() {
         wickUpColor: '#26a69a',
         wickDownColor: '#ef5350',
       });
+      candlestickSeriesRef.current = candlestickSeries;
 
       // Add volume series
       const volumeSeries = chart.addHistogramSeries({
@@ -111,56 +150,16 @@ export default function Chart() {
         priceFormat: {
           type: 'volume',
         },
-        priceScaleId: '', // Set as an overlay
+        priceScaleId: '',
         scaleMargins: {
           top: 0.8,
           bottom: 0,
         },
       });
+      volumeSeriesRef.current = volumeSeries;
 
-      // Generate more realistic sample data
-      const sampleData = [];
-      const volumeData = [];
-      const startTime = new Date('2023-01-01').getTime(); // Start from a year ago
-      let lastClose = 45000; // Starting price around a realistic BTC value
-      const dailyData = 365; // One year of daily data
-
-      for (let i = 0; i < dailyData; i++) {
-        const time = new Date(startTime + i * 24 * 60 * 60 * 1000);
-        // More realistic volatility based on price
-        const volatility = (Math.random() * 0.03) * lastClose; // 3% max daily volatility
-        const trend = Math.sin(i / 30) * 0.001; // Add a slight cyclical trend
-
-        // Calculate OHLC with more realistic price movements
-        const open = lastClose;
-        const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend); // Max 2% move + trend
-        const high = Math.max(open, close) * (1 + Math.random() * 0.01); // Up to 1% above max
-        const low = Math.min(open, close) * (1 - Math.random() * 0.01); // Up to 1% below min
-
-        // Calculate volume with more variation
-        const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
-
-        const timeStr = time.toISOString().split('T')[0]; // Format: YYYY-MM-DD
-
-        sampleData.push({
-          time: timeStr,
-          open: open,
-          high: high,
-          low: low,
-          close: close,
-        });
-
-        volumeData.push({
-          time: timeStr,
-          value: volume,
-          color: close > open ? '#26a69a80' : '#ef535080',
-        });
-
-        lastClose = close;
-      }
-
-      candlestickSeries.setData(sampleData);
-      volumeSeries.setData(volumeData);
+      // Load initial data
+      handleIntervalChange(interval);
 
       // Handle window resizing
       const handleResize = () => {
@@ -177,9 +176,6 @@ export default function Chart() {
       // Initial size and fit
       handleResize();
 
-      // Ensure data is visible initially
-      chart.timeScale().fitContent();
-
       // Listen for resize events
       window.addEventListener('resize', handleResize);
 
@@ -187,6 +183,8 @@ export default function Chart() {
         window.removeEventListener('resize', handleResize);
         chart.remove();
         chartRef.current = null;
+        candlestickSeriesRef.current = null;
+        volumeSeriesRef.current = null;
       };
     } catch (error) {
       console.error('Error creating chart:', error);
@@ -196,7 +194,7 @@ export default function Chart() {
         variant: 'destructive'
       });
     }
-  }, [currentSymbol, interval]);
+  }, [currentSymbol]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
