@@ -16,81 +16,8 @@ export default function Chart() {
   const { currentSymbol, updatePriceRange, updateTimeRange } = useTrading();
   const { toast } = useToast();
 
-  // Función para dibujar en el gráfico
-  const drawOnChart = (chart: any) => {
-    // Crear una línea de tendencia
-    chart.createTrendLine({
-      points: [{ time: Date.now() / 1000 - 3600, price: 45000 }, { time: Date.now() / 1000, price: 46000 }],
-      text: "Línea de tendencia",
-      quantity: "100%",
-      adjustForDividends: true,
-      extendLeft: false,
-      extendRight: true,
-      lineColor: "#00ff00",
-      lineWidth: 2,
-      lineStyle: 0
-    });
-
-    // Crear una etiqueta de texto
-    chart.createTextLabel({
-      point: { time: Date.now() / 1000, price: 47000 },
-      text: "Resistencia",
-      backgroundColor: "#ff0000",
-      fontFamily: "Arial",
-      fontSize: 14,
-      fontStyle: "bold",
-      color: "#ffffff"
-    });
-
-    // Agregar un estudio (por ejemplo, RSI)
-    chart.createStudy('RSI@tv-basicstudies', false, false, {
-      length: 14,
-      "plot.color": "#2196F3"
-    });
-  };
-
-  // Función para obtener datos del gráfico
-  const getChartData = async (chart: any) => {
-    try {
-      // Obtener datos visibles
-      const visibleRange = await chart.getVisibleRange();
-      console.log('📊 Rango visible:', visibleRange);
-
-      // Obtener todos los estudios
-      const studies = await chart.getAllStudies();
-      console.log('📈 Estudios activos:', studies);
-
-      // Exportar datos de la serie
-      const chartData = await chart.exportData({
-        includeTime: true,
-        includeSeries: true,
-        includeVolume: true
-      });
-      console.log('📊 Datos exportados:', chartData);
-
-    } catch (error) {
-      console.error('Error al obtener datos:', error);
-    }
-  };
-
   useEffect(() => {
     if (!container.current) return;
-
-    // Inicializar DataFeed
-    dataFeed.current = new TradingViewDataFeed(currentSymbol);
-
-    // Suscribirse a actualizaciones de escala
-    dataFeed.current.onScaleUpdate((data) => {
-      console.log('📊 Actualización de escala:', data);
-      if (data.priceRange) {
-        updatePriceRange({
-          high: data.priceRange.high,
-          low: data.priceRange.low,
-          max: data.priceRange.max,
-          min: data.priceRange.min
-        });
-      }
-    });
 
     const script = document.createElement('script');
     script.src = 'https://s3.tradingview.com/tv.js';
@@ -101,6 +28,7 @@ export default function Chart() {
 
       try {
         widget.current = new window.TradingView.widget({
+          // Configuración básica
           container_id: container.current!.id,
           width: "100%",
           height: "100%",
@@ -110,52 +38,109 @@ export default function Chart() {
           theme: "dark",
           style: "1",
           locale: "es",
-          enable_publishing: false,
-          allow_symbol_change: true,
-          save_image: true,
+          toolbar_bg: "#f1f3f6",
+
+          // Estudios y herramientas
+          drawings_access: { type: 'all', tools: [ { name: "Regression Trend" } ] },
           studies: [
+            "MASimple@tv-basicstudies",
             "Volume@tv-basicstudies",
-            "MAExp@tv-basicstudies",
             "VWAP@tv-basicstudies"
           ],
-          disabled_features: ["header_symbol_search"],
+
+          // Características habilitadas/deshabilitadas
+          disabled_features: [
+            "header_symbol_search",
+            "header_saveload",
+            "header_screenshot",
+          ],
           enabled_features: [
+            "study_templates",
+            "show_chart_property_page",
             "volume_force_overlay",
             "create_volume_indicator_by_default",
-            "study_templates",
-            "use_localstorage_for_settings"
+            "hide_left_toolbar_by_default",
+            "move_logo_to_main_pane",
+            "two_charts_support",
+            "chart_crosshair_menu",
+            "display_market_status",
+            "remove_library_container_border",
           ],
+
+          // Opciones avanzadas
+          fullscreen: false,
+          autosize: true,
           custom_css_url: './chart.css',
-          datafeed: dataFeed.current,
-          library_path: "charting_library/",
+          library_path: "/charting_library/",
+          charts_storage_url: 'https://saveload.tradingview.com',
+          charts_storage_api_version: "1.1",
+          client_id: 'tradingview.com',
+          user_id: 'public_user_id',
+          loading_screen: { backgroundColor: "#1a1a1a" },
+
+          // Eventos y callbacks
           onChartReady: () => {
-            console.log('📈 Gráfico listo');
+            console.log('📈 TradingView Chart Ready');
             const chart = widget.current.activeChart();
 
-            // Dibujar en el gráfico
-            drawOnChart(chart);
-
             // Obtener datos del gráfico
-            getChartData(chart);
-
-            // Configurar handlers adicionales para el gráfico
             chart.onVisibleRangeChanged().subscribe(null, (range: any) => {
+              console.log('📊 Visible range changed:', range);
+              const from = new Date(range.from * 1000);
+              const to = new Date(range.to * 1000);
               updateTimeRange({
-                from: new Date(range.from * 1000),
-                to: new Date(range.to * 1000),
+                from,
+                to,
                 interval: chart.resolution()
               });
             });
 
-            // Suscribirse a eventos de dibujo
-            chart.subscribe('drawing', (params: any) => {
-              console.log('🎨 Nuevo dibujo:', params);
+            // Obtener precios actual
+            chart.crosshairMoved().subscribe(null, (param: any) => {
+              if (param.price) {
+                updatePriceRange({
+                  high: param.price * 1.001,
+                  low: param.price * 0.999,
+                  max: param.price * 1.01,
+                  min: param.price * 0.99
+                });
+              }
             });
 
-            // Suscribirse a eventos de estudio
-            chart.subscribe('study', (params: any) => {
-              console.log('📊 Cambio en estudio:', params);
-            });
+            // Ejemplo de dibujo básico
+            setTimeout(() => {
+              try {
+                // Crear una línea de tendencia
+                chart.createShape(
+                  { 
+                    time: Math.floor(Date.now() / 1000), 
+                    price: chart.priceFormatter().format(param.price) 
+                  },
+                  {
+                    shape: "trend_line",
+                    lock: true,
+                    disableSelection: false,
+                    disableSave: false,
+                    disableUndo: false,
+                    text: "Tendencia",
+                    overrides: {
+                      linecolor: "#00ff00",
+                      linewidth: 2,
+                      linestyle: 0,
+                      showLabel: true,
+                      textcolor: "#ffffff",
+                      fontsize: 12,
+                      fontfamily: "Arial",
+                      transparency: 0
+                    }
+                  }
+                );
+
+                console.log('✅ Dibujo creado exitosamente');
+              } catch (error) {
+                console.error('❌ Error al crear dibujo:', error);
+              }
+            }, 2000);
           }
         });
 
@@ -174,9 +159,6 @@ export default function Chart() {
     return () => {
       if (document.head.contains(script)) {
         document.head.removeChild(script);
-      }
-      if (dataFeed.current) {
-        dataFeed.current.disconnect();
       }
     };
   }, [currentSymbol, updatePriceRange, updateTimeRange]);
