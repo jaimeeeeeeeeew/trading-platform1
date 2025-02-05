@@ -242,9 +242,13 @@ export default function Chart() {
   };
 
   const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
-    if (!data.length) return;
+    if (!data.length) {
+      console.log('No hay datos para actualizar el perfil de volumen');
+      return;
+    }
 
     const currentPrice = data[data.length - 1].close;
+    console.log('Actualizando precio actual:', currentPrice);
     setCurrentChartPrice(currentPrice);
     const simulatedData = generateSimulatedVolumeProfile(currentPrice);
     setVolumeProfileData(simulatedData);
@@ -371,7 +375,12 @@ export default function Chart() {
           };
 
           console.log('Nueva vela recibida:', bar);
-          candlestickSeriesRef.current.update(bar);
+
+          // Actualizar el precio actual inmediatamente
+          setCurrentChartPrice(parseFloat(kline.c));
+          console.log('Precio actual actualizado a:', parseFloat(kline.c));
+
+          candlestickSeriesRef.current?.update(bar);
 
           const lastCandle = { close: parseFloat(kline.c), volume: parseFloat(kline.v) };
           historicalDataRef.current = [...historicalDataRef.current.slice(-1499), lastCandle];
