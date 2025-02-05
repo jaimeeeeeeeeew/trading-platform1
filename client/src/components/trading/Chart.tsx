@@ -24,32 +24,30 @@ const INTERVALS = {
 
 type IntervalKey = keyof typeof INTERVALS;
 
-const generateVolumeProfileData = (price: number) => {
-  const data: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-  // Generar un rango muy amplio de datos (±30% del precio actual)
-  const range = price * 0.3;
-  const step = 10; // Intervalo de precio entre barras
+const generateSimulatedVolumeProfile = (currentPrice: number) => {
+  const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
+  // Generar datos centrados en el precio actual con un rango amplio
+  const range = currentPrice * 0.5; // 50% del precio actual para arriba y abajo
+  const minPrice = Math.floor((currentPrice - range) / 10) * 10;
+  const maxPrice = Math.ceil((currentPrice + range) / 10) * 10;
   let maxVolume = 0;
 
-  // Generar datos para todo el rango visible
-  for (let p = price - range; p <= price + range; p += step) {
-    const distanceFromPrice = Math.abs(p - price);
-    const volumeBase = Math.exp(-distanceFromPrice / (range * 0.1)); // Distribución exponencial
-    const randomFactor = 0.7 + Math.random() * 0.6; // Factor aleatorio entre 0.7 y 1.3
+  // Generar volúmenes para intervalos de $10
+  for (let price = minPrice; price <= maxPrice; price += 10) {
+    const distanceFromCurrent = Math.abs(price - currentPrice);
+    // Ajustar la fórmula para que el volumen sea más alto cerca del precio actual
+    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / range));
+    const randomFactor = 0.5 + Math.random();
     const volume = volumeBase * randomFactor * 1000;
 
     maxVolume = Math.max(maxVolume, volume);
-    data.push({
-      price: Math.round(p), // Redondear al entero más cercano
-      volume,
-      normalizedVolume: 0 // Se normalizará después
-    });
+    volumeProfileData.push({ price, volume, normalizedVolume: 0 });
   }
 
-  // Normalizar volúmenes
-  return data.map(item => ({
-    ...item,
-    normalizedVolume: item.volume / maxVolume
+  // Normalizar los volúmenes
+  return volumeProfileData.map(data => ({
+    ...data,
+    normalizedVolume: data.volume / maxVolume
   }));
 };
 
@@ -63,8 +61,8 @@ export default function Chart() {
   const { toast } = useToast();
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number }>>([]);
-  const [priceScale, setPriceScale] = useState<{min: number, max: number} | null>(null);
-  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number} | null>(null);
+  const [currentChartPrice, setCurrentChartPrice] = useState<number | null>(null);
 
   const handleAutoFit = () => {
     if (chartRef.current) {
@@ -148,28 +146,40 @@ export default function Chart() {
     if (!chartRef.current) return;
 
     try {
-      const scale = chartRef.current.priceScale('right');
-      if (!scale) return;
+      const priceScale = chartRef.current.priceScale('right');
+      if (!priceScale) return;
 
-      const logicalRange = scale.getVisibleLogicalRange();
-      if (!logicalRange) return;
+      const visibleLogicalRange = priceScale.getVisibleLogicalRange();
+      if (!visibleLogicalRange) return;
 
-      const coordinateToPrice = (coordinate: number) => scale.coordinateToPrice(coordinate);
-      const visibleRange = {
-        min: coordinateToPrice(0), // Corrected to get min from bottom
-        max: coordinateToPrice(container.current.clientHeight) // Corrected to get max from top
-      };
+      const visibleData = candlestickSeriesRef.current?.data() || [];
+      const currentTime = chartRef.current.timeScale().getVisibleLogicalRange();
 
-      setPriceScale(visibleRange);
+      if (!currentTime) return;
 
-      // Actualizar el precio actual y regenerar los datos del perfil
-      const lastCandle = candlestickSeriesRef.current?.lastValue();
-      if (lastCandle) {
-        setCurrentPrice(lastCandle.close);
-        setVolumeProfileData(generateVolumeProfileData(lastCandle.close));
-      }
+      const visiblePoints = visibleData.filter((point: any) => 
+        point.time >= currentTime.from && point.time <= currentTime.to
+      );
+
+      if (visiblePoints.length === 0) return;
+
+      // Calcular el rango de precios visible
+      const prices = visiblePoints.map((point: any) => [point.high, point.low]).flat();
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+
+      // Obtener el último precio (precio actual)
+      const lastPoint = visiblePoints[visiblePoints.length - 1];
+      setCurrentChartPrice(lastPoint.close);
+
+      // Ajustar el rango para incluir un poco más de espacio
+      const padding = (maxPrice - minPrice) * 0.1;
+      setVisiblePriceRange({ 
+        min: minPrice - padding, 
+        max: maxPrice + padding 
+      });
     } catch (error) {
-      console.error('Error updating price scale:', error);
+      console.error('Error al actualizar el rango de precios visible:', error);
     }
   };
 
@@ -177,8 +187,8 @@ export default function Chart() {
     if (!data.length) return;
 
     const currentPrice = data[data.length - 1].close;
-    setCurrentPrice(currentPrice);
-    const simulatedData = generateVolumeProfileData(currentPrice);
+    setCurrentChartPrice(currentPrice);
+    const simulatedData = generateSimulatedVolumeProfile(currentPrice);
     setVolumeProfileData(simulatedData);
   };
 
@@ -350,21 +360,22 @@ export default function Chart() {
       </div>
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
-        {container.current && volumeProfileData.length > 0 && currentPrice && (
+        {container.current && volumeProfileData.length > 0 && currentChartPrice && (
           <div 
             className="absolute right-20 top-0 h-full" 
             style={{ 
               width: '120px',
               zIndex: 2,
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              background: 'rgba(21, 25, 36, 0.7)'
             }}
           >
             <VolumeProfile
               data={volumeProfileData}
               width={120}
               height={container.current.clientHeight}
-              priceScale={priceScale}
-              currentPrice={currentPrice}
+              visiblePriceRange={visiblePriceRange}
+              currentPrice={currentChartPrice}
             />
           </div>
         )}
