@@ -96,7 +96,13 @@ export const VolumeProfile = ({
         // Si tenemos la coordenada exacta del precio, la usamos para ajustar la posición
         if (priceCoordinate !== null) {
           const offset = d.price - currentPrice;
-          return priceCoordinate + (offset * (height / (visiblePriceRange?.max || 0 - visiblePriceRange?.min || 0)));
+          const yPos = priceCoordinate + (offset * (height / (visiblePriceRange?.max || 0 - visiblePriceRange?.min || 0)));
+          // Solo imprimir para la barra que está en el precio actual
+          if (Math.abs(d.price - currentPrice) < 5) {
+            console.log('Precio de la barra:', d.price);
+            console.log('Posición Y de la barra divisoria:', yPos);
+          }
+          return yPos;
         }
         return yScale(d.price);
       })

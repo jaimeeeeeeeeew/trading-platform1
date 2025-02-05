@@ -75,7 +75,8 @@ export default function Chart() {
     if (candlestickSeriesRef.current && currentChartPrice) {
       const coordinate = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
       setPriceCoordinate(coordinate);
-      console.log('Price coordinate updated:', coordinate);
+      console.log('Precio actual:', currentChartPrice);
+      console.log('Coordenada Y del precio:', coordinate);
     }
   };
 
