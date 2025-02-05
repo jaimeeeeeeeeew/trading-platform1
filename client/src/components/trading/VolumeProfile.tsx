@@ -33,7 +33,7 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
     // Crear escalas
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([0, width]); // Ahora las barras crecen hacia la derecha
+      .range([width, 0]); // Invertir el rango para que crezca hacia la izquierda
 
     const yScale = d3.scaleLinear()
       .domain([d3.min(data, d => d.price) || 0, d3.max(data, d => d.price) || 0])
@@ -63,9 +63,9 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
       .enter()
       .append('rect')
       .attr('y', d => yScale(d.price))
-      .attr('x', 0)
+      .attr('x', d => xScale(d.normalizedVolume)) // Posicionar desde la derecha
       .attr('height', barHeight)
-      .attr('width', d => xScale(d.normalizedVolume))
+      .attr('width', d => width - xScale(d.normalizedVolume)) // Ancho ajustado para crecer hacia la izquierda
       .attr('fill', d => {
         const isAboveCurrent = d.price > currentPrice;
         const intensity = Math.pow(d.normalizedVolume, 0.5);

@@ -24,6 +24,33 @@ const INTERVALS = {
 
 type IntervalKey = keyof typeof INTERVALS;
 
+const generateSimulatedVolumeProfile = (currentPrice: number) => {
+    const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
+    const minPrice = Math.floor(currentPrice * 0.85);
+    const maxPrice = Math.ceil(currentPrice * 1.15);
+    let maxVolume = 0;
+
+    // Generar volúmenes aleatorios para cada dólar en el rango
+    for (let price = minPrice; price <= maxPrice; price++) {
+      // Crear un volumen base que disminuye a medida que se aleja del precio actual
+      const distanceFromCurrent = Math.abs(price - currentPrice);
+      const volumeBase = Math.max(0, 1 - (distanceFromCurrent / (currentPrice * 0.15)));
+
+      // Añadir algo de aleatoriedad al volumen
+      const randomFactor = 0.5 + Math.random();
+      const volume = volumeBase * randomFactor * 1000;
+
+      maxVolume = Math.max(maxVolume, volume);
+      volumeProfileData.push({ price, volume, normalizedVolume: 0 });
+    }
+
+    // Normalizar los volúmenes
+    return volumeProfileData.map(data => ({
+      ...data,
+      normalizedVolume: data.volume / maxVolume
+    }));
+  };
+
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
@@ -163,58 +190,18 @@ export default function Chart() {
   };
 
   const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
-    if (!data.length || !visiblePriceRange) return;
+    if (!data.length) return;
 
-    const { min: minPrice, max: maxPrice } = visiblePriceRange;
-    const priceRange = maxPrice - minPrice;
     const currentPrice = data[data.length - 1].close;
-
-    // Asegurar que tenemos un rango mínimo del 30% (15% arriba y abajo)
-    const minPriceWithBuffer = Math.min(minPrice, currentPrice * 0.85);
-    const maxPriceWithBuffer = Math.max(maxPrice, currentPrice * 1.15);
-    const adjustedPriceRange = maxPriceWithBuffer - minPriceWithBuffer;
-
-    const numLevels = 100;
-    const priceStep = adjustedPriceRange / numLevels;
-
-    const volumeByPrice = new Map<number, number>();
-    let maxVolume = 0;
-
-    // Inicializar todos los niveles de precio
-    for (let i = 0; i <= numLevels; i++) {
-      const price = minPriceWithBuffer + (i * priceStep);
-      volumeByPrice.set(price, 0);
-    }
-
-    // Acumular volumen por nivel de precio
-    data.forEach(candle => {
-      if (candle.close >= minPriceWithBuffer && candle.close <= maxPriceWithBuffer) {
-        const normalizedPrice = Math.round((candle.close - minPriceWithBuffer) / priceStep) * priceStep + minPriceWithBuffer;
-        const currentVolume = volumeByPrice.get(normalizedPrice) || 0;
-        const newVolume = currentVolume + candle.volume;
-        volumeByPrice.set(normalizedPrice, newVolume);
-        maxVolume = Math.max(maxVolume, newVolume);
-      }
-    });
-
-    const profileData = Array.from(volumeByPrice.entries())
-      .map(([price, volume]) => ({
-        price: Number(price),
-        volume: Number(volume),
-        normalizedVolume: maxVolume > 0 ? volume / maxVolume : 0
-      }))
-      .sort((a, b) => a.price - b.price);
+    const simulatedData = generateSimulatedVolumeProfile(currentPrice);
 
     console.log('Volume Profile Data:', {
-      levels: profileData.length,
-      visibleRange: visiblePriceRange,
+      levels: simulatedData.length,
       currentPrice,
-      priceStep,
-      maxVolume,
-      sampleData: profileData.slice(0, 3)
+      sampleData: simulatedData.slice(0, 3)
     });
 
-    setVolumeProfileData(profileData);
+    setVolumeProfileData(simulatedData);
   };
 
   useEffect(() => {
@@ -389,15 +376,15 @@ export default function Chart() {
           <div 
             className="absolute right-0 top-0 h-full" 
             style={{ 
-              width: '80px',
+              width: '120px',
               zIndex: 2,
               pointerEvents: 'none',
-              background: 'rgba(0,0,0,0.1)'
+              background: 'rgba(21, 25, 36, 0.7)'
             }}
           >
             <VolumeProfile
               data={volumeProfileData}
-              width={80}
+              width={120}
               height={container.current.clientHeight}
             />
           </div>
