@@ -162,24 +162,32 @@ export default function Chart() {
       const visibleLogicalRange = priceScale.getVisibleLogicalRange();
       if (!visibleLogicalRange) return;
 
-      const visibleData = candlestickSeriesRef.current?.data() || [];
-      const currentTime = chartRef.current.timeScale().getVisibleLogicalRange();
+      const timeScale = chartRef.current.timeScale();
+      const currentTimeRange = timeScale.getVisibleLogicalRange();
+      if (!currentTimeRange) return;
 
-      if (!currentTime) return;
+      // Usando el método correcto para obtener los datos
+      if (!candlestickSeriesRef.current) return;
 
-      const visiblePoints = visibleData.filter((point: any) => 
-        point.time >= currentTime.from && point.time <= currentTime.to
+      const allData = historicalDataRef.current;
+      if (!allData.length) return;
+
+      const visiblePoints = allData.filter((_, index) => 
+        index >= Math.floor(currentTimeRange.from) && 
+        index <= Math.ceil(currentTimeRange.to)
       );
 
       if (visiblePoints.length === 0) return;
 
-      // Calcular el rango de precios visible
-      const prices = visiblePoints.map((point: any) => [point.high, point.low]).flat();
+      // Calcular el rango de precios visible usando los datos históricos
+      const prices = visiblePoints.map(point => point.close);
       const minPrice = Math.min(...prices);
       const maxPrice = Math.max(...prices);
 
       // Obtener el último precio (precio actual)
       const lastPoint = visiblePoints[visiblePoints.length - 1];
+      if (!lastPoint) return;
+
       setCurrentChartPrice(lastPoint.close);
 
       // Ajustar el rango para incluir un poco más de espacio
@@ -188,8 +196,21 @@ export default function Chart() {
         min: minPrice - padding, 
         max: maxPrice + padding 
       });
+
+      // Actualizar la coordenada del precio usando priceToCoordinate
+      const priceCoord = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
+      if (typeof priceCoord === 'number') {
+        setPriceCoordinate(priceCoord);
+        console.log('Price Coordinate Debug:');
+        console.log('Current Price:', lastPoint.close);
+        console.log('Y Coordinate:', priceCoord);
+        console.log('Price Range:', { min: minPrice - padding, max: maxPrice + padding });
+      }
     } catch (error) {
       console.error('Error al actualizar el rango de precios visible:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+      }
     }
   };
 

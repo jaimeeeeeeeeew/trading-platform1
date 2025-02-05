@@ -1,0 +1,57 @@
+
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98328.1, close: 98334.6, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98328.1, close: 98334.7, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98328.1, close: 98334.7, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98320.6, close: 98320.6, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98315, close: 98315.2, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98314, close: 98314, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98314, close: 98314, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98314, close: 98314, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98313.6, close: 98313.6, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98313.6, close: 98313.6, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98313.6, close: 98313.6, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98313.6, close: 98313.7, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98313.6, close: 98313.6, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98313.6, close: 98313.6, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98313.6, close: 98313.7, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98313.6, close: 98313.6, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98310, close: 98310, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98306.6, close: 98306.6, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98302.5, close: 98304, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98302.5, close: 98303.9, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98302.5, close: 98303.9, …}
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98302.5, close: 98304, …}
+Error al actualizar el rango de precios visible: 
+TypeError {}
+
+Error al actualizar el rango de precios visible: 
+TypeError {}
+
+Nueva vela recibida: 
+Object {time: 1738767360, open: 98388.5, high: 98431.8, low: 98302.5, close: 98303.9, …}
+Error al actualizar el rango de precios visible: 
+TypeError {}
+
+Error a
