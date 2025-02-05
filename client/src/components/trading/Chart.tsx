@@ -204,7 +204,14 @@ export default function Chart() {
             min: minPrice - padding,
             max: maxPrice + padding
           },
-          containerHeight: container.current?.clientHeight
+          containerHeight: container.current?.clientHeight,
+          // Agregar información sobre la escala de precios
+          priceScale: {
+            height: priceScale.height(),
+            min: priceScale.coordinateToPrice(priceScale.height()),
+            max: priceScale.coordinateToPrice(0),
+            pixelsPerPrice: priceScale.height() / (maxPrice - minPrice)
+          }
         });
       }
     } catch (error) {
