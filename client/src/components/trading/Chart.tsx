@@ -124,26 +124,36 @@ export default function Chart() {
   const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
     if (!data.length) return;
 
-    // Encontrar el rango de precios
-    const prices = data.map(d => d.close);
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
+    // Obtener el precio actual del último dato
+    const currentPrice = data[data.length - 1].close;
+
+    // Calcular rango de ±15%
+    const minPrice = currentPrice * 0.85;  // 15% por debajo
+    const maxPrice = currentPrice * 1.15;  // 15% por arriba
     const priceRange = maxPrice - minPrice;
 
-    // Usar un número más alto de niveles para mayor granularidad
-    const numLevels = 200;
+    // Usar un número fijo de niveles para la granularidad
+    const numLevels = 100;
     const priceStep = priceRange / numLevels;
 
     const volumeByPrice = new Map<number, number>();
     let maxVolume = 0;
 
+    // Inicializar todos los niveles de precio en el rango con volumen 0
+    for (let i = 0; i <= numLevels; i++) {
+      const price = minPrice + (i * priceStep);
+      volumeByPrice.set(price, 0);
+    }
+
     // Acumular volumen por nivel de precio
     data.forEach(candle => {
-      const normalizedPrice = Math.round((candle.close - minPrice) / priceStep) * priceStep + minPrice;
-      const currentVolume = volumeByPrice.get(normalizedPrice) || 0;
-      const newVolume = currentVolume + candle.volume;
-      volumeByPrice.set(normalizedPrice, newVolume);
-      maxVolume = Math.max(maxVolume, newVolume);
+      if (candle.close >= minPrice && candle.close <= maxPrice) {
+        const normalizedPrice = Math.round((candle.close - minPrice) / priceStep) * priceStep + minPrice;
+        const currentVolume = volumeByPrice.get(normalizedPrice) || 0;
+        const newVolume = currentVolume + candle.volume;
+        volumeByPrice.set(normalizedPrice, newVolume);
+        maxVolume = Math.max(maxVolume, newVolume);
+      }
     });
 
     // Convertir a array y normalizar los volúmenes
@@ -151,13 +161,13 @@ export default function Chart() {
       .map(([price, volume]) => ({
         price: Number(price),
         volume: Number(volume),
-        normalizedVolume: volume / maxVolume // Normalizar para mejor visualización
+        normalizedVolume: maxVolume > 0 ? volume / maxVolume : 0 // Evitar división por cero
       }))
-      .sort((a, b) => a.price - b.price)
-      .filter(item => item.volume > 0); // Eliminar niveles sin volumen
+      .sort((a, b) => a.price - b.price);
 
     console.log('Volume Profile Data:', {
       levels: profileData.length,
+      currentPrice,
       minPrice,
       maxPrice,
       priceStep,

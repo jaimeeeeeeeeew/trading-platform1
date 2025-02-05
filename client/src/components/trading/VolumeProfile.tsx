@@ -54,12 +54,11 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
       .attr('fill', d => {
         // Color más intenso para volúmenes más altos
         const intensity = Math.pow(d.normalizedVolume, 0.5); // Ajustar la curva de intensidad
-        const color = d.normalizedVolume > 0.5
+        return d.normalizedVolume > 0 
           ? d3.interpolateRgb('#26a69a33', '#26a69aee')(intensity)
-          : d3.interpolateRgb('#ef535033', '#ef5350ee')(intensity);
-        return color;
+          : '#26a69a11'; // Color muy tenue para barras sin volumen
       })
-      .attr('opacity', 0.8);
+      .attr('opacity', d => d.normalizedVolume > 0 ? 0.8 : 0.3);
 
   }, [data, width, height]);
 
