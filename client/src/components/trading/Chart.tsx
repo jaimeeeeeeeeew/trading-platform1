@@ -1,8 +1,17 @@
 import { useEffect, useRef } from 'react';
-import { createChart, IChartApi, TimeRange, LogicalRange } from 'lightweight-charts';
+import { createChart, IChartApi, UTCTimestamp, ISeriesApi, CandlestickData, HistogramData } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { TradingViewDataFeed } from '@/lib/tradingview-feed';
+
+interface Bar {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
@@ -19,7 +28,7 @@ export default function Chart() {
       width: container.current.clientWidth,
       height: container.current.clientHeight,
       layout: {
-        background: { color: '#1a1a1a' },
+        background: { type: 'solid', color: '#1a1a1a' },
         textColor: '#DDD',
       },
       grid: {
@@ -39,8 +48,9 @@ export default function Chart() {
     dataFeed.current = new TradingViewDataFeed(currentSymbol);
 
     // Create main series
-    const candleSeries = chart.current.addCandlestickSeries({
-      upColor: '#26a69a', 
+    const candleSeries = chart.current.addCandlestickSeries();
+    candleSeries.applyOptions({
+      upColor: '#26a69a',
       downColor: '#ef5350',
       borderVisible: false,
       wickUpColor: '#26a69a',
@@ -74,33 +84,38 @@ export default function Chart() {
     });
 
     // Subscribe to historical data
-    dataFeed.current.subscribeBars((bars) => {
+    dataFeed.current.subscribeBars((bars: Bar[]) => {
       if (bars.length > 0) {
-        candleSeries.setData(bars.map(bar => ({
-          time: bar.time,
+        const candleData: CandlestickData[] = bars.map(bar => ({
+          time: bar.time as UTCTimestamp,
           open: bar.open,
           high: bar.high,
           low: bar.low,
           close: bar.close
-        })));
+        }));
 
-        volumeSeries.setData(bars.map(bar => ({
-          time: bar.time,
+        const volumeData: HistogramData[] = bars.map(bar => ({
+          time: bar.time as UTCTimestamp,
           value: bar.volume,
           color: bar.close >= bar.open ? '#26a69a50' : '#ef535050'
-        })));
+        }));
+
+        candleSeries.setData(candleData);
+        volumeSeries.setData(volumeData);
       }
     });
 
     // Handle time range changes
-    chart.current.timeScale().subscribeVisibleTimeRangeChange((range: TimeRange | null) => {
+    chart.current.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (range) {
-        const logicalRange = chart.current!.timeScale().getVisibleLogicalRange() as LogicalRange;
-        updateTimeRange({
-          from: new Date(range.from * 1000),
-          to: new Date(range.to * 1000),
-          interval: logicalRange.to - logicalRange.from > 200 ? 'D' : '1'
-        });
+        const timeRange = chart.current!.timeScale().getVisibleRange();
+        if (timeRange) {
+          updateTimeRange({
+            from: new Date(timeRange.from * 1000),
+            to: new Date(timeRange.to * 1000),
+            interval: range.to - range.from > 200 ? 'D' : '1'
+          });
+        }
       }
     });
 
