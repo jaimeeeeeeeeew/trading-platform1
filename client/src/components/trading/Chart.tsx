@@ -134,11 +134,14 @@ export default function Chart() {
 
       try {
         // Crear una escala de precio adicional para el volumen en el lado derecho
-        chart.applyOptions({
-          rightPriceScale: {
-            visible: true,
-            borderColor: '#1e222d',
-          }
+        const rightScale = chart.addPriceScale('volume', {
+          position: 'right',
+          scaleMargins: {
+            top: 0.1,
+            bottom: 0.1,
+          },
+          borderVisible: true,
+          borderColor: '#1e222d',
         });
 
         // Configurar histograma horizontal para el volumen
@@ -146,14 +149,10 @@ export default function Chart() {
           priceFormat: {
             type: 'volume',
           },
-          priceScaleId: 'right', // Usar escala derecha
-          scaleMargins: {
-            top: 0.1,
-            bottom: 0.1,
-          },
+          priceScaleId: 'volume',
           base: 0,
           color: 'rgba(38, 166, 154, 0.3)',
-          direction: 'left', // Barras horizontales
+          direction: 'right', // Barras horizontales hacia la derecha
           lastValueVisible: true,
         });
 
