@@ -4,13 +4,14 @@ import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { ZoomIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { VolumeProfile } from './VolumeProfile';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 
 const INTERVALS = {
   '1m': { label: '1m', minutes: 1 },
@@ -29,6 +30,7 @@ export default function Chart() {
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
   const [interval, setInterval] = useState<IntervalKey>('1h');
+  const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number }>>([]);
 
   const handleAutoFit = () => {
     if (chartRef.current) {
@@ -83,7 +85,6 @@ export default function Chart() {
 
     chartRef.current = chart;
 
-    // Candlestick series
     const candlestickSeries = chart.addCandlestickSeries({
       upColor: '#26a69a',
       downColor: '#ef5350',
@@ -92,7 +93,7 @@ export default function Chart() {
       wickDownColor: '#ef5350',
     });
 
-    // Sample data generation
+    // Generar datos de muestra
     const sampleData = [];
     const startTime = new Date('2023-01-01').getTime();
     let lastClose = 45000;
@@ -123,24 +124,28 @@ export default function Chart() {
 
     candlestickSeries.setData(sampleData);
 
-    // Histograma de volumen simple
-    const volumeSeries = chart.addHistogramSeries({
-      color: 'rgba(76, 175, 80, 0.5)',
-      base: 0,
+    // Calcular datos para el perfil de volumen
+    const priceStep = 100;
+    const volumeByPrice = new Map();
+
+    sampleData.forEach(candle => {
+      const price = Math.floor(candle.close / priceStep) * priceStep;
+      const currentVolume = volumeByPrice.get(price) || 0;
+      volumeByPrice.set(price, currentVolume + candle.volume);
     });
 
-    // Datos de volumen
-    const volumeData = sampleData.map(d => ({
-      time: d.time,
-      value: d.volume,
+    // Convertir para el componente VolumeProfile
+    const profileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
+      price,
+      volume,
     }));
 
-    volumeSeries.setData(volumeData);
+    setVolumeProfileData(profileData);
 
     const handleResize = () => {
       const { width, height } = container.current!.getBoundingClientRect();
       chart.applyOptions({
-        width,
+        width: width - 100, // Reservar espacio para el perfil de volumen
         height,
       });
       chart.timeScale().fitContent();
@@ -172,11 +177,20 @@ export default function Chart() {
           </SelectContent>
         </Select>
       </div>
-      <div
-        ref={container}
-        className="w-full h-full"
-      />
-      <Button 
+      <div className="flex w-full h-full">
+        <div
+          ref={container}
+          className="flex-1 h-full"
+        />
+        <div className="w-[100px] h-full">
+          <VolumeProfile
+            data={volumeProfileData}
+            width={100}
+            height={container.current?.clientHeight || 0}
+          />
+        </div>
+      </div>
+      <Button
         onClick={handleAutoFit}
         className="absolute top-2 right-2 z-10 bg-background hover:bg-background/90 shadow-md"
         size="icon"
