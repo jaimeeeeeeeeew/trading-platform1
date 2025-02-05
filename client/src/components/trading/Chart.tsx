@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { 
   createChart,
+  ColorType,
+  LineStyle,
+  CrosshairMode,
   IChartApi,
-  ISeriesApi,
-  CandlestickData,
-  HistogramData,
-  ColorType
+  ISeriesPrimitive,
+  CandlestickSeriesOptions
 } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
@@ -30,124 +31,125 @@ export default function Chart() {
   useEffect(() => {
     if (!container.current) return;
 
-    // Create the chart instance
-    const chartInstance = createChart(container.current, {
-      width: container.current.clientWidth,
-      height: container.current.clientHeight,
-      layout: {
-        background: { type: ColorType.Solid, color: '#1a1a1a' },
-        textColor: '#DDD',
-      },
-      grid: {
-        vertLines: { color: '#2B2B43' },
-        horzLines: { color: '#2B2B43' },
-      },
-      crosshair: {
-        mode: 1,
-      },
-      timeScale: {
-        timeVisible: true,
-        secondsVisible: false,
-      },
-    });
+    try {
+      // Create chart instance
+      const chartInstance = createChart(container.current, {
+        layout: {
+          background: { color: '#1a1a1a' },
+          textColor: '#DDD',
+        },
+        grid: {
+          vertLines: { color: '#2B2B43', style: LineStyle.Solid },
+          horzLines: { color: '#2B2B43', style: LineStyle.Solid },
+        },
+        crosshair: {
+          mode: CrosshairMode.Normal,
+        },
+        timeScale: {
+          timeVisible: true,
+          secondsVisible: false,
+          borderColor: '#2B2B43',
+        },
+        rightPriceScale: {
+          borderColor: '#2B2B43',
+        },
+        width: container.current.clientWidth,
+        height: container.current.clientHeight,
+      });
 
-    chart.current = chartInstance;
+      chart.current = chartInstance;
 
-    // Initialize DataFeed
-    dataFeed.current = new TradingViewDataFeed(currentSymbol);
+      // Initialize DataFeed
+      dataFeed.current = new TradingViewDataFeed(currentSymbol);
 
-    // Create candlestick series
-    const mainSeries = chartInstance.addCandlestickSeries({
-      upColor: '#26a69a',
-      downColor: '#ef5350',
-      borderVisible: false,
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350'
-    });
+      // Create candlestick series
+      const candlestickSeriesOptions: CandlestickSeriesOptions = {
+        upColor: '#26a69a',
+        downColor: '#ef5350',
+        borderVisible: false,
+        wickUpColor: '#26a69a',
+        wickDownColor: '#ef5350'
+      };
 
-    // Create volume series
-    const volumeSeries = chartInstance.addHistogramSeries({
-      color: '#26a69a',
-      priceFormat: {
-        type: 'volume',
-      },
-      priceScaleId: '',
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0,
-      },
-    });
+      const candleSeries = chartInstance.addCandlestickSeries(candlestickSeriesOptions);
 
-    // Subscribe to data updates
-    dataFeed.current.onScaleUpdate((data) => {
-      console.log('📊 Scale update:', data);
-      if (data.priceRange) {
-        updatePriceRange({
-          high: data.priceRange.high,
-          low: data.priceRange.low,
-          max: data.priceRange.max,
-          min: data.priceRange.min
-        });
-      }
-    });
+      // Create volume series
+      const volumeSeries = chartInstance.addHistogramSeries({
+        color: '#26a69a',
+        priceFormat: {
+          type: 'volume',
+        },
+        priceScaleId: '',
+        scaleMargins: {
+          top: 0.8,
+          bottom: 0,
+        },
+      });
 
-    // Subscribe to historical data
-    dataFeed.current.subscribeBars((bars: Bar[]) => {
-      if (bars.length > 0) {
-        const candleData = bars.map(bar => ({
-          time: bar.time,
-          open: bar.open,
-          high: bar.high,
-          low: bar.low,
-          close: bar.close
-        }));
-
-        const volumeData = bars.map(bar => ({
-          time: bar.time,
-          value: bar.volume,
-          color: bar.close >= bar.open ? '#26a69a50' : '#ef535050'
-        }));
-
-        mainSeries.setData(candleData);
-        volumeSeries.setData(volumeData);
-      }
-    });
-
-    // Handle time range changes
-    chartInstance.timeScale().subscribeCrosshairMove((param) => {
-      if (param) {
-        const timeRange = chartInstance.timeScale().getVisibleRange();
-        if (timeRange) {
-          updateTimeRange({
-            from: new Date(timeRange.from as number * 1000),
-            to: new Date(timeRange.to as number * 1000),
-            interval: '1'
+      // Subscribe to data updates
+      dataFeed.current.onScaleUpdate((data) => {
+        console.log('📊 Scale update:', data);
+        if (data.priceRange) {
+          updatePriceRange({
+            high: data.priceRange.high,
+            low: data.priceRange.low,
+            max: data.priceRange.max,
+            min: data.priceRange.min
           });
         }
-      }
-    });
+      });
 
-    // Handle window resizing
-    const handleResize = () => {
-      if (container.current && chart.current) {
-        chart.current.applyOptions({
-          width: container.current.clientWidth,
-          height: container.current.clientHeight
-        });
-      }
-    };
+      // Subscribe to historical data
+      dataFeed.current.subscribeBars((bars: Bar[]) => {
+        if (bars.length > 0) {
+          const candleData = bars.map(bar => ({
+            time: bar.time,
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close
+          }));
 
-    window.addEventListener('resize', handleResize);
+          const volumeData = bars.map(bar => ({
+            time: bar.time,
+            value: bar.volume,
+            color: bar.close >= bar.open ? '#26a69a50' : '#ef535050'
+          }));
 
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (chart.current) {
-        chart.current.remove();
-      }
-      if (dataFeed.current) {
-        dataFeed.current.disconnect();
-      }
-    };
+          candleSeries.setData(candleData);
+          volumeSeries.setData(volumeData);
+        }
+      });
+
+      // Handle window resizing
+      const handleResize = () => {
+        if (container.current && chart.current) {
+          chart.current.applyOptions({
+            width: container.current.clientWidth,
+            height: container.current.clientHeight
+          });
+        }
+      };
+
+      window.addEventListener('resize', handleResize);
+
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        if (chart.current) {
+          chart.current.remove();
+        }
+        if (dataFeed.current) {
+          dataFeed.current.disconnect();
+        }
+      };
+    } catch (error) {
+      console.error('Error creating chart:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to initialize chart',
+        variant: 'destructive'
+      });
+    }
   }, [currentSymbol, updatePriceRange, updateTimeRange]);
 
   return (
