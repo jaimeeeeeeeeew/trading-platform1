@@ -1,0 +1,54 @@
+ueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 98981.2, …}
+Error al actualizar el rango de precios visible: 
+TypeError {}
+
+t@https://3245294a-61e4-4284-8e49-748682ad2f2a-00-3kvrpnx2k4bt7.riker.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:12630
+value@https://3245294a-61e4-4284-8e49-748682ad2f2a-00-3kvrpnx2k4bt7.riker.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:32766
+8988/value/this.asyncTimer<@https://3245294a-61e4-4284-8e49-748682ad2f2a-00-3kvrpnx2k4bt7.riker.replit.dev/__replco/static/devtools/eruda/3.2.3/eruda.js:2:34400
+Error al actualizar el rango de precios visible: 
+TypeError {}
+
+Error al actualizar el rango de precios visible: 
+TypeError {}
+
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 98982.5, …}
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 98986.7, …}
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 98992.4, …}
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 98992.4, …}
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 98992.4, …}
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 98992.4, …}
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 99005.9, …}
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 99007.3, …}
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 99007.4, …}
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 99007.4, …}
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 99004.5, …}
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 99000.4, …}
+Error al actualizar el rango de precios visible: 
+TypeError {}
+
+Error al actualizar el rango de precios visible: 
+TypeError {}
+
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 98992.5, …}
+Error al actualizar el rango de precios visible: 
+TypeError {}
+
+Error al actualizar el rango de precios visible: 
+TypeError {}
+
+Nueva vela recibida: 
+Object {time: 1738766520, open: 99024.2, high: 99124.2, low: 98970, close: 98989.6, …}
