@@ -49,6 +49,58 @@ export default function Chart() {
     });
   };
 
+  // Generar datos históricos iniciales
+  const generateInitialData = () => {
+    const sampleData = [];
+    const startTime = new Date().getTime() - (365 * 24 * 60 * 60 * 1000); // Último año
+    let lastClose = 45000;
+    const dailyData = 365;
+
+    for (let i = 0; i < dailyData; i++) {
+      const time = startTime + i * 24 * 60 * 60 * 1000;
+      const volatility = (Math.random() * 0.03) * lastClose;
+      const trend = Math.sin(i / 30) * 0.001;
+
+      const open = lastClose;
+      const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend);
+      const high = Math.max(open, close) * (1 + Math.random() * 0.01);
+      const low = Math.min(open, close) * (1 - Math.random() * 0.01);
+      const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
+
+      sampleData.push({
+        time: Math.floor(time / 1000),
+        open,
+        high,
+        low,
+        close,
+        volume,
+      });
+
+      lastClose = close;
+    }
+
+    return sampleData;
+  };
+
+  // Actualizar el perfil de volumen
+  const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
+    const priceStep = 100;
+    const volumeByPrice = new Map();
+
+    data.forEach(candle => {
+      const price = Math.floor(candle.close / priceStep) * priceStep;
+      const currentVolume = volumeByPrice.get(price) || 0;
+      volumeByPrice.set(price, currentVolume + candle.volume);
+    });
+
+    const profileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
+      price: Number(price),
+      volume: Number(volume),
+    }));
+
+    setVolumeProfileData(profileData);
+  };
+
   // Efecto para manejar la conexión del WebSocket y suscripción a datos
   useEffect(() => {
     if (!currentSymbol || !candlestickSeriesRef.current) return;
@@ -77,22 +129,8 @@ export default function Chart() {
 
         candlestickSeriesRef.current.update(bar);
 
-        // Actualizar perfil de volumen
-        setVolumeProfileData(prevData => {
-          const price = Math.floor(data.price / 100) * 100;
-          const existingIndex = prevData.findIndex(item => item.price === price);
-
-          if (existingIndex >= 0) {
-            const newData = [...prevData];
-            newData[existingIndex] = {
-              ...newData[existingIndex],
-              volume: newData[existingIndex].volume + data.volume
-            };
-            return newData;
-          }
-
-          return [...prevData, { price, volume: data.volume }];
-        });
+        // Actualizar perfil de volumen con los nuevos datos
+        updateVolumeProfile([{ close: data.price, volume: data.volume }]);
       }
     });
 
@@ -167,6 +205,13 @@ export default function Chart() {
     });
 
     candlestickSeriesRef.current = candlestickSeries;
+
+    // Cargar datos históricos iniciales
+    const initialData = generateInitialData();
+    candlestickSeries.setData(initialData);
+
+    // Actualizar perfil de volumen inicial
+    updateVolumeProfile(initialData);
 
     const handleResize = () => {
       if (!container.current) return;
