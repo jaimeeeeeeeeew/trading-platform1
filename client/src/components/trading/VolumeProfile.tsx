@@ -59,10 +59,10 @@ export const VolumeProfile = ({
     // Limpiar SVG antes de redibujar
     svg.selectAll('*').remove();
 
-    // Escalas
+    // Escalas - Invertir el rango del xScale para que vaya de derecha a izquierda
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([0, width]);
+      .range([width, 0]);  // Cambiado de [0, width] a [width, 0]
 
     const yScale = d3.scaleLinear()
       .domain([visiblePriceRange.min, visiblePriceRange.max])
@@ -84,13 +84,13 @@ export const VolumeProfile = ({
       return yScale(price);
     };
 
-    // Función para determinar el color de la barra
+    // Función para determinar el color de la barra - Invertir los colores
     const getBarColor = (price: number, normalizedVolume: number) => {
       const isAboveCurrent = price > currentPrice;
       const intensity = Math.pow(normalizedVolume, 0.5);
       return isAboveCurrent 
-        ? d3.interpolateRgb('#ef535088', '#ef5350')(intensity)
-        : d3.interpolateRgb('#26a69a88', '#26a69a')(intensity);
+        ? d3.interpolateRgb('#26a69a88', '#26a69a')(intensity)  // Verde para precios por encima
+        : d3.interpolateRgb('#ef535088', '#ef5350')(intensity); // Rojo para precios por debajo
     };
 
     // Dibujar las barras
@@ -98,9 +98,9 @@ export const VolumeProfile = ({
       .data(groupedData)
       .join('rect')
       .attr('y', d => getBarY(d.price))
-      .attr('x', d => xScale(0))
+      .attr('x', d => xScale(d.normalizedVolume))  // Usar el xScale invertido
       .attr('height', barHeight)
-      .attr('width', d => width * d.normalizedVolume)
+      .attr('width', d => width - xScale(d.normalizedVolume))  // Ajustar el ancho según el xScale invertido
       .attr('fill', d => getBarColor(d.price, d.normalizedVolume))
       .attr('opacity', 0.8);
 
