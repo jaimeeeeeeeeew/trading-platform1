@@ -77,9 +77,8 @@ export const VolumeProfile = ({
       if (priceCoordinate !== null && currentPrice) {
         // Calcular el desplazamiento desde el precio actual
         const priceOffset = price - currentPrice;
-        // Convertir el desplazamiento a píxeles usando la escala del gráfico
-        const pixelOffset = (priceOffset / priceRange) * height;
-        return priceCoordinate + pixelOffset;
+        // Usar la misma escala que el gráfico principal
+        return yScale(price);
       }
       return yScale(price);
     };
