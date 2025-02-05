@@ -148,7 +148,7 @@ export default function Chart() {
       />
       <Button 
         onClick={handleAutoFit}
-        className="absolute top-2 right-2 bg-card/80 hover:bg-card/100"
+        className="absolute top-2 right-2 z-10 bg-background hover:bg-background/90 shadow-md"
         size="icon"
         variant="outline"
       >
