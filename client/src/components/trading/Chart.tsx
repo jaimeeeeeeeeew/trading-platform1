@@ -2,11 +2,20 @@ import { useEffect, useRef } from 'react';
 import { createChart } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
+import { ZoomIn } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<any>(null);
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
+
+  const handleAutoFit = () => {
+    if (chartRef.current) {
+      chartRef.current.timeScale().fitContent();
+    }
+  };
 
   useEffect(() => {
     if (!container.current) return;
@@ -55,6 +64,9 @@ export default function Chart() {
           },
         },
       });
+
+      // Save chart reference for the auto-fit button
+      chartRef.current = chart;
 
       // Create candlestick series with dark theme colors
       const candlestickSeries = chart.addCandlestickSeries({
@@ -115,6 +127,7 @@ export default function Chart() {
       return () => {
         window.removeEventListener('resize', handleResize);
         chart.remove();
+        chartRef.current = null;
       };
     } catch (error) {
       console.error('Error creating chart:', error);
@@ -127,12 +140,20 @@ export default function Chart() {
   }, [currentSymbol]);
 
   return (
-    <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card">
+    <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
       <div
         ref={container}
         className="w-full h-full"
         style={{ height: '500px' }}
       />
+      <Button 
+        onClick={handleAutoFit}
+        className="absolute top-2 right-2 bg-card/80 hover:bg-card/100"
+        size="icon"
+        variant="outline"
+      >
+        <ZoomIn className="h-4 w-4" />
+      </Button>
     </div>
   );
 }
