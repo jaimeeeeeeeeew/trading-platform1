@@ -27,7 +27,7 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
     // Crear escalas
     const xScale = d3.scaleLinear()
       .domain([0, d3.max(data, d => d.volume) || 0])
-      .range([0, width]);
+      .range([width, 0]); // Invertir el rango para que crezca hacia la izquierda
 
     const yScale = d3.scaleLinear()
       .domain([d3.min(data, d => d.price) || 0, d3.max(data, d => d.price) || 0])
@@ -49,9 +49,9 @@ export const VolumeProfile = ({ data, width, height }: Props) => {
       .enter()
       .append('rect')
       .attr('y', d => yScale(d.price))
-      .attr('x', 0)
+      .attr('x', d => xScale(d.volume)) // Posicionar desde la derecha
       .attr('height', Math.max(1, height / data.length))
-      .attr('width', d => Math.max(1, xScale(d.volume)))
+      .attr('width', d => width - xScale(d.volume)) // Ancho ajustado para crecer hacia la izquierda
       .attr('fill', d => d.volume > d3.mean(data, v => v.volume) 
         ? 'rgba(239, 83, 80, 0.6)' 
         : 'rgba(38, 166, 154, 0.6)');
