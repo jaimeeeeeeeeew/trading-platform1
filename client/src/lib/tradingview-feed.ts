@@ -18,85 +18,98 @@ interface PriceData {
 }
 
 export class TradingViewDataFeed {
-  private ws: WebSocketClient | null = null;
+  private ws: WebSocket | null = null;
   private subscribers: Map<string, (data: any) => void> = new Map();
   private symbol: string;
   private lastBar: Bar | null = null;
-  private socket: WebSocket | null = null;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
 
   constructor(symbol: string) {
-    this.symbol = symbol;
-    console.log('🚀 Iniciando TradingView DataFeed para:', symbol);
+    this.symbol = symbol.toLowerCase().replace(':', '').replace('perp', '');
+    console.log('Initializing Binance Futures WebSocket for:', this.symbol);
     this.connect();
   }
 
   private connect() {
-    // Usar WebSocket de TradingView para datos en tiempo real
-    const wsUrl = 'wss://data.tradingview.com/socket.io/websocket';
-
     try {
-      this.socket = new WebSocket(wsUrl);
+      // Binance Futures WebSocket URL
+      const wsUrl = `wss://fstream.binance.com/ws/${this.symbol}@aggTrade/${this.symbol}@kline_1m`;
+      this.ws = new WebSocket(wsUrl);
 
-      this.socket.onopen = () => {
-        console.log('📡 Conexión WebSocket establecida');
-        this.subscribe();
+      this.ws.onopen = () => {
+        console.log('Connected to Binance Futures WebSocket');
+        this.reconnectAttempts = 0;
       };
 
-      this.socket.onmessage = (event) => {
+      this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('📊 Datos recibidos:', data);
-          this.handleMessage(data);
+          this.handleBinanceMessage(data);
         } catch (error) {
-          console.error('Error procesando mensaje:', error);
+          console.error('Error processing message:', error);
         }
       };
 
-      this.socket.onerror = (error) => {
-        console.error('Error en WebSocket:', error);
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
       };
 
-      this.socket.onclose = () => {
-        console.log('Conexión WebSocket cerrada');
-        // Reconectar después de un delay
-        setTimeout(() => this.connect(), 5000);
+      this.ws.onclose = () => {
+        console.log('WebSocket connection closed');
+        this.handleReconnect();
       };
 
     } catch (error) {
-      console.error('Error estableciendo conexión:', error);
+      console.error('Error establishing WebSocket connection:', error);
+      this.handleReconnect();
     }
   }
 
-  private subscribe() {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      console.error('WebSocket no está conectado');
-      return;
+  private handleReconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+      setTimeout(() => this.connect(), 5000 * Math.pow(2, this.reconnectAttempts - 1));
     }
-
-    const subscribeMsg = {
-      action: "subscribe",
-      symbols: [this.symbol]
-    };
-
-    console.log('📝 Suscribiendo a:', this.symbol);
-    this.socket.send(JSON.stringify(subscribeMsg));
   }
 
-  private handleMessage(data: any) {
-    if (data.type === 'price_update') {
-      console.log('💹 Actualización de precio recibida:', data);
-      this.notifySubscribers('price', {
+  private handleBinanceMessage(data: any) {
+    if (data.e === 'aggTrade') {
+      // Procesar datos de trades agregados
+      const priceData: PriceData = {
         symbol: this.symbol,
-        price: data.price,
-        volume: data.volume,
-        high: data.high,
-        low: data.low
-      });
+        price: parseFloat(data.p),
+        volume: parseFloat(data.q),
+        high: parseFloat(data.p), // En trades agregados solo tenemos el precio actual
+        low: parseFloat(data.p)
+      };
+      this.notifySubscribers('price', priceData);
+    } else if (data.e === 'kline') {
+      // Procesar datos de velas
+      const kline = data.k;
+      const bar: Bar = {
+        time: Math.floor(kline.t / 1000),
+        open: parseFloat(kline.o),
+        high: parseFloat(kline.h),
+        low: parseFloat(kline.l),
+        close: parseFloat(kline.c),
+        volume: parseFloat(kline.v)
+      };
+      this.lastBar = bar;
+      // También notificamos el precio actual
+      const priceData: PriceData = {
+        symbol: this.symbol,
+        price: parseFloat(kline.c),
+        volume: parseFloat(kline.v),
+        high: parseFloat(kline.h),
+        low: parseFloat(kline.l)
+      };
+      this.notifySubscribers('price', priceData);
     }
   }
 
   public onPriceUpdate(callback: (data: PriceData) => void) {
-    console.log('✅ Registrando callback para actualizaciones de precio');
     this.subscribers.set('price', callback);
   }
 
@@ -108,10 +121,10 @@ export class TradingViewDataFeed {
   }
 
   public disconnect() {
-    console.log('❌ Desconectando DataFeed');
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
+    console.log('Disconnecting from Binance Futures WebSocket');
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
     }
     this.subscribers.clear();
   }
