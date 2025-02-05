@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart } from 'lightweight-charts';
+import { createChart, Time } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { ZoomIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VolumeProfile } from './VolumeProfile';
-import { TradingViewDataFeed } from '@/lib/tradingview-feed';
 import {
   Select,
   SelectContent,
@@ -29,10 +28,10 @@ export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const candlestickSeriesRef = useRef<any>(null);
-  const dataFeedRef = useRef<TradingViewDataFeed | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
-  const [interval, setInterval] = useState<IntervalKey>('1h');
+  const [interval, setInterval] = useState<IntervalKey>('1m');
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number }>>([]);
 
   const handleAutoFit = () => {
@@ -49,38 +48,62 @@ export default function Chart() {
     });
   };
 
-  // Generar datos históricos iniciales
-  const generateInitialData = () => {
-    const sampleData = [];
-    const startTime = new Date().getTime() - (365 * 24 * 60 * 60 * 1000); // Último año
-    let lastClose = 45000;
-    const dailyData = 365;
+  // Efecto para manejar la conexión del WebSocket y suscripción a datos
+  useEffect(() => {
+    if (!currentSymbol || !candlestickSeriesRef.current) return;
 
-    for (let i = 0; i < dailyData; i++) {
-      const time = startTime + i * 24 * 60 * 60 * 1000;
-      const volatility = (Math.random() * 0.03) * lastClose;
-      const trend = Math.sin(i / 30) * 0.001;
-
-      const open = lastClose;
-      const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend);
-      const high = Math.max(open, close) * (1 + Math.random() * 0.01);
-      const low = Math.min(open, close) * (1 - Math.random() * 0.01);
-      const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
-
-      sampleData.push({
-        time: Math.floor(time / 1000),
-        open,
-        high,
-        low,
-        close,
-        volume,
-      });
-
-      lastClose = close;
+    // Limpiar conexión anterior
+    if (wsRef.current) {
+      wsRef.current.close();
     }
 
-    return sampleData;
-  };
+    const symbol = currentSymbol.toLowerCase().replace(':', '').replace('perp', '');
+    const wsUrl = `wss://fstream.binance.com/ws/${symbol}@kline_1m`;
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('Connected to Binance Futures WebSocket');
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.e === 'kline') {
+          const kline = data.k;
+          const bar = {
+            time: kline.t / 1000 as Time,
+            open: parseFloat(kline.o),
+            high: parseFloat(kline.h),
+            low: parseFloat(kline.l),
+            close: parseFloat(kline.c),
+            volume: parseFloat(kline.v)
+          };
+
+          candlestickSeriesRef.current.update(bar);
+
+          // Actualizar perfil de volumen
+          updateVolumeProfile([{ close: parseFloat(kline.c), volume: parseFloat(kline.v) }]);
+        }
+      } catch (error) {
+        console.error('Error processing message:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket connection closed');
+    };
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [currentSymbol, interval]);
 
   // Actualizar el perfil de volumen
   const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
@@ -100,46 +123,6 @@ export default function Chart() {
 
     setVolumeProfileData(profileData);
   };
-
-  // Efecto para manejar la conexión del WebSocket y suscripción a datos
-  useEffect(() => {
-    if (!currentSymbol || !candlestickSeriesRef.current) return;
-
-    // Desconectar feed anterior si existe
-    if (dataFeedRef.current) {
-      dataFeedRef.current.disconnect();
-    }
-
-    // Crear nuevo feed
-    const feed = new TradingViewDataFeed(currentSymbol);
-    dataFeedRef.current = feed;
-
-    // Suscribirse a actualizaciones de precio
-    feed.onPriceUpdate((data) => {
-      if (candlestickSeriesRef.current) {
-        // Actualizar la última vela o crear una nueva
-        const bar = {
-          time: Math.floor(Date.now() / 1000),
-          open: data.price,
-          high: data.high,
-          low: data.low,
-          close: data.price,
-          volume: data.volume
-        };
-
-        candlestickSeriesRef.current.update(bar);
-
-        // Actualizar perfil de volumen con los nuevos datos
-        updateVolumeProfile([{ close: data.price, volume: data.volume }]);
-      }
-    });
-
-    return () => {
-      if (dataFeedRef.current) {
-        dataFeedRef.current.disconnect();
-      }
-    };
-  }, [currentSymbol, interval]);
 
   useEffect(() => {
     if (!container.current) return;
@@ -205,13 +188,6 @@ export default function Chart() {
     });
 
     candlestickSeriesRef.current = candlestickSeries;
-
-    // Cargar datos históricos iniciales
-    const initialData = generateInitialData();
-    candlestickSeries.setData(initialData);
-
-    // Actualizar perfil de volumen inicial
-    updateVolumeProfile(initialData);
 
     const handleResize = () => {
       if (!container.current) return;
