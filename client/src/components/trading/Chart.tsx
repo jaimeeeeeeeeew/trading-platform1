@@ -77,31 +77,62 @@ export default function Chart() {
         wickDownColor: '#ef5350',
       });
 
+      // Add volume series
+      const volumeSeries = chart.addHistogramSeries({
+        color: '#26a69a',
+        priceFormat: {
+          type: 'volume',
+        },
+        priceScaleId: '', // Set as an overlay
+        scaleMargins: {
+          top: 0.8,
+          bottom: 0,
+        },
+      });
+
       // Generate more realistic sample data
       const sampleData = [];
-      const startTime = new Date('2024-02-01').getTime();
-      let lastClose = 3500; // Starting price around a realistic BTC value
+      const volumeData = [];
+      const startTime = new Date('2023-01-01').getTime(); // Start from a year ago
+      let lastClose = 45000; // Starting price around a realistic BTC value
+      const dailyData = 365; // One year of daily data
 
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < dailyData; i++) {
         const time = new Date(startTime + i * 24 * 60 * 60 * 1000);
-        const volatility = Math.random() * 100; // Daily volatility
+        // More realistic volatility based on price
+        const volatility = (Math.random() * 0.03) * lastClose; // 3% max daily volatility
+        const trend = Math.sin(i / 30) * 0.001; // Add a slight cyclical trend
+
+        // Calculate OHLC with more realistic price movements
         const open = lastClose;
-        const close = open + (Math.random() - 0.5) * volatility;
-        const high = Math.max(open, close) + Math.random() * volatility * 0.5;
-        const low = Math.min(open, close) - Math.random() * volatility * 0.5;
+        const close = open * (1 + (Math.random() - 0.5) * 0.02 + trend); // Max 2% move + trend
+        const high = Math.max(open, close) * (1 + Math.random() * 0.01); // Up to 1% above max
+        const low = Math.min(open, close) * (1 - Math.random() * 0.01); // Up to 1% below min
+
+        // Calculate volume with more variation
+        const volume = Math.floor(1000 + Math.random() * 10000 * (1 + volatility / lastClose));
+
+        const timeStr = time.toISOString().split('T')[0]; // Format: YYYY-MM-DD
 
         sampleData.push({
-          time: time.toISOString().split('T')[0], // Format: YYYY-MM-DD
+          time: timeStr,
           open: open,
           high: high,
           low: low,
           close: close,
         });
 
+        volumeData.push({
+          time: timeStr,
+          value: volume,
+          color: close > open ? '#26a69a80' : '#ef535080',
+        });
+
         lastClose = close;
       }
 
       candlestickSeries.setData(sampleData);
+      volumeSeries.setData(volumeData);
 
       // Handle window resizing
       const handleResize = () => {
