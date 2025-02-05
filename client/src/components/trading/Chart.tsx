@@ -117,14 +117,32 @@ export default function Chart() {
   const updateVisiblePriceRange = () => {
     if (!chartRef.current) return;
 
-    const priceScale = chartRef.current.priceScale('right');
-    const coordinateToPrice = priceScale.coordinateToPrice.bind(priceScale);
-    const logicalRange = priceScale.getVisibleLogicalRange();
+    try {
+      const priceScale = chartRef.current.priceScale('right');
+      if (!priceScale) return;
 
-    if (logicalRange) {
-      const minPrice = coordinateToPrice(logicalRange.from);
-      const maxPrice = coordinateToPrice(logicalRange.to);
+      const visibleLogicalRange = priceScale.getVisibleLogicalRange();
+      if (!visibleLogicalRange) return;
+
+      // Obtener el rango visible de precios del último conjunto de datos
+      const visibleData = candlestickSeriesRef.current?.data() || [];
+      const currentTime = chartRef.current.timeScale().getVisibleLogicalRange();
+
+      if (!currentTime) return;
+
+      const visiblePoints = visibleData.filter(point => 
+        point.time >= currentTime.from && point.time <= currentTime.to
+      );
+
+      if (visiblePoints.length === 0) return;
+
+      const prices = visiblePoints.map(point => [point.high, point.low]).flat();
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+
       setVisiblePriceRange({ min: minPrice, max: maxPrice });
+    } catch (error) {
+      console.error('Error al actualizar el rango de precios visible:', error);
     }
   };
 
@@ -133,21 +151,29 @@ export default function Chart() {
 
     const { min: minPrice, max: maxPrice } = visiblePriceRange;
     const priceRange = maxPrice - minPrice;
+    const currentPrice = data[data.length - 1].close;
+
+    // Asegurar que tenemos un rango mínimo del 30% (15% arriba y abajo)
+    const minPriceWithBuffer = Math.min(minPrice, currentPrice * 0.85);
+    const maxPriceWithBuffer = Math.max(maxPrice, currentPrice * 1.15);
+    const adjustedPriceRange = maxPriceWithBuffer - minPriceWithBuffer;
 
     const numLevels = 100;
-    const priceStep = priceRange / numLevels;
+    const priceStep = adjustedPriceRange / numLevels;
 
     const volumeByPrice = new Map<number, number>();
     let maxVolume = 0;
 
+    // Inicializar todos los niveles de precio
     for (let i = 0; i <= numLevels; i++) {
-      const price = minPrice + (i * priceStep);
+      const price = minPriceWithBuffer + (i * priceStep);
       volumeByPrice.set(price, 0);
     }
 
+    // Acumular volumen por nivel de precio
     data.forEach(candle => {
-      if (candle.close >= minPrice && candle.close <= maxPrice) {
-        const normalizedPrice = Math.round((candle.close - minPrice) / priceStep) * priceStep + minPrice;
+      if (candle.close >= minPriceWithBuffer && candle.close <= maxPriceWithBuffer) {
+        const normalizedPrice = Math.round((candle.close - minPriceWithBuffer) / priceStep) * priceStep + minPriceWithBuffer;
         const currentVolume = volumeByPrice.get(normalizedPrice) || 0;
         const newVolume = currentVolume + candle.volume;
         volumeByPrice.set(normalizedPrice, newVolume);
@@ -166,6 +192,7 @@ export default function Chart() {
     console.log('Volume Profile Data:', {
       levels: profileData.length,
       visibleRange: visiblePriceRange,
+      currentPrice,
       priceStep,
       maxVolume,
       sampleData: profileData.slice(0, 3)
