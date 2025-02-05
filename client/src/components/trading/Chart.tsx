@@ -56,14 +56,31 @@ export default function Chart() {
         wickDownColor: '#ef5350',
       });
 
-      // Add initial data
-      const initialData = [
-        { time: '2024-02-01', open: 100, high: 105, low: 95, close: 102 },
-        { time: '2024-02-02', open: 102, high: 108, low: 98, close: 105 },
-        { time: '2024-02-03', open: 105, high: 110, low: 100, close: 108 },
-      ];
+      // Generate more realistic sample data
+      const sampleData = [];
+      const startTime = new Date('2024-02-01').getTime();
+      let lastClose = 3500; // Starting price around a realistic BTC value
 
-      candlestickSeries.setData(initialData);
+      for (let i = 0; i < 50; i++) {
+        const time = new Date(startTime + i * 24 * 60 * 60 * 1000);
+        const volatility = Math.random() * 100; // Daily volatility
+        const open = lastClose;
+        const close = open + (Math.random() - 0.5) * volatility;
+        const high = Math.max(open, close) + Math.random() * volatility * 0.5;
+        const low = Math.min(open, close) - Math.random() * volatility * 0.5;
+
+        sampleData.push({
+          time: time.toISOString().split('T')[0], // Format: YYYY-MM-DD
+          open: open,
+          high: high,
+          low: low,
+          close: close,
+        });
+
+        lastClose = close;
+      }
+
+      candlestickSeries.setData(sampleData);
 
       // Handle window resizing
       const handleResize = () => {
@@ -100,7 +117,7 @@ export default function Chart() {
       <div
         ref={container}
         className="w-full h-full"
-        style={{ height: '500px' }} // Minimum height to ensure visibility
+        style={{ height: '500px' }}
       />
     </div>
   );
