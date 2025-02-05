@@ -124,29 +124,36 @@ export default function Chart() {
 
       candlestickSeries.setData(sampleData);
 
-      // Volume series with horizontal bars
-      const volumeSeries = chart.addHistogramSeries({
-        priceScaleId: '', // Usar escala independiente
-        scaleMargins: {
-          top: 0.8,
-          bottom: 0,
-        },
-        color: 'rgba(38, 166, 154, 0.3)',
-        direction: 'right',
+      // Crear perfil de volumen
+      const volumeProfile = chart.addHistogramSeries({
         priceFormat: {
           type: 'volume',
         },
-        priceLineVisible: false,
-        lastValueVisible: false,
+        priceScaleId: 'volume',
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.1,
+        },
       });
 
-      const volumeData = sampleData.map(d => ({
-        time: d.time,
-        value: d.volume,
-        color: d.close >= d.open ? 'rgba(38, 166, 154, 0.3)' : 'rgba(239, 83, 80, 0.3)',
+      // Calcular perfil de volumen
+      const priceStep = 100; // Tamaño del intervalo de precio
+      const volumeByPrice = new Map();
+
+      sampleData.forEach(candle => {
+        const price = Math.floor(candle.close / priceStep) * priceStep;
+        const currentVolume = volumeByPrice.get(price) || 0;
+        volumeByPrice.set(price, currentVolume + candle.volume);
+      });
+
+      // Convertir a formato para el gráfico
+      const volumeProfileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
+        time: sampleData[sampleData.length - 1].time,
+        value: volume,
+        color: 'rgba(76, 175, 80, 0.5)'
       }));
 
-      volumeSeries.setData(volumeData);
+      volumeProfile.setData(volumeProfileData);
 
       const handleResize = () => {
         const { width, height } = container.current!.getBoundingClientRect();
