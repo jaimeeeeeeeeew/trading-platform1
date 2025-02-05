@@ -93,7 +93,6 @@ export default function Chart() {
 
       chartRef.current = chart;
 
-      // Crear serie de velas
       const candlestickSeries = chart.addCandlestickSeries({
         upColor: '#26a69a',
         downColor: '#ef5350',
@@ -134,22 +133,35 @@ export default function Chart() {
       candlestickSeries.setData(sampleData);
 
       try {
-        // Configurar histograma de volumen
+        // Crear una escala de precio adicional para el volumen en el lado derecho
+        chart.applyOptions({
+          rightPriceScale: {
+            visible: true,
+            borderColor: '#1e222d',
+          }
+        });
+
+        // Configurar histograma horizontal para el volumen
         const volumeSeries = chart.addHistogramSeries({
           priceFormat: {
             type: 'volume',
           },
-          priceScaleId: 'overlay',
+          priceScaleId: 'right', // Usar escala derecha
+          scaleMargins: {
+            top: 0.1,
+            bottom: 0.1,
+          },
           base: 0,
-          overlay: true,
           color: 'rgba(38, 166, 154, 0.3)',
+          direction: 'left', // Barras horizontales
+          lastValueVisible: true,
         });
 
-        // Calcular y establecer datos de volumen
+        // Preparar datos de volumen para visualización horizontal
         const volumeData = sampleData.map(d => ({
           time: d.time,
           value: d.volume,
-          color: 'rgba(38, 166, 154, 0.3)',
+          color: d.close >= d.open ? 'rgba(38, 166, 154, 0.3)' : 'rgba(239, 83, 80, 0.3)',
         }));
 
         volumeSeries.setData(volumeData);
