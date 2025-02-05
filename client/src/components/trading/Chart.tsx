@@ -153,33 +153,29 @@ export default function Chart() {
   };
 
   const updateVisiblePriceRange = () => {
-    if (!chartRef.current) return;
+    if (!chartRef.current || !candlestickSeriesRef.current) return;
 
     try {
-      const priceScale = chartRef.current.priceScale('right');
-      if (!priceScale) return;
-
-      const visibleLogicalRange = priceScale.getVisibleLogicalRange();
-      if (!visibleLogicalRange) return;
-
       const timeScale = chartRef.current.timeScale();
-      const currentTimeRange = timeScale.getVisibleLogicalRange();
-      if (!currentTimeRange) return;
+      const priceScale = chartRef.current.priceScale('right');
 
-      // Usando el método correcto para obtener los datos
-      if (!candlestickSeriesRef.current) return;
+      if (!timeScale || !priceScale) return;
+
+      const visibleRange = timeScale.getVisibleRange();
+      if (!visibleRange) return;
 
       const allData = historicalDataRef.current;
       if (!allData.length) return;
 
-      const visiblePoints = allData.filter((_, index) => 
-        index >= Math.floor(currentTimeRange.from) && 
-        index <= Math.ceil(currentTimeRange.to)
-      );
+      // Filtrar los puntos visibles basados en el rango de tiempo
+      const visiblePoints = allData.filter((_, index) => {
+        const time = timeScale.coordinateToTime(timeScale.timeToCoordinate(index));
+        return time >= visibleRange.from && time <= visibleRange.to;
+      });
 
       if (visiblePoints.length === 0) return;
 
-      // Calcular el rango de precios visible usando los datos históricos
+      // Calcular el rango de precios visible
       const prices = visiblePoints.map(point => point.close);
       const minPrice = Math.min(...prices);
       const maxPrice = Math.max(...prices);
@@ -197,7 +193,7 @@ export default function Chart() {
         max: maxPrice + padding 
       });
 
-      // Actualizar la coordenada del precio usando priceToCoordinate
+      // Actualizar la coordenada del precio
       const priceCoord = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
       if (typeof priceCoord === 'number') {
         setPriceCoordinate(priceCoord);
