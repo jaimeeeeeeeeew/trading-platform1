@@ -59,9 +59,9 @@ export default function Chart() {
           disabled_features: ["header_symbol_search"],
           enabled_features: ["volume_force_overlay"],
           custom_css_url: './chart.css',
-          // Agregamos el callback onChartReady
           onChartReady: () => {
             const chart = widget.current.activeChart();
+
             // Obtener el rango visible inicial
             const visibleRange = chart.getVisibleRange();
             console.log('📊 Rango visible inicial:', visibleRange);
@@ -74,6 +74,19 @@ export default function Chart() {
               });
             }
 
+            // Obtener precios máximo y mínimo visibles
+            const scaleProperties = chart.getScaleProperties();
+            if (scaleProperties) {
+              const priceRange = {
+                high: chart.priceFormatter().format(scaleProperties.priceRange.high),
+                low: chart.priceFormatter().format(scaleProperties.priceRange.low),
+                max: chart.priceFormatter().format(scaleProperties.priceRange.maxValue),
+                min: chart.priceFormatter().format(scaleProperties.priceRange.minValue)
+              };
+              console.log('📊 Rango de precios:', priceRange);
+              updatePriceRange(priceRange);
+            }
+
             // Suscribirse a cambios en el rango visible
             chart.onVisibleRangeChanged().subscribe(null, (range: any) => {
               console.log('📊 Rango visible cambió:', range);
@@ -82,16 +95,35 @@ export default function Chart() {
                 to: new Date(range.to * 1000),
                 interval: chart.resolution()
               });
+
+              // Actualizar precios máximo y mínimo cuando cambia el rango
+              const scaleProps = chart.getScaleProperties();
+              if (scaleProps) {
+                const newPriceRange = {
+                  high: chart.priceFormatter().format(scaleProps.priceRange.high),
+                  low: chart.priceFormatter().format(scaleProps.priceRange.low),
+                  max: chart.priceFormatter().format(scaleProps.priceRange.maxValue),
+                  min: chart.priceFormatter().format(scaleProps.priceRange.minValue)
+                };
+                console.log('📊 Nuevo rango de precios:', newPriceRange);
+                updatePriceRange(newPriceRange);
+              }
             });
 
             // Suscribirse a cambios de precio
             chart.crosshairMoved().subscribe(null, (param: any) => {
               if (param.price) {
                 console.log('📊 Precio actual:', param.price);
-                updatePriceRange({
-                  high: param.price * 1.001,
-                  low: param.price * 0.999
-                });
+                const scaleProps = chart.getScaleProperties();
+                if (scaleProps) {
+                  const currentPriceRange = {
+                    high: param.price * 1.001,
+                    low: param.price * 0.999,
+                    max: chart.priceFormatter().format(scaleProps.priceRange.maxValue),
+                    min: chart.priceFormatter().format(scaleProps.priceRange.minValue)
+                  };
+                  updatePriceRange(currentPriceRange);
+                }
               }
             });
           }

@@ -3,6 +3,8 @@ import { createContext, useContext, useState, ReactNode } from 'react';
 interface PriceRange {
   high: number;
   low: number;
+  min: number;  // Precio mínimo visible en el gráfico
+  max: number;  // Precio máximo visible en el gráfico
 }
 
 interface TimeRange {
@@ -48,7 +50,9 @@ export function TradingProvider({ children }: { children: ReactNode }) {
 
   const [visiblePriceRange, setVisiblePriceRange] = useState<PriceRange>({
     high: 0,
-    low: 0
+    low: 0,
+    min: 0,
+    max: 0
   });
 
   const [timeRange, setTimeRange] = useState<TimeRange | null>(null);
@@ -69,7 +73,6 @@ export function TradingProvider({ children }: { children: ReactNode }) {
 
   const placeOrder = async (order: Order) => {
     try {
-      // Aquí se implementará la lógica de conexión con el backend
       console.log('Colocando orden:', order);
       setActiveOrders(prev => [...prev, order]);
     } catch (error) {
@@ -80,7 +83,6 @@ export function TradingProvider({ children }: { children: ReactNode }) {
 
   const cancelOrder = async (orderId: string) => {
     try {
-      // Aquí se implementará la lógica de conexión con el backend
       console.log('Cancelando orden:', orderId);
       setActiveOrders(prev => prev.filter(order => order.id !== orderId));
     } catch (error) {
