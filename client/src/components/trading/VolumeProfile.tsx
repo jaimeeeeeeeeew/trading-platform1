@@ -22,25 +22,44 @@ export const VolumeProfile = ({ data, width, height, priceScale, currentPrice }:
   useEffect(() => {
     if (!svgRef.current || !data.length || !priceScale) return;
 
+    const svg = d3.select(svgRef.current)
+      .attr('width', width)
+      .attr('height', height)
+      .style('overflow', 'visible');
+
+    // Limpiar SVG existente
+    svg.selectAll('*').remove();
+
     // Crear escalas
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([width, 0]);
+      .range([0, width]); // Cambiado para que las barras crezcan hacia la derecha
 
     const yScale = d3.scaleLinear()
       .domain([priceScale.min, priceScale.max])
       .range([height, 0]);
 
-    // Seleccionar o crear SVG
-    const svg = d3.select(svgRef.current)
-      .attr('width', width)
-      .attr('height', height);
+    // Filtrar datos dentro del rango visible
+    const visibleData = data.filter(d => 
+      d.price >= priceScale.min && d.price <= priceScale.max
+    );
 
-    // Limpiar SVG existente
-    svg.selectAll('*').remove();
+    // Agrupar datos por niveles de precio
+    const groupedData = d3.group(visibleData, d => Math.round(d.price / 10) * 10);
 
-    // Crear grupo para las barras
-    const barGroup = svg.append('g');
+    // Convertir los datos agrupados a un array y calcular volúmenes normalizados
+    const processedData = Array.from(groupedData, ([price, values]) => {
+      const totalVolume = d3.sum(values, d => d.volume);
+      const maxNormalized = d3.max(values, d => d.normalizedVolume) || 0;
+      return {
+        price: +price,
+        volume: totalVolume,
+        normalizedVolume: maxNormalized
+      };
+    });
+
+    // Calcular altura mínima de barra
+    const barHeight = Math.max(1, height / (processedData.length * 2));
 
     // Función para determinar el color de la barra
     const getBarColor = (price: number, normalizedVolume: number) => {
@@ -51,35 +70,32 @@ export const VolumeProfile = ({ data, width, height, priceScale, currentPrice }:
         : d3.interpolateRgb('#26a69a88', '#26a69a')(intensity);
     };
 
-    // Calcular altura mínima de barra basada en el rango de precios visible
-    const priceRange = priceScale.max - priceScale.min;
-    const minBarHeight = Math.max(1, height / (priceRange / 10));
-
-    // Dibujar barras
-    data.forEach(d => {
-      if (d.price >= priceScale.min && d.price <= priceScale.max) {
-        barGroup.append('rect')
-          .attr('y', yScale(d.price))
-          .attr('x', xScale(d.normalizedVolume))
-          .attr('height', minBarHeight)
-          .attr('width', width - xScale(d.normalizedVolume))
-          .attr('fill', getBarColor(d.price, d.normalizedVolume));
-      }
-    });
+    // Crear las barras
+    svg.selectAll('rect')
+      .data(processedData)
+      .join('rect')
+      .attr('x', 0)
+      .attr('y', d => yScale(d.price) - barHeight / 2)
+      .attr('width', d => xScale(d.normalizedVolume))
+      .attr('height', barHeight)
+      .attr('fill', d => getBarColor(d.price, d.normalizedVolume))
+      .attr('opacity', 0.8);
 
   }, [data, width, height, priceScale, currentPrice]);
 
   return (
-    <svg 
-      ref={svgRef} 
-      style={{
-        position: 'absolute',
-        right: 0,
-        top: 0,
-        width: '100%',
-        height: '100%',
-        background: 'transparent',
-      }}
-    />
+    <div className="absolute right-0 top-0 h-full" style={{ width: `${width}px` }}>
+      <svg 
+        ref={svgRef}
+        style={{
+          position: 'absolute',
+          right: 0,
+          top: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
   );
 };
