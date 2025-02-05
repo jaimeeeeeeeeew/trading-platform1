@@ -73,28 +73,10 @@ export default function Chart() {
 
   const updatePriceCoordinate = () => {
     if (candlestickSeriesRef.current && currentChartPrice) {
-      try {
-        const coordinate = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
-        setPriceCoordinate(coordinate);
-        console.log('Coordenadas del precio:', {
-          precio: currentChartPrice,
-          coordenadaY: coordinate,
-          tieneSerieRef: !!candlestickSeriesRef.current,
-          tieneData: !!candlestickSeriesRef.current?.data()
-        });
-      } catch (error) {
-        console.error('Error al obtener coordenada del precio:', error);
-        console.error('Estado actual:', {
-          currentPrice,
-          hasSeriesRef: !!candlestickSeriesRef.current,
-        });
-      }
-    } else {
-      console.log('No se puede actualizar coordenada:', {
-        tieneSerieRef: !!candlestickSeriesRef.current,
-        tienePrecio: !!currentChartPrice,
-        precioActual: currentChartPrice
-      });
+      const coordinate = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
+      setPriceCoordinate(coordinate);
+      console.log('Precio actual:', currentChartPrice);
+      console.log('Coordenada Y del precio:', coordinate);
     }
   };
 
@@ -171,44 +153,25 @@ export default function Chart() {
   };
 
   const updateVisiblePriceRange = () => {
-    if (!chartRef.current) {
-      console.log('Chart reference not available');
-      return;
-    }
+    if (!chartRef.current) return;
 
     try {
       const priceScale = chartRef.current.priceScale('right');
-      if (!priceScale) {
-        console.log('Price scale not available');
-        return;
-      }
+      if (!priceScale) return;
 
       const visibleLogicalRange = priceScale.getVisibleLogicalRange();
-      if (!visibleLogicalRange) {
-        console.log('Visible logical range not available');
-        return;
-      }
+      if (!visibleLogicalRange) return;
 
-      const visibleData = candlestickSeriesRef.current?.data();
-      if (!visibleData || !Array.isArray(visibleData)) {
-        console.log('No visible data available:', visibleData);
-        return;
-      }
-
+      const visibleData = candlestickSeriesRef.current?.data() || [];
       const currentTime = chartRef.current.timeScale().getVisibleLogicalRange();
-      if (!currentTime) {
-        console.log('Current time range not available');
-        return;
-      }
+
+      if (!currentTime) return;
 
       const visiblePoints = visibleData.filter((point: any) => 
         point.time >= currentTime.from && point.time <= currentTime.to
       );
 
-      if (visiblePoints.length === 0) {
-        console.log('No visible points in current range');
-        return;
-      }
+      if (visiblePoints.length === 0) return;
 
       // Calcular el rango de precios visible
       const prices = visiblePoints.map((point: any) => [point.high, point.low]).flat();
@@ -217,17 +180,7 @@ export default function Chart() {
 
       // Obtener el último precio (precio actual)
       const lastPoint = visiblePoints[visiblePoints.length - 1];
-      const currentPrice = lastPoint.close;
-      setCurrentChartPrice(currentPrice);
-
-      // Log detailed price information
-      console.log('Price Range Update:', {
-        minPrice,
-        maxPrice,
-        currentPrice,
-        visiblePoints: visiblePoints.length,
-        coordinate: candlestickSeriesRef.current?.priceToCoordinate(currentPrice)
-      });
+      setCurrentChartPrice(lastPoint.close);
 
       // Ajustar el rango para incluir un poco más de espacio
       const padding = (maxPrice - minPrice) * 0.1;
@@ -237,18 +190,13 @@ export default function Chart() {
       });
     } catch (error) {
       console.error('Error al actualizar el rango de precios visible:', error);
-      console.error('Stack trace:', (error as Error).stack);
     }
   };
 
   const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
-    if (!data.length) {
-      console.log('No hay datos para actualizar el perfil de volumen');
-      return;
-    }
+    if (!data.length) return;
 
     const currentPrice = data[data.length - 1].close;
-    console.log('Actualizando precio actual:', currentPrice);
     setCurrentChartPrice(currentPrice);
     const simulatedData = generateSimulatedVolumeProfile(currentPrice);
     setVolumeProfileData(simulatedData);
@@ -375,12 +323,7 @@ export default function Chart() {
           };
 
           console.log('Nueva vela recibida:', bar);
-
-          // Actualizar el precio actual inmediatamente
-          setCurrentChartPrice(parseFloat(kline.c));
-          console.log('Precio actual actualizado a:', parseFloat(kline.c));
-
-          candlestickSeriesRef.current?.update(bar);
+          candlestickSeriesRef.current.update(bar);
 
           const lastCandle = { close: parseFloat(kline.c), volume: parseFloat(kline.v) };
           historicalDataRef.current = [...historicalDataRef.current.slice(-1499), lastCandle];
