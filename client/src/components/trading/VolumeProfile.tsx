@@ -14,9 +14,17 @@ interface Props {
     max: number;
   };
   currentPrice: number;
+  priceCoordinate: number | null;
 }
 
-export const VolumeProfile = ({ data, width, height, visiblePriceRange, currentPrice }: Props) => {
+export const VolumeProfile = ({ 
+  data, 
+  width, 
+  height, 
+  visiblePriceRange, 
+  currentPrice,
+  priceCoordinate 
+}: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
@@ -45,12 +53,11 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange, currentP
       return acc;
     }, [] as typeof data);
 
-    // Crear escalas
     const xScale = d3.scaleLinear()
       .domain([0, 1])
       .range([width, 0]);
 
-    // Usar el rango visible si está disponible, si no usar el rango completo de los datos
+    // Usar la coordenada exacta del precio si está disponible
     const yScale = d3.scaleLinear()
       .domain([
         visiblePriceRange?.min || d3.min(groupedData, d => d.price) || 0,
@@ -58,7 +65,6 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange, currentP
       ])
       .range([height - 2, 2]);
 
-    // Seleccionar o crear SVG
     const svg = d3.select(svgRef.current)
       .attr('width', width)
       .attr('height', height)
@@ -86,7 +92,14 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange, currentP
 
     // Actualizar barras existentes
     bars
-      .attr('y', d => yScale(d.price))
+      .attr('y', d => {
+        // Si tenemos la coordenada exacta del precio, la usamos para ajustar la posición
+        if (priceCoordinate !== null) {
+          const offset = d.price - currentPrice;
+          return priceCoordinate + (offset * (height / (visiblePriceRange?.max || 0 - visiblePriceRange?.min || 0)));
+        }
+        return yScale(d.price);
+      })
       .attr('x', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('width', d => width - xScale(d.normalizedVolume))
@@ -95,7 +108,14 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange, currentP
     // Añadir nuevas barras
     bars.enter()
       .append('rect')
-      .attr('y', d => yScale(d.price))
+      .attr('y', d => {
+        // Usar la misma lógica para las nuevas barras
+        if (priceCoordinate !== null) {
+          const offset = d.price - currentPrice;
+          return priceCoordinate + (offset * (height / (visiblePriceRange?.max || 0 - visiblePriceRange?.min || 0)));
+        }
+        return yScale(d.price);
+      })
       .attr('x', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('width', d => width - xScale(d.normalizedVolume))
@@ -107,7 +127,7 @@ export const VolumeProfile = ({ data, width, height, visiblePriceRange, currentP
         d3.select(svgRef.current).selectAll('*').remove();
       }
     };
-  }, [data, width, height, visiblePriceRange, currentPrice]);
+  }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinate]);
 
   return (
     <svg 

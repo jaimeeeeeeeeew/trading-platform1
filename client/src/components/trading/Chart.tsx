@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, Time } from 'lightweight-charts';
+import { createChart, Time, ISeriesApi, CandlestickData } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { ZoomIn } from 'lucide-react';
@@ -54,7 +54,7 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
-  const candlestickSeriesRef = useRef<any>(null);
+  const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick">>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const historicalDataRef = useRef<Array<{ close: number; volume: number }>>([]);
   const { currentSymbol } = useTrading();
@@ -63,10 +63,19 @@ export default function Chart() {
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number }>>([]);
   const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number} | null>(null);
   const [currentChartPrice, setCurrentChartPrice] = useState<number | null>(null);
+  const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
 
   const handleAutoFit = () => {
     if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
+    }
+  };
+
+  const updatePriceCoordinate = () => {
+    if (candlestickSeriesRef.current && currentChartPrice) {
+      const coordinate = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
+      setPriceCoordinate(coordinate);
+      console.log('Price coordinate updated:', coordinate);
     }
   };
 
@@ -260,10 +269,12 @@ export default function Chart() {
 
     chart.subscribeCrosshairMove(() => {
       updateVisiblePriceRange();
+      updatePriceCoordinate();
     });
 
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
       updateVisiblePriceRange();
+      updatePriceCoordinate();
     });
 
 
@@ -376,6 +387,7 @@ export default function Chart() {
               height={container.current.clientHeight}
               visiblePriceRange={visiblePriceRange}
               currentPrice={currentChartPrice}
+              priceCoordinate={priceCoordinate}
             />
           </div>
         )}
