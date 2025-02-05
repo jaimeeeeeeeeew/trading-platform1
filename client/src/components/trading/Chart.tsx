@@ -101,6 +101,7 @@ export default function Chart() {
         wickDownColor: '#ef5350',
       });
 
+      // Generar datos de muestra
       const sampleData = [];
       const startTime = new Date('2023-01-01').getTime();
       let lastClose = 45000;
@@ -131,36 +132,37 @@ export default function Chart() {
 
       candlestickSeries.setData(sampleData);
 
-      // Crear histograma horizontal para el perfil de volumen
+      // Configurar histograma de volumen horizontal
       const volumeProfileSeries = chart.addHistogramSeries({
+        color: 'rgba(38, 166, 154, 0.3)',
         base: 0,
+        overlay: true,
         priceFormat: {
-          type: 'price',
+          type: 'volume',
         },
+        direction: 'left',
         priceLineVisible: false,
         lastValueVisible: false,
-        color: 'rgba(38, 166, 154, 0.3)',
-        direction: 'left',
+        priceScaleId: '',
       });
 
-      // Calcular perfil de volumen
+      // Calcular volumen por nivel de precio
       const priceStep = 100;
       const volumeByPrice = new Map<number, number>();
+      const lastTime = sampleData[sampleData.length - 1].time;
 
       sampleData.forEach(candle => {
-        const price = Math.round(candle.close / priceStep) * priceStep;
-        volumeByPrice.set(price, (volumeByPrice.get(price) || 0) + candle.volume);
+        const priceLevel = Math.round(candle.close / priceStep) * priceStep;
+        volumeByPrice.set(priceLevel, (volumeByPrice.get(priceLevel) || 0) + candle.volume);
       });
 
-      // Crear datos del perfil de volumen
-      const volumeProfileData = Array.from(volumeByPrice.entries())
-        .map(([price, volume]) => ({
-          time: sampleData[sampleData.length - 1].time,
-          value: volume,
-          color: 'rgba(38, 166, 154, 0.3)',
-        }));
+      // Convertir datos para el histograma horizontal
+      const volumeProfileData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
+        time: lastTime,
+        value: volume,
+        color: 'rgba(38, 166, 154, 0.3)',
+      }));
 
-      // Establecer datos del perfil de volumen
       volumeProfileSeries.setData(volumeProfileData);
 
       const handleResize = () => {
