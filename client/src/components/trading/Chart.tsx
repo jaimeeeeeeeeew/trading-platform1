@@ -96,6 +96,7 @@ export default function Chart() {
       if (candlestickSeriesRef.current) {
         candlestickSeriesRef.current.setData([]);
       }
+      historicalDataRef.current = []; //This line is the key addition
 
       // Cargar nuevos datos
       await loadInitialData(currentSymbol);
