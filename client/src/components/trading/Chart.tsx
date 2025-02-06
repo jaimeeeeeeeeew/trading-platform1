@@ -35,23 +35,37 @@ type IntervalKey = keyof typeof INTERVALS;
 
 const generateSimulatedVolumeProfile = (currentPrice: number) => {
   const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-  // Generar datos con un rango de ±15000 desde el precio actual
-  const range = 15000; // Fixed range of $15000 up and down
-  const minPrice = Math.floor((currentPrice - range) / 50) * 50;
-  const maxPrice = Math.ceil((currentPrice + range) / 50) * 50;
-  let maxVolume = 0;
+  // Generate exactly 300 bars above and 300 below current price
+  const interval = 50; // $50 intervals
+  const barsPerSide = 300;
+  const range = barsPerSide * interval; // This will be $15,000
 
-  // Generar volúmenes para intervalos de $50
-  for (let price = minPrice; price <= maxPrice; price += 50) {
-    const distanceFromCurrent = Math.abs(price - currentPrice);
-    // Adjust volume based on distance from current price with wider distribution
-    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / range) ** 0.5);
+  // Generate bars below current price
+  for (let i = 0; i < barsPerSide; i++) {
+    const price = currentPrice - (i * interval);
+    const distanceFromCurrent = Math.abs(i * interval);
+    // Adjust volume distribution for more realistic simulation
+    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / range) ** 0.75);
     const randomFactor = 0.5 + Math.random();
     const volume = volumeBase * randomFactor * 1000;
-
-    maxVolume = Math.max(maxVolume, volume);
     volumeProfileData.push({ price, volume, normalizedVolume: 0 });
   }
+
+  // Generate bars above current price (excluding current price as it's already included)
+  for (let i = 1; i <= barsPerSide; i++) {
+    const price = currentPrice + (i * interval);
+    const distanceFromCurrent = Math.abs(i * interval);
+    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / range) ** 0.75);
+    const randomFactor = 0.5 + Math.random();
+    const volume = volumeBase * randomFactor * 1000;
+    volumeProfileData.push({ price, volume, normalizedVolume: 0 });
+  }
+
+  // Sort by price to ensure proper display
+  volumeProfileData.sort((a, b) => a.price - b.price);
+
+  // Find max volume for normalization
+  const maxVolume = Math.max(...volumeProfileData.map(d => d.volume));
 
   // Normalize volumes
   return volumeProfileData.map(data => ({
