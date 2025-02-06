@@ -39,13 +39,13 @@ export const VolumeProfile = ({
   useEffect(() => {
     if (!svgRef.current || !data.length || !visiblePriceRange || !priceCoordinates) return;
 
-    // Filtrar y agrupar datos por niveles de precio de $10
+    // Filtrar y agrupar datos por niveles de precio de $50
     const groupedData = data.reduce((acc, item) => {
       if (item.price < visiblePriceRange.min || item.price > visiblePriceRange.max) {
         return acc;
       }
 
-      const roundedPrice = Math.round(item.price / 10) * 10;
+      const roundedPrice = Math.round(item.price / 50) * 50;
       const existingGroup = acc.find(g => g.price === roundedPrice);
 
       if (existingGroup) {
@@ -65,63 +65,45 @@ export const VolumeProfile = ({
       .attr('width', width)
       .attr('height', height);
 
-    // Limpiar SVG antes de redibujar
     svg.selectAll('*').remove();
 
-    // Escalas - Invertir el rango del xScale para que vaya de derecha a izquierda
     const xScale = d3.scaleLinear()
       .domain([0, 1])
       .range([width, 0]);
 
-    // Crear una escala lineal usando los puntos de referencia conocidos
     const priceToY = d3.scaleLinear()
       .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
       .range([priceCoordinates.minY, priceCoordinates.maxY]);
 
-    // Función para calcular la posición Y de cada barra
     const getBarY = (price: number) => {
-      const yPosition = priceToY(price);
-
-      // Imprimir información de debug
-      console.log('Debug Posición Barra:', {
-        price,
-        yPosition,
-        coordinates: {
-          min: { price: priceCoordinates.minPrice, y: priceCoordinates.minY },
-          current: { price: priceCoordinates.currentPrice, y: priceCoordinates.currentY },
-          max: { price: priceCoordinates.maxPrice, y: priceCoordinates.maxY }
-        }
-      });
-
-      return yPosition;
+      return priceToY(price);
     };
 
-    // Calcular altura de barra basada en la escala de precios
+    // Calculate bar height based on price scale and 50$ intervals
     const pixelsPerPrice = Math.abs(priceCoordinates.maxY - priceCoordinates.minY) / 
                           (priceCoordinates.maxPrice - priceCoordinates.minPrice);
-    const barHeight = Math.max(1, pixelsPerPrice * 10); // 10 dólares por barra
+    const barHeight = Math.max(1, pixelsPerPrice * 50); // 50 dollars per bar
 
-    // Función para determinar el color de la barra
     const getBarColor = (price: number, normalizedVolume: number) => {
       const isAboveCurrent = price > currentPrice;
       const intensity = Math.pow(normalizedVolume, 0.5);
       return isAboveCurrent 
-        ? d3.interpolateRgb('#26a69a88', '#26a69a')(intensity)  // Verde para precios por encima
-        : d3.interpolateRgb('#ef535088', '#ef5350')(intensity); // Rojo para precios por debajo
+        ? d3.interpolateRgb('#26a69a88', '#26a69a')(intensity)
+        : d3.interpolateRgb('#ef535088', '#ef5350')(intensity);
     };
 
-    // Dibujar las barras
+    // Draw bars
     svg.selectAll('rect')
       .data(groupedData)
       .join('rect')
       .attr('y', d => getBarY(d.price))
-      .attr('x', d => xScale(d.normalizedVolume))  // Usar el xScale invertido
+      .attr('x', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
-      .attr('width', d => width - xScale(d.normalizedVolume))  // Ajustar el ancho según el xScale invertido
+      .attr('width', d => width - xScale(d.normalizedVolume))
       .attr('fill', d => getBarColor(d.price, d.normalizedVolume))
       .attr('opacity', 0.8);
 
-    // Añadir etiquetas de precio
+    // Add price labels
     svg.selectAll('text')
       .data(groupedData)
       .join('text')

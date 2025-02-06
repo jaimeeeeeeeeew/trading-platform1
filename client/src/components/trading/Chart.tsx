@@ -35,17 +35,17 @@ type IntervalKey = keyof typeof INTERVALS;
 
 const generateSimulatedVolumeProfile = (currentPrice: number) => {
   const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-  // Generar datos con un rango de ±15% desde el precio actual
-  const range = currentPrice * 0.15; // 15% del precio actual para arriba y abajo
-  const minPrice = Math.floor((currentPrice - range) / 10) * 10;
-  const maxPrice = Math.ceil((currentPrice + range) / 10) * 10;
+  // Generar datos con un rango de ±15000 desde el precio actual
+  const range = 15000; // Fixed range of $15000 up and down
+  const minPrice = Math.floor((currentPrice - range) / 50) * 50;
+  const maxPrice = Math.ceil((currentPrice + range) / 50) * 50;
   let maxVolume = 0;
 
-  // Generar volúmenes para intervalos de $10
-  for (let price = minPrice; price <= maxPrice; price += 10) {
+  // Generar volúmenes para intervalos de $50
+  for (let price = minPrice; price <= maxPrice; price += 50) {
     const distanceFromCurrent = Math.abs(price - currentPrice);
-    // Ajustar la fórmula para que el volumen sea más alto cerca del precio actual
-    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / range));
+    // Adjust volume based on distance from current price with wider distribution
+    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / range) ** 0.5);
     const randomFactor = 0.5 + Math.random();
     const volume = volumeBase * randomFactor * 1000;
 
@@ -53,7 +53,7 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
     volumeProfileData.push({ price, volume, normalizedVolume: 0 });
   }
 
-  // Normalizar los volúmenes
+  // Normalize volumes
   return volumeProfileData.map(data => ({
     ...data,
     normalizedVolume: data.volume / maxVolume
