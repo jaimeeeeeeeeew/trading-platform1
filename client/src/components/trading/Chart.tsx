@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, Time, ISeriesApi, CandlestickData } from 'lightweight-charts';
+import { createChart, Time, ISeriesApi, CandlestickData, LogicalRange } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
-import { ZoomIn } from 'lucide-react';
+import { ZoomIn, LineChart, ArrowLeftRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VolumeProfile } from './VolumeProfile';
 import {
@@ -92,10 +92,37 @@ export default function Chart() {
   const [currentChartPrice, setCurrentChartPrice] = useState<number>(96000);
   const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
   const [priceCoordinates, setPriceCoordinates] = useState<PriceCoordinates | null>(null);
+  const [isLogScale, setIsLogScale] = useState(false);
 
   const handleAutoFit = () => {
-    if (chartRef.current) {
-      chartRef.current.timeScale().fitContent();
+    if (!chartRef.current) return;
+
+    const timeScale = chartRef.current.timeScale();
+    const visibleRange = timeScale.getVisibleLogicalRange();
+
+    if (visibleRange !== null) {
+      // Guarda el rango visible actual
+      const currentRange: LogicalRange = {
+        from: visibleRange.from,
+        to: visibleRange.to,
+      };
+
+      // Ajusta al contenido
+      timeScale.fitContent();
+
+      // Calcula el nuevo rango después del ajuste
+      const newRange = timeScale.getVisibleLogicalRange();
+
+      if (newRange !== null) {
+        // Aplica una animación suave al cambio
+        timeScale.setVisibleLogicalRange({
+          from: currentRange.from,
+          to: currentRange.to,
+        });
+        setTimeout(() => {
+          timeScale.setVisibleLogicalRange(newRange);
+        }, 50);
+      }
     }
   };
 
@@ -252,6 +279,25 @@ export default function Chart() {
     }
   };
 
+  const toggleLogScale = () => {
+    if (!chartRef.current) return;
+
+    const newIsLogScale = !isLogScale;
+    setIsLogScale(newIsLogScale);
+
+    chartRef.current.applyOptions({
+      rightPriceScale: {
+        mode: newIsLogScale ? 1 : 0,
+      },
+    });
+
+    toast({
+      title: 'Escala Cambiada',
+      description: `Cambiado a escala ${newIsLogScale ? 'logarítmica' : 'lineal'}`,
+    });
+  };
+
+
   useEffect(() => {
     if (!container.current || !currentSymbol) return;
 
@@ -291,6 +337,7 @@ export default function Chart() {
           top: 0.35,
           bottom: 0.35,
         },
+        mode: isLogScale ? 1 : 0, // 1 para logarítmico, 0 para lineal
       },
     });
 
@@ -338,7 +385,7 @@ export default function Chart() {
       candlestickSeriesRef.current = null;
       historicalDataRef.current = [];
     };
-  }, [currentSymbol]);
+  }, [currentSymbol, isLogScale]);
 
   useEffect(() => {
     if (!currentSymbol || !candlestickSeriesRef.current) return;
@@ -419,6 +466,15 @@ export default function Chart() {
             ))}
           </SelectContent>
         </Select>
+        <Button
+          onClick={toggleLogScale}
+          className="bg-background hover:bg-background/90 shadow-md"
+          size="icon"
+          variant="outline"
+          title={isLogScale ? "Cambiar a escala lineal" : "Cambiar a escala logarítmica"}
+        >
+          <LineChart className="h-4 w-4" />
+        </Button>
       </div>
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
@@ -444,14 +500,17 @@ export default function Chart() {
           </div>
         )}
       </div>
-      <Button
-        onClick={handleAutoFit}
-        className="absolute top-2 right-2 z-10 bg-background hover:bg-background/90 shadow-md"
-        size="icon"
-        variant="outline"
-      >
-        <ZoomIn className="h-4 w-4" />
-      </Button>
+      <div className="absolute top-2 right-2 z-10 flex gap-2">
+        <Button
+          onClick={handleAutoFit}
+          className="bg-background hover:bg-background/90 shadow-md"
+          size="icon"
+          variant="outline"
+          title="Ajustar a la vista"
+        >
+          <ArrowLeftRight className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }
