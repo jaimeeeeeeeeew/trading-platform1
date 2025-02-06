@@ -15,20 +15,29 @@ interface Props {
   };
   currentPrice: number;
   priceCoordinate: number | null;
+  priceCoordinates: {
+    currentPrice: number;
+    currentY: number;
+    minPrice: number;
+    minY: number;
+    maxPrice: number;
+    maxY: number;
+  } | null;
 }
 
 export const VolumeProfile = ({ 
   data, 
   width, 
-  height, 
-  visiblePriceRange, 
+  height,
+  visiblePriceRange,
   currentPrice,
-  priceCoordinate 
+  priceCoordinate,
+  priceCoordinates
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data.length || !visiblePriceRange || priceCoordinate === null) return;
+    if (!svgRef.current || !data.length || !visiblePriceRange || !priceCoordinates) return;
 
     // Filtrar y agrupar datos por niveles de precio de $10
     const groupedData = data.reduce((acc, item) => {
@@ -64,35 +73,32 @@ export const VolumeProfile = ({
       .domain([0, 1])
       .range([width, 0]);
 
-    // Calcular la relación de escala usando el rango de precios visible
-    const priceRange = visiblePriceRange.max - visiblePriceRange.min;
-    const pixelsPerPrice = height / priceRange;
+    // Crear una escala lineal usando los puntos de referencia conocidos
+    const priceToY = d3.scaleLinear()
+      .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
+      .range([priceCoordinates.minY, priceCoordinates.maxY]);
 
     // Función para calcular la posición Y de cada barra
     const getBarY = (price: number) => {
-      // Calcular el desplazamiento desde el precio actual
-      const priceOffset = price - currentPrice;
-      // Usar la misma escala que el gráfico principal
-      const yPosition = priceCoordinate + (priceOffset * pixelsPerPrice);
+      const yPosition = priceToY(price);
 
       // Imprimir información de debug
       console.log('Debug Posición Barra:', {
         price,
-        currentPrice,
-        priceOffset,
-        pixelsPerPrice,
-        priceCoordinate,
-        calculatedY: yPosition,
-        visibleRange: {
-          min: visiblePriceRange.min,
-          max: visiblePriceRange.max,
-          range: priceRange
+        yPosition,
+        coordinates: {
+          min: { price: priceCoordinates.minPrice, y: priceCoordinates.minY },
+          current: { price: priceCoordinates.currentPrice, y: priceCoordinates.currentY },
+          max: { price: priceCoordinates.maxPrice, y: priceCoordinates.maxY }
         }
       });
 
       return yPosition;
     };
 
+    // Calcular altura de barra basada en la escala de precios
+    const pixelsPerPrice = Math.abs(priceCoordinates.maxY - priceCoordinates.minY) / 
+                          (priceCoordinates.maxPrice - priceCoordinates.minPrice);
     const barHeight = Math.max(1, pixelsPerPrice * 10); // 10 dólares por barra
 
     // Función para determinar el color de la barra
@@ -126,7 +132,7 @@ export const VolumeProfile = ({
       .attr('font-size', '10px')
       .text(d => d.price.toFixed(0));
 
-  }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinate]);
+  }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinate, priceCoordinates]);
 
   return (
     <svg 

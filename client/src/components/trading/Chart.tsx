@@ -13,6 +13,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+interface PriceCoordinates {
+  currentPrice: number;
+  currentY: number;
+  minPrice: number;
+  minY: number;
+  maxPrice: number;
+  maxY: number;
+}
+
 const INTERVALS = {
   '1m': { label: '1m', minutes: 1 },
   '5m': { label: '5m', minutes: 5 },
@@ -64,6 +73,7 @@ export default function Chart() {
   const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number} | null>(null);
   const [currentChartPrice, setCurrentChartPrice] = useState<number | null>(null);
   const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
+  const [priceCoordinates, setPriceCoordinates] = useState<PriceCoordinates | null>(null);
 
   const handleAutoFit = () => {
     if (chartRef.current) {
@@ -188,24 +198,33 @@ export default function Chart() {
 
       // Ajustar el rango para incluir un poco más de espacio
       const padding = (maxPrice - minPrice) * 0.1;
+      const paddedMinPrice = minPrice - padding;
+      const paddedMaxPrice = maxPrice + padding;
+
       setVisiblePriceRange({ 
-        min: minPrice - padding, 
-        max: maxPrice + padding 
+        min: paddedMinPrice, 
+        max: paddedMaxPrice 
       });
 
-      // Actualizar la coordenada del precio
-      const priceCoord = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
-      if (typeof priceCoord === 'number') {
-        setPriceCoordinate(priceCoord);
-        console.log('Price Coordinate Debug:', {
+      // Obtener todas las coordenadas necesarias
+      const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
+      const minY = candlestickSeriesRef.current.priceToCoordinate(paddedMinPrice);
+      const maxY = candlestickSeriesRef.current.priceToCoordinate(paddedMaxPrice);
+
+      if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
+        const coordinates = {
           currentPrice: lastPoint.close,
-          yCoordinate: priceCoord,
-          visibleRange: {
-            min: minPrice - padding,
-            max: maxPrice + padding
-          },
-          containerHeight: container.current?.clientHeight
-        });
+          currentY,
+          minPrice: paddedMinPrice,
+          minY,
+          maxPrice: paddedMaxPrice,
+          maxY
+        };
+
+        setPriceCoordinates(coordinates);
+        setPriceCoordinate(currentY);
+
+        console.log('Price Coordinates Debug:', coordinates);
       }
     } catch (error) {
       console.error('Error al actualizar el rango de precios visible:', error);
@@ -408,6 +427,7 @@ export default function Chart() {
               visiblePriceRange={visiblePriceRange}
               currentPrice={currentChartPrice}
               priceCoordinate={priceCoordinate}
+              priceCoordinates={priceCoordinates}
             />
           </div>
         )}
