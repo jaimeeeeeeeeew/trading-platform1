@@ -317,20 +317,21 @@ export default function Chart() {
 
       if (!timeScale || !priceScale) return;
 
-      const visibleLogicalRange = timeScale.getVisibleLogicalRange();
-      const visiblePriceRange = priceScale.getVisibleRange();
+      const visibleRange = timeScale.getVisibleRange();
+      if (!visibleRange) return;
 
-      if (!visibleLogicalRange || !visiblePriceRange) return;
+      const allData = historicalDataRef.current;
+      if (!allData.length) return;
 
-      const minPrice = visiblePriceRange.from;
-      const maxPrice = visiblePriceRange.to;
+      const minPrice = 90000;
+      const maxPrice = 105000;
 
       setVisiblePriceRange({ 
         min: minPrice, 
         max: maxPrice 
       });
 
-      const lastPoint = historicalDataRef.current[historicalDataRef.current.length - 1];
+      const lastPoint = allData[allData.length - 1];
       if (!lastPoint) return;
 
       setCurrentChartPrice(lastPoint.close);
@@ -352,6 +353,8 @@ export default function Chart() {
 
           setPriceCoordinates(coordinates);
           setPriceCoordinate(currentY);
+
+          console.log('Updated Price Coordinates:', coordinates);
         }
       }
     } catch (error) {
