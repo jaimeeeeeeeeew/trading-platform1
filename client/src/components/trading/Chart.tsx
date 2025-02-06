@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, Time, ISeriesApi, CandlestickData, LogicalRange } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
-import { ZoomIn, LineChart, ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VolumeProfile } from './VolumeProfile';
 import {
@@ -39,37 +39,22 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
     const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
     const dataMinPrice = 90000;
     const dataMaxPrice = 105000;
-    const interval = 50; // $50 intervals
+    const interval = 50;
 
-    // Generate bars for the entire range
     for (let price = dataMinPrice; price <= dataMaxPrice; price += interval) {
       const distanceFromCurrent = Math.abs(price - currentPrice);
-      // Ajustar la fórmula para que decaiga más gradualmente a lo largo del rango
       const volumeBase = Math.max(0, 1 - (distanceFromCurrent / 5000) ** 0.5);
       const randomFactor = 0.5 + Math.random();
       const volume = volumeBase * randomFactor * 1000;
       volumeProfileData.push({ price, volume, normalizedVolume: 0 });
     }
 
-    // Sort by price to ensure proper display
     volumeProfileData.sort((a, b) => a.price - b.price);
-
-    // Find max volume for normalization
     const maxVolume = Math.max(...volumeProfileData.map(d => d.volume));
-
-    // Normalize volumes
     const normalizedData = volumeProfileData.map(data => ({
       ...data,
       normalizedVolume: data.volume / maxVolume
     }));
-
-    console.log('Generated volume profile data:', {
-      dataPoints: normalizedData.length,
-      priceRange: {
-        min: Math.min(...normalizedData.map(d => d.price)),
-        max: Math.max(...normalizedData.map(d => d.price))
-      }
-    });
 
     return normalizedData;
   } catch (error) {
@@ -92,7 +77,6 @@ export default function Chart() {
   const [currentChartPrice, setCurrentChartPrice] = useState<number>(96000);
   const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
   const [priceCoordinates, setPriceCoordinates] = useState<PriceCoordinates | null>(null);
-  const [isLogScale, setIsLogScale] = useState(false);
 
   const handleAutoFit = () => {
     if (!chartRef.current) return;
@@ -101,20 +85,15 @@ export default function Chart() {
     const visibleRange = timeScale.getVisibleLogicalRange();
 
     if (visibleRange !== null) {
-      // Guarda el rango visible actual
       const currentRange: LogicalRange = {
         from: visibleRange.from,
         to: visibleRange.to,
       };
 
-      // Ajusta al contenido
       timeScale.fitContent();
-
-      // Calcula el nuevo rango después del ajuste
       const newRange = timeScale.getVisibleLogicalRange();
 
       if (newRange !== null) {
-        // Aplica una animación suave al cambio
         timeScale.setVisibleLogicalRange({
           from: currentRange.from,
           to: currentRange.to,
@@ -137,6 +116,10 @@ export default function Chart() {
 
   const handleIntervalChange = (newInterval: IntervalKey) => {
     setInterval(newInterval);
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+    loadInitialData(currentSymbol);
     toast({
       title: 'Interval Changed',
       description: `Changed to ${INTERVALS[newInterval].label} timeframe`,
@@ -153,20 +136,22 @@ export default function Chart() {
   const loadInitialData = async (symbol: string) => {
     try {
       const formattedSymbol = formatSymbolForBinance(symbol);
-      console.log('Cargando datos históricos para:', formattedSymbol);
+      console.log('Loading historical data for:', formattedSymbol);
 
+      // Calculate timestamps for historical data
+      const now = Date.now();
       const responses = await Promise.all([
-        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&limit=1500`),
-        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=1m&limit=1500&endTime=${Date.now() - 90000000}`)
+        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${interval}&limit=1500`),
+        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${interval}&limit=1500&endTime=${now - 90000000}`)
       ]);
 
       const datas = await Promise.all(responses.map(r => r.json()));
       const allData = [...datas[1], ...datas[0]];
 
-      console.log('Datos recibidos:', allData.length, 'velas');
+      console.log('Received data:', allData.length, 'candles');
 
       if (!Array.isArray(allData)) {
-        console.error('Los datos recibidos no son un array:', allData);
+        console.error('Received data is not an array:', allData);
         return;
       }
 
@@ -179,9 +164,6 @@ export default function Chart() {
         volume: parseFloat(d[5])
       }));
 
-      console.log('Primer candlestick:', candlesticks[0]);
-      console.log('Último candlestick:', candlesticks[candlesticks.length - 1]);
-
       if (candlestickSeriesRef.current && candlesticks.length > 0) {
         candlestickSeriesRef.current.setData(candlesticks);
         handleAutoFit();
@@ -192,13 +174,9 @@ export default function Chart() {
         }));
 
         updateVolumeProfile(historicalDataRef.current);
-
-        console.log('Datos históricos cargados exitosamente');
-      } else {
-        console.error('candlestickSeries no está listo o no hay datos para cargar');
       }
     } catch (error) {
-      console.error('Error cargando datos históricos:', error);
+      console.error('Error loading historical data:', error);
       toast({
         title: 'Error',
         description: 'Error loading historical data',
@@ -279,29 +257,10 @@ export default function Chart() {
     }
   };
 
-  const toggleLogScale = () => {
-    if (!chartRef.current) return;
-
-    const newIsLogScale = !isLogScale;
-    setIsLogScale(newIsLogScale);
-
-    chartRef.current.applyOptions({
-      rightPriceScale: {
-        mode: newIsLogScale ? 1 : 0,
-      },
-    });
-
-    toast({
-      title: 'Escala Cambiada',
-      description: `Cambiado a escala ${newIsLogScale ? 'logarítmica' : 'lineal'}`,
-    });
-  };
-
 
   useEffect(() => {
     if (!container.current || !currentSymbol) return;
 
-    console.log('Inicializando gráfico para:', currentSymbol);
     const chart = createChart(container.current, {
       layout: {
         background: { color: '#151924' },
@@ -337,7 +296,6 @@ export default function Chart() {
           top: 0.35,
           bottom: 0.35,
         },
-        mode: isLogScale ? 1 : 0, // 1 para logarítmico, 0 para lineal
       },
     });
 
@@ -375,34 +333,34 @@ export default function Chart() {
       updatePriceCoordinate();
     });
 
-
     return () => {
       window.removeEventListener('resize', handleResize);
-      chart.unsubscribeCrosshairMove();
-      chart.timeScale().unsubscribeVisibleLogicalRangeChange();
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
       chart.remove();
       chartRef.current = null;
       candlestickSeriesRef.current = null;
       historicalDataRef.current = [];
     };
-  }, [currentSymbol, isLogScale]);
+  }, [currentSymbol]);
 
   useEffect(() => {
     if (!currentSymbol || !candlestickSeriesRef.current) return;
 
     const formattedSymbol = formatSymbolForBinance(currentSymbol);
-    console.log('Conectando WebSocket para:', formattedSymbol);
+    console.log('Connecting WebSocket for:', formattedSymbol);
 
     if (wsRef.current) {
       wsRef.current.close();
     }
 
-    const wsUrl = `wss://fstream.binance.com/ws/${formattedSymbol.toLowerCase()}@kline_1m`;
+    const wsUrl = `wss://fstream.binance.com/ws/${formattedSymbol.toLowerCase()}@kline_${interval}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('WebSocket conectado');
+      console.log('WebSocket connected');
     };
 
     ws.onmessage = (event) => {
@@ -419,15 +377,14 @@ export default function Chart() {
             volume: parseFloat(kline.v)
           };
 
-          console.log('Nueva vela recibida:', bar);
-          candlestickSeriesRef.current.update(bar);
+          candlestickSeriesRef.current?.update(bar);
 
           const lastCandle = { close: parseFloat(kline.c), volume: parseFloat(kline.v) };
           historicalDataRef.current = [...historicalDataRef.current.slice(-1499), lastCandle];
           updateVolumeProfile(historicalDataRef.current);
         }
       } catch (error) {
-        console.error('Error procesando mensaje:', error);
+        console.error('Error processing message:', error);
       }
     };
 
@@ -441,7 +398,7 @@ export default function Chart() {
     };
 
     ws.onclose = () => {
-      console.log('WebSocket desconectado');
+      console.log('WebSocket disconnected');
     };
 
     return () => {
@@ -466,15 +423,6 @@ export default function Chart() {
             ))}
           </SelectContent>
         </Select>
-        <Button
-          onClick={toggleLogScale}
-          className="bg-background hover:bg-background/90 shadow-md"
-          size="icon"
-          variant="outline"
-          title={isLogScale ? "Cambiar a escala lineal" : "Cambiar a escala logarítmica"}
-        >
-          <LineChart className="h-4 w-4" />
-        </Button>
       </div>
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
