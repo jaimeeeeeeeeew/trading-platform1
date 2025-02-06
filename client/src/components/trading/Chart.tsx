@@ -157,7 +157,11 @@ export default function Chart() {
         }));
 
         updateVolumeProfile(historicalDataRef.current);
-        initializeWebSocket(formattedSymbol);
+
+        // Solo inicializar WebSocket después de cargar los datos históricos exitosamente
+        setTimeout(() => {
+          initializeWebSocket(formattedSymbol);
+        }, 1000); // Pequeño delay para asegurar que los datos se hayan renderizado
       }
     } catch (error) {
       console.error('Error cargando datos históricos:', error);
@@ -170,54 +174,77 @@ export default function Chart() {
   };
 
   const initializeWebSocket = (symbol: string) => {
-    cleanupWebSocket();
+    try {
+      cleanupWebSocket();
 
-    const wsUrl = `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@kline_${interval}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+      const wsUrl = `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@kline_${interval}`;
+      console.log('Conectando WebSocket:', wsUrl);
 
-    ws.onopen = () => {
-      console.log('WebSocket conectado');
-    };
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.e === 'kline') {
-          const kline = data.k;
-          const bar = {
-            time: Math.floor(kline.t / 1000) as Time,
-            open: parseFloat(kline.o),
-            high: parseFloat(kline.h),
-            low: parseFloat(kline.l),
-            close: parseFloat(kline.c),
-            volume: parseFloat(kline.v)
-          };
+      ws.onopen = () => {
+        console.log('WebSocket conectado');
+        toast({
+          title: 'Conectado',
+          description: 'Conexión en tiempo real establecida',
+        });
+      };
 
-          if (candlestickSeriesRef.current) {
-            candlestickSeriesRef.current.update(bar);
-            const lastCandle = { close: parseFloat(kline.c), volume: parseFloat(kline.v) };
-            historicalDataRef.current = [...historicalDataRef.current.slice(-1499), lastCandle];
-            updateVolumeProfile(historicalDataRef.current);
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.e === 'kline') {
+            const kline = data.k;
+            const bar = {
+              time: Math.floor(kline.t / 1000) as Time,
+              open: parseFloat(kline.o),
+              high: parseFloat(kline.h),
+              low: parseFloat(kline.l),
+              close: parseFloat(kline.c),
+              volume: parseFloat(kline.v)
+            };
+
+            if (candlestickSeriesRef.current) {
+              candlestickSeriesRef.current.update(bar);
+              const lastCandle = { close: parseFloat(kline.c), volume: parseFloat(kline.v) };
+              historicalDataRef.current = [...historicalDataRef.current.slice(-1499), lastCandle];
+              updateVolumeProfile(historicalDataRef.current);
+            }
           }
+        } catch (error) {
+          console.error('Error procesando mensaje:', error);
         }
-      } catch (error) {
-        console.error('Error procesando mensaje:', error);
-      }
-    };
+      };
 
-    ws.onerror = (error) => {
-      console.error('Error de WebSocket:', error);
-      toast({
-        title: 'Error de Conexión',
-        description: 'Error en la conexión de datos en tiempo real',
-        variant: 'destructive',
-      });
-    };
+      ws.onerror = (error) => {
+        console.error('Error de WebSocket:', error);
+        toast({
+          title: 'Error de Conexión',
+          description: 'Error en la conexión de datos en tiempo real. Reintentando...',
+          variant: 'destructive',
+        });
 
-    ws.onclose = () => {
-      console.log('WebSocket desconectado');
-    };
+        // Reintentar conexión después de un error
+        setTimeout(() => {
+          if (wsRef.current === ws) { // Solo reintentar si este websocket aún es el actual
+            initializeWebSocket(symbol);
+          }
+        }, 5000);
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket desconectado');
+        // Reintentar conexión si se cierra inesperadamente
+        setTimeout(() => {
+          if (wsRef.current === ws) { // Solo reintentar si este websocket aún es el actual
+            initializeWebSocket(symbol);
+          }
+        }, 5000);
+      };
+    } catch (error) {
+      console.error('Error inicializando WebSocket:', error);
+    }
   };
 
   const handleAutoFit = () => {
@@ -278,7 +305,6 @@ export default function Chart() {
       const allData = historicalDataRef.current;
       if (!allData.length) return;
 
-      // Mantener el rango completo para el perfil de volumen
       const minPrice = 90000;
       const maxPrice = 105000;
 
@@ -287,14 +313,12 @@ export default function Chart() {
         max: maxPrice 
       });
 
-      // Obtener el último precio
       const lastPoint = allData[allData.length - 1];
       if (!lastPoint) return;
 
       setCurrentChartPrice(lastPoint.close);
 
       if (candlestickSeriesRef.current) {
-        // Obtener las coordenadas Y para todo el rango de precios
         const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
         const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
         const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
@@ -334,7 +358,6 @@ export default function Chart() {
       console.error('Error updating volume profile:', error);
     }
   };
-
 
   useEffect(() => {
     if (!container.current || !currentSymbol) return;
