@@ -47,7 +47,9 @@ export const VolumeProfile = ({
 
       // Ajustar el tamaño del bucket basado en el zoom
       if (visiblePriceSpan < 2000) {
-        bucketSize = 10; // Usar agrupación más fina cuando hay zoom in
+        bucketSize = 10; // Usar agrupación más fina cuando hay zoom in significativo
+      } else if (visiblePriceSpan < 5000) {
+        bucketSize = 50; // Usar agrupación media para zoom moderado
       }
 
       console.log('Visible price span:', visiblePriceSpan, 'Bucket size:', bucketSize);
