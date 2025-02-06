@@ -18,7 +18,7 @@ export default function SecondaryIndicator({ data, timestamps, height, color = '
 
     const chart = createChart(containerRef.current, {
       layout: {
-        background: { color: 'transparent' },
+        background: { type: 'solid', color: 'transparent' },
         textColor: '#DDD',
       },
       grid: {
@@ -26,7 +26,13 @@ export default function SecondaryIndicator({ data, timestamps, height, color = '
         horzLines: { color: '#1e222d' },
       },
       width: containerRef.current.clientWidth,
-      height: height - 40, // Ajustamos por el espacio del título
+      height: height,
+      rightPriceScale: {
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.1,
+        },
+      },
     });
 
     chartRef.current = chart;
@@ -34,6 +40,11 @@ export default function SecondaryIndicator({ data, timestamps, height, color = '
     const lineSeries = chart.addLineSeries({
       color: color,
       lineWidth: 2,
+      priceFormat: {
+        type: 'price',
+        precision: 2,
+        minMove: 0.01,
+      },
     });
 
     seriesRef.current = lineSeries;
@@ -47,9 +58,8 @@ export default function SecondaryIndicator({ data, timestamps, height, color = '
 
     const handleResize = () => {
       if (!containerRef.current || !chart) return;
-
       const { width } = containerRef.current.getBoundingClientRect();
-      chart.applyOptions({ width, height: height - 40 });
+      chart.applyOptions({ width, height });
     };
 
     window.addEventListener('resize', handleResize);
@@ -60,5 +70,7 @@ export default function SecondaryIndicator({ data, timestamps, height, color = '
     };
   }, [data, timestamps, height, color]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return (
+    <div ref={containerRef} className="w-full h-full" />
+  );
 }

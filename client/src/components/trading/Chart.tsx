@@ -399,9 +399,19 @@ export default function Chart() {
     if (!container.current || !chartRef.current) return;
 
     const { width, height } = container.current.getBoundingClientRect();
+    const indicatorHeight = activeIndicator !== 'none' ? height * 0.2 : 0;
+
     chartRef.current.applyOptions({ 
-      width, 
-      height: activeIndicator !== 'none' ? height * 0.67 : height 
+      width,
+      height: height - indicatorHeight,
+      layout: {
+        background: { color: '#151924' },
+        textColor: '#DDD',
+      },
+      grid: {
+        vertLines: { color: '#1e222d' },
+        horzLines: { color: '#1e222d' },
+      }
     });
   };
 
@@ -482,10 +492,10 @@ export default function Chart() {
     };
   }, [currentSymbol]);
 
-  // Añadir efecto para manejar el cambio de tamaño cuando cambia el indicador
   useEffect(() => {
     handleResize();
-  }, [activeIndicator]);
+    fetchSecondaryIndicators(currentSymbol);
+  }, [activeIndicator, currentSymbol]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
@@ -540,69 +550,69 @@ export default function Chart() {
       </div>
 
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
-        <div className={`h-full ${activeIndicator !== 'none' ? 'grid grid-rows-[2fr_1fr] gap-1' : ''}`}>
-          <div className="relative h-full">
-            <div ref={container} className="w-full h-full" />
-            {container.current && volumeProfileData.length > 0 && currentChartPrice && (
-              <div 
-                className="absolute right-20 top-0 h-full" 
-                style={{ 
-                  width: '120px',
-                  zIndex: 2,
-                  pointerEvents: 'none',
-                  background: 'rgba(21, 25, 36, 0.7)'
-                }}
-              >
-                <VolumeProfile
-                  data={volumeProfileData}
-                  width={120}
-                  height={container.current.clientHeight}
-                  visiblePriceRange={visiblePriceRange}
-                  currentPrice={currentChartPrice}
-                  priceCoordinate={priceCoordinate}
-                  priceCoordinates={priceCoordinates}
-                />
-              </div>
+        <div ref={container} className="w-full h-full" />
+
+        {container.current && volumeProfileData.length > 0 && currentChartPrice && (
+          <div 
+            className="absolute right-20 top-0 h-full" 
+            style={{ 
+              width: '120px',
+              zIndex: 2,
+              pointerEvents: 'none',
+              background: 'rgba(21, 25, 36, 0.7)'
+            }}
+          >
+            <VolumeProfile
+              data={volumeProfileData}
+              width={120}
+              height={container.current.clientHeight}
+              visiblePriceRange={visiblePriceRange}
+              currentPrice={currentChartPrice}
+              priceCoordinate={priceCoordinate}
+              priceCoordinates={priceCoordinates}
+            />
+          </div>
+        )}
+
+        {activeIndicator !== 'none' && (
+          <div 
+            className="absolute bottom-0 left-0 w-full bg-card-foreground/5"
+            style={{ height: '20%' }}
+          >
+            {activeIndicator === 'rsi' && (
+              <SecondaryIndicator
+                data={secondaryIndicators.rsi}
+                timestamps={secondaryIndicators.timestamps}
+                height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
+                color="#ef5350"
+              />
+            )}
+            {activeIndicator === 'funding' && (
+              <SecondaryIndicator
+                data={secondaryIndicators.fundingRate}
+                timestamps={secondaryIndicators.timestamps}
+                height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
+                color="#26a69a"
+              />
+            )}
+            {activeIndicator === 'longShort' && (
+              <SecondaryIndicator
+                data={secondaryIndicators.longShortRatio}
+                timestamps={secondaryIndicators.timestamps}
+                height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
+                color="#42a5f5"
+              />
+            )}
+            {activeIndicator === 'deltaCvd' && (
+              <SecondaryIndicator
+                data={secondaryIndicators.deltaCvd}
+                timestamps={secondaryIndicators.timestamps}
+                height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
+                color="#7e57c2"
+              />
             )}
           </div>
-
-          {activeIndicator !== 'none' && (
-            <div className="w-full h-full bg-card-foreground/5 rounded-lg p-2">
-              {activeIndicator === 'rsi' && (
-                <SecondaryIndicator
-                  data={secondaryIndicators.rsi}
-                  timestamps={secondaryIndicators.timestamps}
-                  height={container.current?.clientHeight ? container.current.clientHeight / 3 : 150}
-                  color="#ef5350"
-                />
-              )}
-              {activeIndicator === 'funding' && (
-                <SecondaryIndicator
-                  data={secondaryIndicators.fundingRate}
-                  timestamps={secondaryIndicators.timestamps}
-                  height={container.current?.clientHeight ? container.current.clientHeight / 3 : 150}
-                  color="#26a69a"
-                />
-              )}
-              {activeIndicator === 'longShort' && (
-                <SecondaryIndicator
-                  data={secondaryIndicators.longShortRatio}
-                  timestamps={secondaryIndicators.timestamps}
-                  height={container.current?.clientHeight ? container.current.clientHeight / 3 : 150}
-                  color="#42a5f5"
-                />
-              )}
-              {activeIndicator === 'deltaCvd' && (
-                <SecondaryIndicator
-                  data={secondaryIndicators.deltaCvd}
-                  timestamps={secondaryIndicators.timestamps}
-                  height={container.current?.clientHeight ? container.current.clientHeight / 3 : 150}
-                  color="#7e57c2"
-                />
-              )}
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       <div className="absolute top-2 right-2 z-10">
