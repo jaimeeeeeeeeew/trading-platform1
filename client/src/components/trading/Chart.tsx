@@ -44,7 +44,6 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
     // Generate bars for the entire range
     for (let price = minPrice; price <= maxPrice; price += interval) {
       const distanceFromCurrent = Math.abs(price - currentPrice);
-      // Adjust volume distribution for more realistic simulation
       // Use a wider range (7500) for smoother volume distribution
       const volumeBase = Math.max(0, 1 - (distanceFromCurrent / 7500) ** 0.75);
       const randomFactor = 0.5 + Math.random();
@@ -71,16 +70,16 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick">>(null);
+  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
+  const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const historicalDataRef = useRef<Array<{ close: number; volume: number }>>([]);
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number }>>([]);
-  const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number} | null>(null);
-  const [currentChartPrice, setCurrentChartPrice] = useState<number | null>(null);
+  const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>({ min: 90000, max: 105000 });
+  const [currentChartPrice, setCurrentChartPrice] = useState<number>(96000);
   const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
   const [priceCoordinates, setPriceCoordinates] = useState<PriceCoordinates | null>(null);
 
@@ -93,9 +92,9 @@ export default function Chart() {
   const updatePriceCoordinate = () => {
     if (candlestickSeriesRef.current && currentChartPrice) {
       const coordinate = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
-      setPriceCoordinate(coordinate);
-      console.log('Precio actual:', currentChartPrice);
-      console.log('Coordenada Y del precio:', coordinate);
+      if (coordinate !== null) {
+        setPriceCoordinate(coordinate);
+      }
     }
   };
 

@@ -9,7 +9,7 @@ interface Props {
   }[];
   width: number;
   height: number;
-  visiblePriceRange?: {
+  visiblePriceRange: {
     min: number;
     max: number;
   };
@@ -31,25 +31,18 @@ export const VolumeProfile = ({
   height,
   visiblePriceRange,
   currentPrice,
-  priceCoordinate,
   priceCoordinates
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data || data.length === 0 || !visiblePriceRange || !priceCoordinates) {
-      console.log('Missing required props:', {
-        svgRef: !!svgRef.current,
-        dataLength: data?.length,
-        visiblePriceRange: !!visiblePriceRange,
-        priceCoordinates: !!priceCoordinates
-      });
+    if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
       return;
     }
 
     try {
       // Filter and group data by price levels of $50
-      const groupedData = data.reduce((acc, item) => {
+      const groupedData = data.reduce((acc: typeof data, item) => {
         if (item.price < visiblePriceRange.min || item.price > visiblePriceRange.max) {
           return acc;
         }
@@ -68,7 +61,7 @@ export const VolumeProfile = ({
           });
         }
         return acc;
-      }, [] as typeof data);
+      }, []);
 
       const svg = d3.select(svgRef.current)
         .attr('width', width)
@@ -104,11 +97,11 @@ export const VolumeProfile = ({
       svg.selectAll('rect')
         .data(groupedData)
         .join('rect')
-        .attr('y', d => getBarY(d.price))
-        .attr('x', d => xScale(d.normalizedVolume))
+        .attr('y', (d: any) => getBarY(d.price))
+        .attr('x', (d: any) => xScale(d.normalizedVolume))
         .attr('height', barHeight)
-        .attr('width', d => width - xScale(d.normalizedVolume))
-        .attr('fill', d => getBarColor(d.price, d.normalizedVolume))
+        .attr('width', (d: any) => width - xScale(d.normalizedVolume))
+        .attr('fill', (d: any) => getBarColor(d.price, d.normalizedVolume))
         .attr('opacity', 0.8);
 
       // Add price labels
@@ -116,16 +109,16 @@ export const VolumeProfile = ({
         .data(groupedData)
         .join('text')
         .attr('x', 5)
-        .attr('y', d => getBarY(d.price) + barHeight / 2)
+        .attr('y', (d: any) => getBarY(d.price) + barHeight / 2)
         .attr('dy', '0.32em')
         .attr('fill', '#ffffff')
         .attr('font-size', '10px')
-        .text(d => d.price.toFixed(0));
+        .text((d: any) => d.price.toFixed(0));
 
     } catch (error) {
       console.error('Error rendering volume profile:', error);
     }
-  }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinate, priceCoordinates]);
+  }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates]);
 
   return (
     <svg 
