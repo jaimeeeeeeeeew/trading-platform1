@@ -12,6 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { tradingViewService } from '@/lib/tradingview-service';
+import SecondaryIndicator from './SecondaryIndicator';
 
 interface PriceCoordinates {
   currentPrice: number;
@@ -20,6 +23,14 @@ interface PriceCoordinates {
   minY: number;
   maxPrice: number;
   maxY: number;
+}
+
+interface SecondaryIndicators {
+  fundingRate: number[];
+  longShortRatio: number[];
+  deltaCvd: number[];
+  rsi: number[];
+  timestamps: number[];
 }
 
 const INTERVALS = {
@@ -78,6 +89,13 @@ export default function Chart() {
   const [currentChartPrice, setCurrentChartPrice] = useState<number>(96000);
   const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
   const [priceCoordinates, setPriceCoordinates] = useState<PriceCoordinates | null>(null);
+  const [secondaryIndicators, setSecondaryIndicators] = useState<SecondaryIndicators>({
+    fundingRate: [],
+    longShortRatio: [],
+    deltaCvd: [],
+    rsi: [],
+    timestamps: []
+  });
 
   const cleanupWebSocket = () => {
     if (wsRef.current) {
@@ -91,14 +109,12 @@ export default function Chart() {
       setIsLoading(true);
       setInterval(newInterval);
 
-      // Limpiar conexión y datos actuales
       cleanupWebSocket();
       if (candlestickSeriesRef.current) {
         candlestickSeriesRef.current.setData([]);
       }
       historicalDataRef.current = [];
 
-      // Cargar nuevos datos
       await loadInitialData(currentSymbol);
 
       toast({
@@ -124,11 +140,9 @@ export default function Chart() {
       const formattedSymbol = formatSymbolForBinance(symbol);
       console.log('Loading historical data for:', formattedSymbol);
 
-      // Calcular timestamps para la carga de datos
       const now = Date.now();
       const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
 
-      // Cargar datos en chunks para mejor manejo de memoria
       const responses = await Promise.all([
         fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${interval}&limit=1000&endTime=${now}`),
         fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${interval}&limit=1000&endTime=${thirtyDaysAgo}`)
@@ -140,7 +154,6 @@ export default function Chart() {
         throw new Error('API response error');
       }
 
-      // Combinar y ordenar datos
       const allData = [...datas[1], ...datas[0]].sort((a, b) => a[0] - b[0]);
       console.log('Received data:', allData.length, 'candles');
 
@@ -154,11 +167,9 @@ export default function Chart() {
       }));
 
       if (candlestickSeriesRef.current && candlesticks.length > 0) {
-        // Limpiar datos anteriores
         candlestickSeriesRef.current.setData([]);
         historicalDataRef.current = [];
 
-        // Establecer nuevos datos
         candlestickSeriesRef.current.setData(candlesticks);
         handleAutoFit();
 
@@ -169,9 +180,8 @@ export default function Chart() {
 
         updateVolumeProfile(historicalDataRef.current);
 
-        // Inicializar WebSocket después de cargar datos históricos
         setTimeout(() => {
-          cleanupWebSocket(); // Asegurar que no hay conexiones previas
+          cleanupWebSocket(); 
           initializeWebSocket(formattedSymbol);
         }, 1000);
       }
@@ -242,7 +252,6 @@ export default function Chart() {
 
       ws.onclose = () => {
         console.log('WebSocket disconnected');
-        // Intentar reconexión solo si el websocket actual es el que se cerró
         if (wsRef.current === ws) {
           clearTimeout(reconnectTimeout);
           reconnectTimeout = setTimeout(() => {
@@ -367,6 +376,23 @@ export default function Chart() {
     }
   };
 
+  const fetchSecondaryIndicators = async (symbol: string) => {
+    try {
+      const now = Date.now();
+      const timestamps = Array.from({ length: 100 }, (_, i) => now - i * 60000);
+
+      setSecondaryIndicators({
+        fundingRate: Array.from({ length: 100 }, () => (Math.random() - 0.5) * 0.002),
+        longShortRatio: Array.from({ length: 100 }, () => 1 + Math.random()),
+        deltaCvd: Array.from({ length: 100 }, () => Math.random() * 1000 - 500),
+        rsi: Array.from({ length: 100 }, () => Math.random() * 100),
+        timestamps
+      });
+    } catch (error) {
+      console.error('Error fetching secondary indicators:', error);
+    }
+  };
+
   useEffect(() => {
     if (!container.current || !currentSymbol) return;
 
@@ -457,6 +483,12 @@ export default function Chart() {
 
   }, [currentSymbol, interval, candlestickSeriesRef]);
 
+  useEffect(() => {
+    if (currentSymbol) {
+      fetchSecondaryIndicators(currentSymbol);
+    }
+  }, [currentSymbol]);
+
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
       <div className="absolute top-2 left-2 z-10 flex items-center gap-2">
@@ -478,28 +510,76 @@ export default function Chart() {
         </Select>
       </div>
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
-        <div ref={container} className="w-full h-full" />
-        {container.current && volumeProfileData.length > 0 && currentChartPrice && (
-          <div 
-            className="absolute right-20 top-0 h-full" 
-            style={{ 
-              width: '120px',
-              zIndex: 2,
-              pointerEvents: 'none',
-              background: 'rgba(21, 25, 36, 0.7)'
-            }}
-          >
-            <VolumeProfile
-              data={volumeProfileData}
-              width={120}
-              height={container.current.clientHeight}
-              visiblePriceRange={visiblePriceRange}
-              currentPrice={currentChartPrice}
-              priceCoordinate={priceCoordinate}
-              priceCoordinates={priceCoordinates}
-            />
-          </div>
-        )}
+        <Tabs defaultValue="chart" className="w-full h-full">
+          <TabsList className="absolute top-2 right-24 z-10">
+            <TabsTrigger value="chart">Chart</TabsTrigger>
+            <TabsTrigger value="indicators">Indicadores</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="chart" className="w-full h-full">
+            <div ref={container} className="w-full h-full" />
+            {container.current && volumeProfileData.length > 0 && currentChartPrice && (
+              <div 
+                className="absolute right-20 top-0 h-full" 
+                style={{ 
+                  width: '120px',
+                  zIndex: 2,
+                  pointerEvents: 'none',
+                  background: 'rgba(21, 25, 36, 0.7)'
+                }}
+              >
+                <VolumeProfile
+                  data={volumeProfileData}
+                  width={120}
+                  height={container.current.clientHeight}
+                  visiblePriceRange={visiblePriceRange}
+                  currentPrice={currentChartPrice}
+                  priceCoordinate={priceCoordinate}
+                  priceCoordinates={priceCoordinates}
+                />
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="indicators" className="w-full h-full grid grid-rows-4 gap-2 p-4">
+            <div className="w-full h-full bg-card-foreground/5 rounded-lg p-2">
+              <h3 className="text-xs font-medium mb-2">Funding Rate</h3>
+              <SecondaryIndicator
+                data={secondaryIndicators.fundingRate}
+                timestamps={secondaryIndicators.timestamps}
+                height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                color="#26a69a"
+              />
+            </div>
+            <div className="w-full h-full bg-card-foreground/5 rounded-lg p-2">
+              <h3 className="text-xs font-medium mb-2">Long/Short Ratio</h3>
+              <SecondaryIndicator
+                data={secondaryIndicators.longShortRatio}
+                timestamps={secondaryIndicators.timestamps}
+                height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                color="#42a5f5"
+              />
+            </div>
+            <div className="w-full h-full bg-card-foreground/5 rounded-lg p-2">
+              <h3 className="text-xs font-medium mb-2">Delta CVD</h3>
+              <SecondaryIndicator
+                data={secondaryIndicators.deltaCvd}
+                timestamps={secondaryIndicators.timestamps}
+                height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                color="#7e57c2"
+              />
+            </div>
+            <div className="w-full h-full bg-card-foreground/5 rounded-lg p-2">
+              <h3 className="text-xs font-medium mb-2">RSI</h3>
+              <SecondaryIndicator
+                data={secondaryIndicators.rsi}
+                timestamps={secondaryIndicators.timestamps}
+                height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                color="#ef5350"
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
       <div className="absolute top-2 right-2 z-10 flex gap-2">
         <Button
