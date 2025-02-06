@@ -35,27 +35,17 @@ type IntervalKey = keyof typeof INTERVALS;
 
 const generateSimulatedVolumeProfile = (currentPrice: number) => {
   const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-  // Generate exactly 300 bars above and 300 below current price
+  // Fixed price range from 90,000 to 105,000
+  const minPrice = 90000;
+  const maxPrice = 105000;
   const interval = 50; // $50 intervals
-  const barsPerSide = 300;
-  const range = barsPerSide * interval; // This will be $15,000
 
-  // Generate bars below current price
-  for (let i = 0; i < barsPerSide; i++) {
-    const price = currentPrice - (i * interval);
-    const distanceFromCurrent = Math.abs(i * interval);
+  // Generate bars for the entire range
+  for (let price = minPrice; price <= maxPrice; price += interval) {
+    const distanceFromCurrent = Math.abs(price - currentPrice);
     // Adjust volume distribution for more realistic simulation
-    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / range) ** 0.75);
-    const randomFactor = 0.5 + Math.random();
-    const volume = volumeBase * randomFactor * 1000;
-    volumeProfileData.push({ price, volume, normalizedVolume: 0 });
-  }
-
-  // Generate bars above current price (excluding current price as it's already included)
-  for (let i = 1; i <= barsPerSide; i++) {
-    const price = currentPrice + (i * interval);
-    const distanceFromCurrent = Math.abs(i * interval);
-    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / range) ** 0.75);
+    // Use a wider range (7500) for smoother volume distribution
+    const volumeBase = Math.max(0, 1 - (distanceFromCurrent / 7500) ** 0.75);
     const randomFactor = 0.5 + Math.random();
     const volume = volumeBase * randomFactor * 1000;
     volumeProfileData.push({ price, volume, normalizedVolume: 0 });
