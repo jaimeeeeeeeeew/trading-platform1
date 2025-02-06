@@ -90,26 +90,26 @@ export default function Chart() {
     try {
       setIsLoading(true);
       setInterval(newInterval);
-      cleanupWebSocket();
 
-      // Limpiar datos actuales
+      // Limpiar conexión y datos actuales
+      cleanupWebSocket();
       if (candlestickSeriesRef.current) {
         candlestickSeriesRef.current.setData([]);
       }
-      historicalDataRef.current = []; //This line is the key addition
+      historicalDataRef.current = [];
 
       // Cargar nuevos datos
       await loadInitialData(currentSymbol);
 
       toast({
-        title: 'Intervalo Cambiado',
-        description: `Cambiado a ${INTERVALS[newInterval].label}`,
+        title: 'Interval Changed',
+        description: `Changed to ${INTERVALS[newInterval].label}`,
       });
     } catch (error) {
-      console.error('Error al cambiar intervalo:', error);
+      console.error('Error changing interval:', error);
       toast({
         title: 'Error',
-        description: 'Error al cambiar el intervalo',
+        description: 'Error changing interval',
         variant: 'destructive',
       });
     } finally {
@@ -122,22 +122,27 @@ export default function Chart() {
 
     try {
       const formattedSymbol = formatSymbolForBinance(symbol);
-      console.log('Cargando datos históricos para:', formattedSymbol);
+      console.log('Loading historical data for:', formattedSymbol);
 
+      // Calcular timestamps para la carga de datos
       const now = Date.now();
+      const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+
+      // Cargar datos en chunks para mejor manejo de memoria
       const responses = await Promise.all([
-        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${interval}&limit=1500`),
-        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${interval}&limit=1500&endTime=${now - 90000000}`)
+        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${interval}&limit=1000&endTime=${now}`),
+        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${interval}&limit=1000&endTime=${thirtyDaysAgo}`)
       ]);
 
       const datas = await Promise.all(responses.map(r => r.json()));
 
       if (datas.some(data => data.code !== undefined)) {
-        throw new Error('Error en la respuesta de la API');
+        throw new Error('API response error');
       }
 
-      const allData = [...datas[1], ...datas[0]];
-      console.log('Datos recibidos:', allData.length, 'velas');
+      // Combinar y ordenar datos
+      const allData = [...datas[1], ...datas[0]].sort((a, b) => a[0] - b[0]);
+      console.log('Received data:', allData.length, 'candles');
 
       const candlesticks = allData.map((d: any) => ({
         time: Math.floor(d[0] / 1000) as Time,
@@ -149,6 +154,11 @@ export default function Chart() {
       }));
 
       if (candlestickSeriesRef.current && candlesticks.length > 0) {
+        // Limpiar datos anteriores
+        candlestickSeriesRef.current.setData([]);
+        historicalDataRef.current = [];
+
+        // Establecer nuevos datos
         candlestickSeriesRef.current.setData(candlesticks);
         handleAutoFit();
 
@@ -159,16 +169,17 @@ export default function Chart() {
 
         updateVolumeProfile(historicalDataRef.current);
 
-        // Solo inicializar WebSocket después de cargar los datos históricos exitosamente
+        // Inicializar WebSocket después de cargar datos históricos
         setTimeout(() => {
+          cleanupWebSocket(); // Asegurar que no hay conexiones previas
           initializeWebSocket(formattedSymbol);
-        }, 1000); // Pequeño delay para asegurar que los datos se hayan renderizado
+        }, 1000);
       }
     } catch (error) {
-      console.error('Error cargando datos históricos:', error);
+      console.error('Error loading historical data:', error);
       toast({
         title: 'Error',
-        description: 'Error al cargar datos históricos',
+        description: 'Error loading historical data',
         variant: 'destructive',
       });
     }
@@ -179,23 +190,23 @@ export default function Chart() {
       cleanupWebSocket();
 
       const wsUrl = `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@kline_${interval}`;
-      console.log('Conectando WebSocket:', wsUrl);
+      console.log('Connecting WebSocket:', wsUrl);
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket conectado');
+        console.log('WebSocket connected');
         toast({
-          title: 'Conectado',
-          description: 'Conexión en tiempo real establecida',
+          title: 'Connected',
+          description: 'Real-time connection established',
         });
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.e === 'kline') {
+          if (data.e === 'kline' && data.s === symbol.toUpperCase()) {
             const kline = data.k;
             const bar = {
               time: Math.floor(kline.t / 1000) as Time,
@@ -214,37 +225,33 @@ export default function Chart() {
             }
           }
         } catch (error) {
-          console.error('Error procesando mensaje:', error);
+          console.error('Error processing message:', error);
         }
       };
 
+      let reconnectTimeout: NodeJS.Timeout;
+
       ws.onerror = (error) => {
-        console.error('Error de WebSocket:', error);
+        console.error('WebSocket error:', error);
         toast({
-          title: 'Error de Conexión',
-          description: 'Error en la conexión de datos en tiempo real. Reintentando...',
+          title: 'Connection Error',
+          description: 'Real-time data connection error. Retrying...',
           variant: 'destructive',
         });
-
-        // Reintentar conexión después de un error
-        setTimeout(() => {
-          if (wsRef.current === ws) { // Solo reintentar si este websocket aún es el actual
-            initializeWebSocket(symbol);
-          }
-        }, 5000);
       };
 
       ws.onclose = () => {
-        console.log('WebSocket desconectado');
-        // Reintentar conexión si se cierra inesperadamente
-        setTimeout(() => {
-          if (wsRef.current === ws) { // Solo reintentar si este websocket aún es el actual
+        console.log('WebSocket disconnected');
+        // Intentar reconexión solo si el websocket actual es el que se cerró
+        if (wsRef.current === ws) {
+          clearTimeout(reconnectTimeout);
+          reconnectTimeout = setTimeout(() => {
             initializeWebSocket(symbol);
-          }
-        }, 5000);
+          }, 5000);
+        }
       };
     } catch (error) {
-      console.error('Error inicializando WebSocket:', error);
+      console.error('Error initializing WebSocket:', error);
     }
   };
 
