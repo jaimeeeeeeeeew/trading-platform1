@@ -45,10 +45,12 @@ export const VolumeProfile = ({
       const visiblePriceSpan = priceCoordinates.maxPrice - priceCoordinates.minPrice;
       let bucketSize = 100; // Por defecto usar 100 para zoom out
 
-      // Si el rango visible es menor a 1000, usar agrupamiento de 10
-      if (visiblePriceSpan < 1000) {
-        bucketSize = 10; // Zoom in - más detalle
+      // Ajustar el tamaño del bucket basado en el zoom
+      if (visiblePriceSpan < 2000) {
+        bucketSize = 10; // Usar agrupación más fina cuando hay zoom in
       }
+
+      console.log('Visible price span:', visiblePriceSpan, 'Bucket size:', bucketSize);
 
       // Agrupar datos por niveles de precio dinámicamente
       const groupedData = data.reduce((acc: typeof data, item) => {
