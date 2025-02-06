@@ -35,6 +35,7 @@ type IntervalKey = keyof typeof INTERVALS;
 
 const generateSimulatedVolumeProfile = (currentPrice: number) => {
   try {
+    console.log('Generating volume profile with current price:', currentPrice);
     const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
     // Fixed price range as requested: 95,850 to 99,300
     const minPrice = 95850;
@@ -44,7 +45,6 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
     // Generate bars for the entire range
     for (let price = minPrice; price <= maxPrice; price += interval) {
       const distanceFromCurrent = Math.abs(price - currentPrice);
-      // Use a smaller range (1750) for more concentrated volume distribution
       const volumeBase = Math.max(0, 1 - (distanceFromCurrent / 1750) ** 0.75);
       const randomFactor = 0.5 + Math.random();
       const volume = volumeBase * randomFactor * 1000;
@@ -58,13 +58,23 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
     const maxVolume = Math.max(...volumeProfileData.map(d => d.volume));
 
     // Normalize volumes
-    return volumeProfileData.map(data => ({
+    const normalizedData = volumeProfileData.map(data => ({
       ...data,
       normalizedVolume: data.volume / maxVolume
     }));
+
+    console.log('Generated volume profile data:', {
+      dataPoints: normalizedData.length,
+      priceRange: {
+        min: Math.min(...normalizedData.map(d => d.price)),
+        max: Math.max(...normalizedData.map(d => d.price))
+      }
+    });
+
+    return normalizedData;
   } catch (error) {
     console.error('Error generating volume profile:', error);
-    return []; // Return empty array in case of error
+    return [];
   }
 };
 
@@ -78,7 +88,7 @@ export default function Chart() {
   const { toast } = useToast();
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number }>>([]);
-  const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>({ min: 90000, max: 105000 });
+  const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>({ min: 95850, max: 99300 });
   const [currentChartPrice, setCurrentChartPrice] = useState<number>(96000);
   const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
   const [priceCoordinates, setPriceCoordinates] = useState<PriceCoordinates | null>(null);
@@ -185,57 +195,44 @@ export default function Chart() {
       const allData = historicalDataRef.current;
       if (!allData.length) return;
 
-      // Filtrar los puntos visibles basados en el rango de tiempo
-      const visiblePoints = allData.filter((_, index) => {
-        const time = timeScale.coordinateToTime(timeScale.timeToCoordinate(index));
-        return time >= visibleRange.from && time <= visibleRange.to;
+      // Keep the fixed range for volume profile
+      const fixedMinPrice = 95850;
+      const fixedMaxPrice = 99300;
+
+      setVisiblePriceRange({ 
+        min: fixedMinPrice, 
+        max: fixedMaxPrice 
       });
 
-      if (visiblePoints.length === 0) return;
-
-      // Calcular el rango de precios visible
-      const prices = visiblePoints.map(point => point.close);
-      const minPrice = Math.min(...prices);
-      const maxPrice = Math.max(...prices);
-
-      // Obtener el último precio (precio actual)
-      const lastPoint = visiblePoints[visiblePoints.length - 1];
+      // Get the last price
+      const lastPoint = allData[allData.length - 1];
       if (!lastPoint) return;
 
       setCurrentChartPrice(lastPoint.close);
 
-      // Ajustar el rango para incluir un poco más de espacio
-      const padding = (maxPrice - minPrice) * 0.1;
-      const paddedMinPrice = minPrice - padding;
-      const paddedMaxPrice = maxPrice + padding;
+      if (candlestickSeriesRef.current) {
+        const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
+        const minY = candlestickSeriesRef.current.priceToCoordinate(fixedMinPrice);
+        const maxY = candlestickSeriesRef.current.priceToCoordinate(fixedMaxPrice);
 
-      setVisiblePriceRange({ 
-        min: paddedMinPrice, 
-        max: paddedMaxPrice 
-      });
+        if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
+          const coordinates = {
+            currentPrice: lastPoint.close,
+            currentY,
+            minPrice: fixedMinPrice,
+            minY,
+            maxY,
+            maxPrice: fixedMaxPrice
+          };
 
-      // Obtener todas las coordenadas necesarias
-      const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
-      const minY = candlestickSeriesRef.current.priceToCoordinate(paddedMinPrice);
-      const maxY = candlestickSeriesRef.current.priceToCoordinate(paddedMaxPrice);
+          setPriceCoordinates(coordinates);
+          setPriceCoordinate(currentY);
 
-      if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
-        const coordinates = {
-          currentPrice: lastPoint.close,
-          currentY,
-          minPrice: paddedMinPrice,
-          minY,
-          maxPrice: paddedMaxPrice,
-          maxY
-        };
-
-        setPriceCoordinates(coordinates);
-        setPriceCoordinate(currentY);
-
-        console.log('Price Coordinates Debug:', coordinates);
+          console.log('Updated Price Coordinates:', coordinates);
+        }
       }
     } catch (error) {
-      console.error('Error al actualizar el rango de precios visible:', error);
+      console.error('Error updating visible price range:', error);
     }
   };
 
