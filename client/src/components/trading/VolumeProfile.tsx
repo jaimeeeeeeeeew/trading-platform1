@@ -41,77 +41,71 @@ export const VolumeProfile = ({
     }
 
     try {
-      // Calcular el tamaño de agrupamiento basado en el rango de precios visible
-      const visiblePriceSpan = Math.abs(priceCoordinates.maxPrice - priceCoordinates.minPrice);
-      let bucketSize = 100; // Por defecto usar 100 para zoom out
+      // Limpiar el SVG
+      const svg = d3.select(svgRef.current);
+      svg.selectAll('*').remove();
+      svg.attr('width', width).attr('height', height);
 
-      // Ajustar el tamaño del bucket basado en el zoom de manera más agresiva
-      if (visiblePriceSpan < 1000) {
-        bucketSize = 10; // Zoom muy cercano
-      } else if (visiblePriceSpan < 3000) {
-        bucketSize = 25; // Zoom medio
-      } else if (visiblePriceSpan < 7000) {
-        bucketSize = 50; // Zoom moderado
+      // Calcular el rango de precios visible
+      const visiblePriceSpan = Math.abs(priceCoordinates.maxPrice - priceCoordinates.minPrice);
+
+      // Determinar el tamaño de agrupación basado en el zoom
+      let bucketSize: number;
+      if (visiblePriceSpan <= 1000) {
+        bucketSize = 10;  // Zoom muy cercano
+      } else if (visiblePriceSpan <= 3000) {
+        bucketSize = 50;  // Zoom medio
+      } else {
+        bucketSize = 100; // Zoom lejano
       }
 
-      console.log('Debug - Visible price span:', visiblePriceSpan, 'Selected bucket size:', bucketSize);
+      console.log('Zoom level:', {
+        visiblePriceSpan,
+        bucketSize,
+        minPrice: priceCoordinates.minPrice,
+        maxPrice: priceCoordinates.maxPrice
+      });
 
-      // Agrupar datos por niveles de precio con el nuevo bucketSize
-      const groupedData = data.reduce((acc: typeof data, item) => {
-        // Asegurar que el precio se redondee al bucketSize más cercano
-        const roundedPrice = Math.round(item.price / bucketSize) * bucketSize;
+      // Agrupar los datos según el bucketSize
+      const groupedData = new Map<number, { volume: number; normalizedVolume: number }>();
 
-        const existingGroupIndex = acc.findIndex(g => g.price === roundedPrice);
+      data.forEach(item => {
+        const bucketPrice = Math.round(item.price / bucketSize) * bucketSize;
+        const existing = groupedData.get(bucketPrice);
 
-        if (existingGroupIndex !== -1) {
-          // Actualizar grupo existente
-          acc[existingGroupIndex].volume += item.volume;
-          acc[existingGroupIndex].normalizedVolume = Math.max(
-            acc[existingGroupIndex].normalizedVolume,
-            item.normalizedVolume
-          );
+        if (existing) {
+          existing.volume += item.volume;
+          existing.normalizedVolume = Math.max(existing.normalizedVolume, item.normalizedVolume);
         } else {
-          // Crear nuevo grupo
-          acc.push({
-            price: roundedPrice,
+          groupedData.set(bucketPrice, {
             volume: item.volume,
             normalizedVolume: item.normalizedVolume
           });
         }
-        return acc;
-      }, []);
+      });
 
-      // Ordenar los datos por precio
-      groupedData.sort((a, b) => a.price - b.price);
+      // Convertir el Map a array y ordenar por precio
+      const bars = Array.from(groupedData.entries())
+        .map(([price, data]) => ({
+          price,
+          ...data
+        }))
+        .sort((a, b) => a.price - b.price);
 
-      console.log('Debug - Grouped data example:', groupedData.slice(0, 3));
-
-      const svg = d3.select(svgRef.current)
-        .attr('width', width)
-        .attr('height', height);
-
-      svg.selectAll('*').remove();
-
+      // Configurar escalas
       const xScale = d3.scaleLinear()
         .domain([0, 1])
         .range([width, 0]);
 
-      // Usar las coordenadas del precio para mantener la alineación con las velas
-      const priceToY = d3.scaleLinear()
+      const priceScale = d3.scaleLinear()
         .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
         .range([priceCoordinates.minY, priceCoordinates.maxY]);
 
-      // Calcular altura de barra dinámica basada en el zoom
-      const pixelsPerPrice = Math.abs(priceCoordinates.maxY - priceCoordinates.minY) / 
-                          (priceCoordinates.maxPrice - priceCoordinates.minPrice);
-      const barHeight = Math.max(1, pixelsPerPrice * bucketSize * 0.9); // Reducir ligeramente para spacing
+      // Calcular altura de las barras
+      const pixelsPerPrice = Math.abs(priceCoordinates.maxY - priceCoordinates.minY) / visiblePriceSpan;
+      const barHeight = Math.max(1, pixelsPerPrice * bucketSize * 0.9);
 
-      console.log('Debug - Bar height calculation:', {
-        pixelsPerPrice,
-        bucketSize,
-        resultingBarHeight: barHeight
-      });
-
+      // Función para color de barras
       const getBarColor = (price: number, normalizedVolume: number) => {
         const isAboveCurrent = price > currentPrice;
         const intensity = Math.pow(normalizedVolume, 0.5);
@@ -122,30 +116,28 @@ export const VolumeProfile = ({
 
       // Dibujar barras
       svg.selectAll('rect')
-        .data(groupedData)
+        .data(bars)
         .join('rect')
-        .attr('y', (d: any) => priceToY(d.price))
-        .attr('x', (d: any) => xScale(d.normalizedVolume))
+        .attr('y', d => priceScale(d.price))
+        .attr('x', d => xScale(d.normalizedVolume))
         .attr('height', barHeight)
-        .attr('width', (d: any) => width - xScale(d.normalizedVolume))
-        .attr('fill', (d: any) => getBarColor(d.price, d.normalizedVolume))
+        .attr('width', d => width - xScale(d.normalizedVolume))
+        .attr('fill', d => getBarColor(d.price, d.normalizedVolume))
         .attr('opacity', 0.8);
 
-      // Ajustar tamaño de fuente y visibilidad de etiquetas
+      // Mostrar etiquetas si hay espacio suficiente
       const fontSize = Math.min(12, Math.max(8, barHeight * 0.7));
-      const shouldShowLabels = barHeight >= 8;
-
-      if (shouldShowLabels) {
+      if (barHeight >= 8) {
         svg.selectAll('text')
-          .data(groupedData)
+          .data(bars)
           .join('text')
           .attr('x', 5)
-          .attr('y', (d: any) => priceToY(d.price) + barHeight / 2)
+          .attr('y', d => priceScale(d.price) + barHeight / 2)
           .attr('dy', '0.32em')
           .attr('fill', '#ffffff')
           .attr('font-size', `${fontSize}px`)
           .attr('opacity', barHeight < 12 ? 0.8 : 1)
-          .text((d: any) => d.price.toFixed(0));
+          .text(d => d.price.toFixed(0));
       }
 
     } catch (error) {
