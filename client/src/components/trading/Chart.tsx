@@ -195,34 +195,35 @@ export default function Chart() {
       const allData = historicalDataRef.current;
       if (!allData.length) return;
 
-      // Keep the fixed range for volume profile display
-      const fixedMinPrice = 95850;
-      const fixedMaxPrice = 99300;
+      // Mantener el rango completo para el perfil de volumen
+      const minPrice = 90000;
+      const maxPrice = 105000;
 
       setVisiblePriceRange({ 
-        min: fixedMinPrice, 
-        max: fixedMaxPrice 
+        min: minPrice, 
+        max: maxPrice 
       });
 
-      // Get the last price
+      // Obtener el último precio
       const lastPoint = allData[allData.length - 1];
       if (!lastPoint) return;
 
       setCurrentChartPrice(lastPoint.close);
 
       if (candlestickSeriesRef.current) {
+        // Obtener las coordenadas Y para todo el rango de precios
         const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
-        const minY = candlestickSeriesRef.current.priceToCoordinate(fixedMinPrice);
-        const maxY = candlestickSeriesRef.current.priceToCoordinate(fixedMaxPrice);
+        const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
+        const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
 
         if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
           const coordinates = {
             currentPrice: lastPoint.close,
             currentY,
-            minPrice: fixedMinPrice,
+            minPrice,
             minY,
-            maxY,
-            maxPrice: fixedMaxPrice
+            maxPrice,
+            maxY
           };
 
           setPriceCoordinates(coordinates);

@@ -43,10 +43,6 @@ export const VolumeProfile = ({
     try {
       // Agrupar datos por niveles de precio de $50
       const groupedData = data.reduce((acc: typeof data, item) => {
-        if (item.price < 90000 || item.price > 105000) {
-          return acc;
-        }
-
         const roundedPrice = Math.round(item.price / 50) * 50;
         const existingGroup = acc.find(g => g.price === roundedPrice);
 
@@ -73,8 +69,9 @@ export const VolumeProfile = ({
         .domain([0, 1])
         .range([width, 0]);
 
+      // Usar las coordenadas del precio para mantener la alineación con las velas
       const priceToY = d3.scaleLinear()
-        .domain([90000, 105000])
+        .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
         .range([priceCoordinates.minY, priceCoordinates.maxY]);
 
       const getBarY = (price: number) => {
@@ -82,7 +79,7 @@ export const VolumeProfile = ({
       };
 
       const pixelsPerPrice = Math.abs(priceCoordinates.maxY - priceCoordinates.minY) / 
-                            (105000 - 90000);
+                            (priceCoordinates.maxPrice - priceCoordinates.minPrice);
       const barHeight = Math.max(1, pixelsPerPrice * 50);
 
       const getBarColor = (price: number, normalizedVolume: number) => {
