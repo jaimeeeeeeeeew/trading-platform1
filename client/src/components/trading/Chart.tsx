@@ -379,7 +379,8 @@ export default function Chart() {
   const fetchSecondaryIndicators = async (symbol: string) => {
     try {
       const now = Date.now();
-      const timestamps = Array.from({ length: 100 }, (_, i) => now - i * 60000);
+      // Create timestamps in ascending order (oldest to newest)
+      const timestamps = Array.from({ length: 100 }, (_, i) => now - (99 - i) * 60000);
 
       setSecondaryIndicators({
         fundingRate: Array.from({ length: 100 }, () => (Math.random() - 0.5) * 0.002),
