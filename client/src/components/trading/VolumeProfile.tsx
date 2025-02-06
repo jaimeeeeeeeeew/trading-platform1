@@ -46,8 +46,8 @@ export const VolumeProfile = ({
       svg.selectAll('*').remove();
       svg.attr('width', width).attr('height', height);
 
-      // Calcular el rango de precios visible
-      const visiblePriceSpan = Math.abs(priceCoordinates.maxPrice - priceCoordinates.minPrice);
+      // Usar el rango visible real del gráfico
+      const visiblePriceSpan = Math.abs(visiblePriceRange.max - visiblePriceRange.min);
 
       // Determinar el tamaño de agrupación basado en el zoom
       let bucketSize: number;
@@ -62,8 +62,8 @@ export const VolumeProfile = ({
       console.log('Zoom level:', {
         visiblePriceSpan,
         bucketSize,
-        minPrice: priceCoordinates.minPrice,
-        maxPrice: priceCoordinates.maxPrice
+        minPrice: visiblePriceRange.min,
+        maxPrice: visiblePriceRange.max
       });
 
       // Agrupar los datos según el bucketSize
@@ -98,7 +98,7 @@ export const VolumeProfile = ({
         .range([width, 0]);
 
       const priceScale = d3.scaleLinear()
-        .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
+        .domain([visiblePriceRange.min, visiblePriceRange.max])
         .range([priceCoordinates.minY, priceCoordinates.maxY]);
 
       // Calcular altura de las barras
