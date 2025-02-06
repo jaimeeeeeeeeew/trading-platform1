@@ -544,7 +544,7 @@ export default function Chart() {
       </div>
 
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
-        <div className="grid grid-rows-[3fr_1fr] h-full gap-1">
+        <div className={`h-full ${activeIndicator !== 'none' ? 'grid grid-rows-[3fr_1fr] gap-1' : ''}`}>
           <div className="relative">
             <div ref={container} className="w-full h-full" />
             {container.current && volumeProfileData.length > 0 && currentChartPrice && (
