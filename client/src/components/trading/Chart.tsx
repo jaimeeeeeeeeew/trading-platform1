@@ -1,3 +1,38 @@
+import { useEffect, useRef, useState } from 'react';
+import { createChart, Time, ISeriesApi, CandlestickData } from 'lightweight-charts';
+import { useTrading } from '@/lib/trading-context';
+import { useToast } from '@/hooks/use-toast';
+import { ZoomIn } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { VolumeProfile } from './VolumeProfile';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface PriceCoordinates {
+  currentPrice: number;
+  currentY: number;
+  minPrice: number;
+  minY: number;
+  maxPrice: number;
+  maxY: number;
+}
+
+const INTERVALS = {
+  '1m': { label: '1m', minutes: 1 },
+  '5m': { label: '5m', minutes: 5 },
+  '15m': { label: '15m', minutes: 15 },
+  '1h': { label: '1H', minutes: 60 },
+  '4h': { label: '4H', minutes: 240 },
+  '1d': { label: '1D', minutes: 1440 },
+} as const;
+
+type IntervalKey = keyof typeof INTERVALS;
+
 const generateSimulatedVolumeProfile = (currentPrice: number) => {
   try {
     console.log('Generating volume profile with current price:', currentPrice);
