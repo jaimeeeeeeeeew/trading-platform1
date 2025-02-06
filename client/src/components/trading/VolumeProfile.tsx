@@ -37,83 +37,94 @@ export const VolumeProfile = ({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data.length || !visiblePriceRange || !priceCoordinates) return;
+    if (!svgRef.current || !data || data.length === 0 || !visiblePriceRange || !priceCoordinates) {
+      console.log('Missing required props:', {
+        svgRef: !!svgRef.current,
+        dataLength: data?.length,
+        visiblePriceRange: !!visiblePriceRange,
+        priceCoordinates: !!priceCoordinates
+      });
+      return;
+    }
 
-    // Filtrar y agrupar datos por niveles de precio de $50
-    const groupedData = data.reduce((acc, item) => {
-      if (item.price < visiblePriceRange.min || item.price > visiblePriceRange.max) {
+    try {
+      // Filter and group data by price levels of $50
+      const groupedData = data.reduce((acc, item) => {
+        if (item.price < visiblePriceRange.min || item.price > visiblePriceRange.max) {
+          return acc;
+        }
+
+        const roundedPrice = Math.round(item.price / 50) * 50;
+        const existingGroup = acc.find(g => g.price === roundedPrice);
+
+        if (existingGroup) {
+          existingGroup.volume += item.volume;
+          existingGroup.normalizedVolume = Math.max(existingGroup.normalizedVolume, item.normalizedVolume);
+        } else {
+          acc.push({
+            price: roundedPrice,
+            volume: item.volume,
+            normalizedVolume: item.normalizedVolume
+          });
+        }
         return acc;
-      }
+      }, [] as typeof data);
 
-      const roundedPrice = Math.round(item.price / 50) * 50;
-      const existingGroup = acc.find(g => g.price === roundedPrice);
+      const svg = d3.select(svgRef.current)
+        .attr('width', width)
+        .attr('height', height);
 
-      if (existingGroup) {
-        existingGroup.volume += item.volume;
-        existingGroup.normalizedVolume = Math.max(existingGroup.normalizedVolume, item.normalizedVolume);
-      } else {
-        acc.push({
-          price: roundedPrice,
-          volume: item.volume,
-          normalizedVolume: item.normalizedVolume
-        });
-      }
-      return acc;
-    }, [] as typeof data);
+      svg.selectAll('*').remove();
 
-    const svg = d3.select(svgRef.current)
-      .attr('width', width)
-      .attr('height', height);
+      const xScale = d3.scaleLinear()
+        .domain([0, 1])
+        .range([width, 0]);
 
-    svg.selectAll('*').remove();
+      const priceToY = d3.scaleLinear()
+        .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
+        .range([priceCoordinates.minY, priceCoordinates.maxY]);
 
-    const xScale = d3.scaleLinear()
-      .domain([0, 1])
-      .range([width, 0]);
+      const getBarY = (price: number) => {
+        return priceToY(price);
+      };
 
-    const priceToY = d3.scaleLinear()
-      .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
-      .range([priceCoordinates.minY, priceCoordinates.maxY]);
+      const pixelsPerPrice = Math.abs(priceCoordinates.maxY - priceCoordinates.minY) / 
+                            (priceCoordinates.maxPrice - priceCoordinates.minPrice);
+      const barHeight = Math.max(1, pixelsPerPrice * 50);
 
-    const getBarY = (price: number) => {
-      return priceToY(price);
-    };
+      const getBarColor = (price: number, normalizedVolume: number) => {
+        const isAboveCurrent = price > currentPrice;
+        const intensity = Math.pow(normalizedVolume, 0.5);
+        return isAboveCurrent 
+          ? d3.interpolateRgb('#26a69a88', '#26a69a')(intensity)
+          : d3.interpolateRgb('#ef535088', '#ef5350')(intensity);
+      };
 
-    // Calculate bar height based on price scale and 50$ intervals
-    const pixelsPerPrice = Math.abs(priceCoordinates.maxY - priceCoordinates.minY) / 
-                          (priceCoordinates.maxPrice - priceCoordinates.minPrice);
-    const barHeight = Math.max(1, pixelsPerPrice * 50); // 50 dollars per bar
+      // Draw bars
+      svg.selectAll('rect')
+        .data(groupedData)
+        .join('rect')
+        .attr('y', d => getBarY(d.price))
+        .attr('x', d => xScale(d.normalizedVolume))
+        .attr('height', barHeight)
+        .attr('width', d => width - xScale(d.normalizedVolume))
+        .attr('fill', d => getBarColor(d.price, d.normalizedVolume))
+        .attr('opacity', 0.8);
 
-    const getBarColor = (price: number, normalizedVolume: number) => {
-      const isAboveCurrent = price > currentPrice;
-      const intensity = Math.pow(normalizedVolume, 0.5);
-      return isAboveCurrent 
-        ? d3.interpolateRgb('#26a69a88', '#26a69a')(intensity)
-        : d3.interpolateRgb('#ef535088', '#ef5350')(intensity);
-    };
+      // Add price labels
+      svg.selectAll('text')
+        .data(groupedData)
+        .join('text')
+        .attr('x', 5)
+        .attr('y', d => getBarY(d.price) + barHeight / 2)
+        .attr('dy', '0.32em')
+        .attr('fill', '#ffffff')
+        .attr('font-size', '10px')
+        .text(d => d.price.toFixed(0));
 
-    // Draw bars
-    svg.selectAll('rect')
-      .data(groupedData)
-      .join('rect')
-      .attr('y', d => getBarY(d.price))
-      .attr('x', d => xScale(d.normalizedVolume))
-      .attr('height', barHeight)
-      .attr('width', d => width - xScale(d.normalizedVolume))
-      .attr('fill', d => getBarColor(d.price, d.normalizedVolume))
-      .attr('opacity', 0.8);
-
-    // Add price labels
-    svg.selectAll('text')
-      .data(groupedData)
-      .join('text')
-      .attr('x', 5)
-      .attr('y', d => getBarY(d.price) + barHeight / 2)
-      .attr('dy', '0.32em')
-      .attr('fill', '#ffffff')
-      .attr('font-size', '10px')
-      .text(d => d.price.toFixed(0));
-
+    } catch (error) {
+      console.error('Error rendering volume profile:', error);
+    }
   }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinate, priceCoordinates]);
 
   return (
