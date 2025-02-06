@@ -395,6 +395,16 @@ export default function Chart() {
     }
   };
 
+  const handleResize = () => {
+    if (!container.current || !chartRef.current) return;
+
+    const { width, height } = container.current.getBoundingClientRect();
+    chartRef.current.applyOptions({ 
+      width, 
+      height: activeIndicator !== 'none' ? height * 0.75 : height 
+    });
+  };
+
   useEffect(() => {
     if (!container.current || !currentSymbol) return;
 
@@ -449,12 +459,6 @@ export default function Chart() {
     candlestickSeriesRef.current = candlestickSeries;
     loadInitialData(currentSymbol);
 
-    const handleResize = () => {
-      if (!container.current) return;
-      const { width, height } = container.current.getBoundingClientRect();
-      chart.applyOptions({ width, height });
-    };
-
     handleResize();
     window.addEventListener('resize', handleResize);
 
@@ -478,18 +482,10 @@ export default function Chart() {
     };
   }, [currentSymbol]);
 
+  // Añadir efecto para manejar el cambio de tamaño cuando cambia el indicador
   useEffect(() => {
-    if (!currentSymbol || !candlestickSeriesRef.current) return;
-
-    initializeWebSocket(formatSymbolForBinance(currentSymbol));
-
-  }, [currentSymbol, interval, candlestickSeriesRef]);
-
-  useEffect(() => {
-    if (currentSymbol) {
-      fetchSecondaryIndicators(currentSymbol);
-    }
-  }, [currentSymbol]);
+    handleResize();
+  }, [activeIndicator]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
@@ -545,7 +541,7 @@ export default function Chart() {
 
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div className={`h-full ${activeIndicator !== 'none' ? 'grid grid-rows-[3fr_1fr] gap-1' : ''}`}>
-          <div className="relative">
+          <div className="relative h-full">
             <div ref={container} className="w-full h-full" />
             {container.current && volumeProfileData.length > 0 && currentChartPrice && (
               <div 
