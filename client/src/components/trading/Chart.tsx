@@ -36,16 +36,16 @@ type IntervalKey = keyof typeof INTERVALS;
 const generateSimulatedVolumeProfile = (currentPrice: number) => {
   try {
     const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-    // Fixed price range from 90,000 to 105,000
-    const minPrice = 90000;
-    const maxPrice = 105000;
+    // Fixed price range as requested: 95,850 to 99,300
+    const minPrice = 95850;
+    const maxPrice = 99300;
     const interval = 50; // $50 intervals
 
     // Generate bars for the entire range
     for (let price = minPrice; price <= maxPrice; price += interval) {
       const distanceFromCurrent = Math.abs(price - currentPrice);
-      // Use a wider range (7500) for smoother volume distribution
-      const volumeBase = Math.max(0, 1 - (distanceFromCurrent / 7500) ** 0.75);
+      // Use a smaller range (1750) for more concentrated volume distribution
+      const volumeBase = Math.max(0, 1 - (distanceFromCurrent / 1750) ** 0.75);
       const randomFactor = 0.5 + Math.random();
       const volume = volumeBase * randomFactor * 1000;
       volumeProfileData.push({ price, volume, normalizedVolume: 0 });
