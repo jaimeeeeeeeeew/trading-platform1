@@ -41,9 +41,9 @@ export const VolumeProfile = ({
     }
 
     try {
-      // Filter and group data by price levels of $50
+      // Agrupar datos por niveles de precio de $50
       const groupedData = data.reduce((acc: typeof data, item) => {
-        if (item.price < visiblePriceRange.min || item.price > visiblePriceRange.max) {
+        if (item.price < 90000 || item.price > 105000) {
           return acc;
         }
 
@@ -74,7 +74,7 @@ export const VolumeProfile = ({
         .range([width, 0]);
 
       const priceToY = d3.scaleLinear()
-        .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
+        .domain([90000, 105000])
         .range([priceCoordinates.minY, priceCoordinates.maxY]);
 
       const getBarY = (price: number) => {
@@ -82,7 +82,7 @@ export const VolumeProfile = ({
       };
 
       const pixelsPerPrice = Math.abs(priceCoordinates.maxY - priceCoordinates.minY) / 
-                            (priceCoordinates.maxPrice - priceCoordinates.minPrice);
+                            (105000 - 90000);
       const barHeight = Math.max(1, pixelsPerPrice * 50);
 
       const getBarColor = (price: number, normalizedVolume: number) => {

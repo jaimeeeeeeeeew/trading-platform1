@@ -37,7 +37,6 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
   try {
     console.log('Generating volume profile with current price:', currentPrice);
     const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-    // Generate data for full range 90,000 to 105,000
     const dataMinPrice = 90000;
     const dataMaxPrice = 105000;
     const interval = 50; // $50 intervals
@@ -45,7 +44,8 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
     // Generate bars for the entire range
     for (let price = dataMinPrice; price <= dataMaxPrice; price += interval) {
       const distanceFromCurrent = Math.abs(price - currentPrice);
-      const volumeBase = Math.max(0, 1 - (distanceFromCurrent / 1750) ** 0.75);
+      // Ajustar la fórmula para que decaiga más gradualmente a lo largo del rango
+      const volumeBase = Math.max(0, 1 - (distanceFromCurrent / 5000) ** 0.5);
       const randomFactor = 0.5 + Math.random();
       const volume = volumeBase * randomFactor * 1000;
       volumeProfileData.push({ price, volume, normalizedVolume: 0 });
