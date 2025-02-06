@@ -1,49 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
-import { createChart, Time, ISeriesApi, CandlestickData } from 'lightweight-charts';
-import { useTrading } from '@/lib/trading-context';
-import { useToast } from '@/hooks/use-toast';
-import { ZoomIn } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { VolumeProfile } from './VolumeProfile';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-interface PriceCoordinates {
-  currentPrice: number;
-  currentY: number;
-  minPrice: number;
-  minY: number;
-  maxPrice: number;
-  maxY: number;
-}
-
-const INTERVALS = {
-  '1m': { label: '1m', minutes: 1 },
-  '5m': { label: '5m', minutes: 5 },
-  '15m': { label: '15m', minutes: 15 },
-  '1h': { label: '1H', minutes: 60 },
-  '4h': { label: '4H', minutes: 240 },
-  '1d': { label: '1D', minutes: 1440 },
-} as const;
-
-type IntervalKey = keyof typeof INTERVALS;
-
 const generateSimulatedVolumeProfile = (currentPrice: number) => {
   try {
     console.log('Generating volume profile with current price:', currentPrice);
     const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-    // Fixed price range as requested: 95,850 to 99,300
-    const minPrice = 95850;
-    const maxPrice = 99300;
+    // Generate data for full range 90,000 to 105,000
+    const dataMinPrice = 90000;
+    const dataMaxPrice = 105000;
     const interval = 50; // $50 intervals
 
     // Generate bars for the entire range
-    for (let price = minPrice; price <= maxPrice; price += interval) {
+    for (let price = dataMinPrice; price <= dataMaxPrice; price += interval) {
       const distanceFromCurrent = Math.abs(price - currentPrice);
       const volumeBase = Math.max(0, 1 - (distanceFromCurrent / 1750) ** 0.75);
       const randomFactor = 0.5 + Math.random();
@@ -195,7 +160,7 @@ export default function Chart() {
       const allData = historicalDataRef.current;
       if (!allData.length) return;
 
-      // Keep the fixed range for volume profile
+      // Keep the fixed range for volume profile display
       const fixedMinPrice = 95850;
       const fixedMaxPrice = 99300;
 
