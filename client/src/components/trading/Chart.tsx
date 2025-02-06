@@ -12,8 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { tradingViewService } from '@/lib/tradingview-service';
 import SecondaryIndicator from './SecondaryIndicator';
 
 interface PriceCoordinates {
@@ -74,6 +72,8 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
   }
 };
 
+type ActiveIndicator = 'none' | 'rsi' | 'funding' | 'longShort' | 'deltaCvd';
+
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
@@ -96,6 +96,7 @@ export default function Chart() {
     rsi: [],
     timestamps: []
   });
+  const [activeIndicator, setActiveIndicator] = useState<ActiveIndicator>('none');
 
   const cleanupWebSocket = () => {
     if (wsRef.current) {
@@ -510,14 +511,41 @@ export default function Chart() {
           </SelectContent>
         </Select>
       </div>
-      <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
-        <Tabs defaultValue="chart" className="w-full h-full">
-          <TabsList className="absolute top-2 right-24 z-10">
-            <TabsTrigger value="chart">Chart</TabsTrigger>
-            <TabsTrigger value="indicators">Indicadores</TabsTrigger>
-          </TabsList>
 
-          <TabsContent value="chart" className="w-full h-full">
+      <div className="absolute top-2 right-24 z-10 flex gap-2">
+        <Button
+          variant={activeIndicator === 'rsi' ? 'default' : 'outline'}
+          className="h-7 text-xs px-2 bg-background"
+          onClick={() => setActiveIndicator(prev => prev === 'rsi' ? 'none' : 'rsi')}
+        >
+          RSI
+        </Button>
+        <Button
+          variant={activeIndicator === 'funding' ? 'default' : 'outline'}
+          className="h-7 text-xs px-2 bg-background"
+          onClick={() => setActiveIndicator(prev => prev === 'funding' ? 'none' : 'funding')}
+        >
+          Funding
+        </Button>
+        <Button
+          variant={activeIndicator === 'longShort' ? 'default' : 'outline'}
+          className="h-7 text-xs px-2 bg-background"
+          onClick={() => setActiveIndicator(prev => prev === 'longShort' ? 'none' : 'longShort')}
+        >
+          L/S Ratio
+        </Button>
+        <Button
+          variant={activeIndicator === 'deltaCvd' ? 'default' : 'outline'}
+          className="h-7 text-xs px-2 bg-background"
+          onClick={() => setActiveIndicator(prev => prev === 'deltaCvd' ? 'none' : 'deltaCvd')}
+        >
+          Delta CVD
+        </Button>
+      </div>
+
+      <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
+        <div className="grid grid-rows-[3fr_1fr] h-full gap-1">
+          <div className="relative">
             <div ref={container} className="w-full h-full" />
             {container.current && volumeProfileData.length > 0 && currentChartPrice && (
               <div 
@@ -540,49 +568,48 @@ export default function Chart() {
                 />
               </div>
             )}
-          </TabsContent>
+          </div>
 
-          <TabsContent value="indicators" className="w-full h-full grid grid-rows-4 gap-2 p-4">
+          {activeIndicator !== 'none' && (
             <div className="w-full h-full bg-card-foreground/5 rounded-lg p-2">
-              <h3 className="text-xs font-medium mb-2">Funding Rate</h3>
-              <SecondaryIndicator
-                data={secondaryIndicators.fundingRate}
-                timestamps={secondaryIndicators.timestamps}
-                height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
-                color="#26a69a"
-              />
+              {activeIndicator === 'rsi' && (
+                <SecondaryIndicator
+                  data={secondaryIndicators.rsi}
+                  timestamps={secondaryIndicators.timestamps}
+                  height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                  color="#ef5350"
+                />
+              )}
+              {activeIndicator === 'funding' && (
+                <SecondaryIndicator
+                  data={secondaryIndicators.fundingRate}
+                  timestamps={secondaryIndicators.timestamps}
+                  height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                  color="#26a69a"
+                />
+              )}
+              {activeIndicator === 'longShort' && (
+                <SecondaryIndicator
+                  data={secondaryIndicators.longShortRatio}
+                  timestamps={secondaryIndicators.timestamps}
+                  height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                  color="#42a5f5"
+                />
+              )}
+              {activeIndicator === 'deltaCvd' && (
+                <SecondaryIndicator
+                  data={secondaryIndicators.deltaCvd}
+                  timestamps={secondaryIndicators.timestamps}
+                  height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                  color="#7e57c2"
+                />
+              )}
             </div>
-            <div className="w-full h-full bg-card-foreground/5 rounded-lg p-2">
-              <h3 className="text-xs font-medium mb-2">Long/Short Ratio</h3>
-              <SecondaryIndicator
-                data={secondaryIndicators.longShortRatio}
-                timestamps={secondaryIndicators.timestamps}
-                height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
-                color="#42a5f5"
-              />
-            </div>
-            <div className="w-full h-full bg-card-foreground/5 rounded-lg p-2">
-              <h3 className="text-xs font-medium mb-2">Delta CVD</h3>
-              <SecondaryIndicator
-                data={secondaryIndicators.deltaCvd}
-                timestamps={secondaryIndicators.timestamps}
-                height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
-                color="#7e57c2"
-              />
-            </div>
-            <div className="w-full h-full bg-card-foreground/5 rounded-lg p-2">
-              <h3 className="text-xs font-medium mb-2">RSI</h3>
-              <SecondaryIndicator
-                data={secondaryIndicators.rsi}
-                timestamps={secondaryIndicators.timestamps}
-                height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
-                color="#ef5350"
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </div>
-      <div className="absolute top-2 right-2 z-10 flex gap-2">
+
+      <div className="absolute top-2 right-2 z-10">
         <Button
           onClick={handleAutoFit}
           className="bg-background hover:bg-background/90 shadow-md"
