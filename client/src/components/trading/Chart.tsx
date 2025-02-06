@@ -401,7 +401,7 @@ export default function Chart() {
     const { width, height } = container.current.getBoundingClientRect();
     chartRef.current.applyOptions({ 
       width, 
-      height: activeIndicator !== 'none' ? height * 0.75 : height 
+      height: activeIndicator !== 'none' ? height * 0.67 : height 
     });
   };
 
@@ -540,7 +540,7 @@ export default function Chart() {
       </div>
 
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
-        <div className={`h-full ${activeIndicator !== 'none' ? 'grid grid-rows-[3fr_1fr] gap-1' : ''}`}>
+        <div className={`h-full ${activeIndicator !== 'none' ? 'grid grid-rows-[2fr_1fr] gap-1' : ''}`}>
           <div className="relative h-full">
             <div ref={container} className="w-full h-full" />
             {container.current && volumeProfileData.length > 0 && currentChartPrice && (
@@ -572,7 +572,7 @@ export default function Chart() {
                 <SecondaryIndicator
                   data={secondaryIndicators.rsi}
                   timestamps={secondaryIndicators.timestamps}
-                  height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                  height={container.current?.clientHeight ? container.current.clientHeight / 3 : 150}
                   color="#ef5350"
                 />
               )}
@@ -580,7 +580,7 @@ export default function Chart() {
                 <SecondaryIndicator
                   data={secondaryIndicators.fundingRate}
                   timestamps={secondaryIndicators.timestamps}
-                  height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                  height={container.current?.clientHeight ? container.current.clientHeight / 3 : 150}
                   color="#26a69a"
                 />
               )}
@@ -588,7 +588,7 @@ export default function Chart() {
                 <SecondaryIndicator
                   data={secondaryIndicators.longShortRatio}
                   timestamps={secondaryIndicators.timestamps}
-                  height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                  height={container.current?.clientHeight ? container.current.clientHeight / 3 : 150}
                   color="#42a5f5"
                 />
               )}
@@ -596,7 +596,7 @@ export default function Chart() {
                 <SecondaryIndicator
                   data={secondaryIndicators.deltaCvd}
                   timestamps={secondaryIndicators.timestamps}
-                  height={container.current?.clientHeight ? container.current.clientHeight / 4 : 150}
+                  height={container.current?.clientHeight ? container.current.clientHeight / 3 : 150}
                   color="#7e57c2"
                 />
               )}

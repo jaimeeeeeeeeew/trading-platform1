@@ -30,7 +30,7 @@ export default function SecondaryIndicator({ data, timestamps, height, color = '
     });
 
     chartRef.current = chart;
-    
+
     const lineSeries = chart.addLineSeries({
       color: color,
       lineWidth: 2,
@@ -47,7 +47,7 @@ export default function SecondaryIndicator({ data, timestamps, height, color = '
 
     const handleResize = () => {
       if (!containerRef.current || !chart) return;
-      
+
       const { width } = containerRef.current.getBoundingClientRect();
       chart.applyOptions({ width, height: height - 40 });
     };
