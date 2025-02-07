@@ -23,6 +23,7 @@ interface Props {
     maxPrice: number;
     maxY: number;
   } | null;
+  visibleLogicalRange: { from: number; to: number; } | null;
 }
 
 export const VolumeProfile = ({ 
@@ -31,12 +32,13 @@ export const VolumeProfile = ({
   height,
   visiblePriceRange,
   currentPrice,
-  priceCoordinates
+  priceCoordinates,
+  visibleLogicalRange
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
+    if (!svgRef.current || !data || data.length === 0 || !priceCoordinates || !visibleLogicalRange) {
       return;
     }
 
@@ -46,24 +48,24 @@ export const VolumeProfile = ({
       svg.selectAll('*').remove();
       svg.attr('width', width).attr('height', height);
 
-      // Calcular el rango de precios visible
+      // Calcular el rango de precios visible actual
       const visiblePriceSpan = Math.abs(priceCoordinates.maxPrice - priceCoordinates.minPrice);
+      const zoomLevel = Math.abs(visibleLogicalRange.to - visibleLogicalRange.from);
 
       // Determinar el tamaño de agrupación basado en el zoom
       let bucketSize: number;
-      if (visiblePriceSpan <= 1000) {
-        bucketSize = 10;  // Zoom muy cercano
-      } else if (visiblePriceSpan <= 3000) {
-        bucketSize = 50;  // Zoom medio
-      } else {
-        bucketSize = 100; // Zoom lejano
+      if (zoomLevel <= 50) { // Zoom muy cercano
+        bucketSize = 10;
+      } else if (zoomLevel <= 150) { // Zoom medio
+        bucketSize = 50;
+      } else { // Zoom lejano
+        bucketSize = 100;
       }
 
-      console.log('Zoom level:', {
+      console.log('Zoom metrics:', {
         visiblePriceSpan,
-        bucketSize,
-        minPrice: priceCoordinates.minPrice,
-        maxPrice: priceCoordinates.maxPrice
+        zoomLevel,
+        selectedBucketSize: bucketSize
       });
 
       // Agrupar los datos según el bucketSize
@@ -143,7 +145,7 @@ export const VolumeProfile = ({
     } catch (error) {
       console.error('Error rendering volume profile:', error);
     }
-  }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates]);
+  }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates, visibleLogicalRange]);
 
   return (
     <svg 

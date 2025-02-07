@@ -97,6 +97,7 @@ export default function Chart() {
     timestamps: []
   });
   const [activeIndicator, setActiveIndicator] = useState<ActiveIndicator>('none');
+  const [visibleRange, setVisibleRange] = useState<{from: number; to: number} | null>(null);
 
   const cleanupWebSocket = () => {
     if (wsRef.current) {
@@ -316,6 +317,11 @@ export default function Chart() {
       const priceScale = chartRef.current.priceScale('right');
 
       if (!timeScale || !priceScale) return;
+
+      const visibleLogicalRange = timeScale.getVisibleLogicalRange();
+      if (visibleLogicalRange) {
+        setVisibleRange(visibleLogicalRange);
+      }
 
       const visibleRange = timeScale.getVisibleRange();
       if (!visibleRange) return;
@@ -570,6 +576,7 @@ export default function Chart() {
               currentPrice={currentChartPrice}
               priceCoordinate={priceCoordinate}
               priceCoordinates={priceCoordinates}
+              visibleLogicalRange={visibleRange}
             />
           </div>
         )}
