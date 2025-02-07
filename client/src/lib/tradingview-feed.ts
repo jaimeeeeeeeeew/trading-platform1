@@ -42,6 +42,7 @@ export class TradingViewDataFeed {
 
       // Binance Futures WebSocket URL with dynamic interval
       const wsUrl = `wss://fstream.binance.com/ws/${this.symbol}@aggTrade/${this.symbol}@kline_${this.interval}`;
+      console.log('Connecting WebSocket:', wsUrl);
 
       if (this.ws) {
         this.ws.close();
@@ -51,7 +52,7 @@ export class TradingViewDataFeed {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('Connected to Binance Futures WebSocket');
+        console.log('WebSocket connected for interval:', this.interval);
         this.reconnectAttempts = 0;
         this.isReconnecting = false;
         if (this.reconnectTimeout) {
@@ -63,7 +64,9 @@ export class TradingViewDataFeed {
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          this.handleBinanceMessage(data);
+          if (data.e === 'kline' && data.k.i === this.interval) {
+            this.handleBinanceMessage(data);
+          }
         } catch (error) {
           console.error('Error processing message:', error);
         }
@@ -75,7 +78,7 @@ export class TradingViewDataFeed {
       };
 
       this.ws.onclose = () => {
-        console.log('WebSocket connection closed');
+        console.log('WebSocket disconnected');
         this.handleReconnect();
       };
 
@@ -152,9 +155,15 @@ export class TradingViewDataFeed {
 
   public updateInterval(newInterval: string) {
     if (this.interval !== newInterval) {
+      console.log('Updating interval from', this.interval, 'to', newInterval);
       this.interval = newInterval;
-      console.log('Updating interval to:', newInterval);
-      this.connect(); // Reconnect with new interval
+      // Forzar una reconexión limpia
+      this.disconnect();
+      // Pequeña pausa antes de reconectar
+      setTimeout(() => {
+        this.isReconnecting = false;
+        this.connect();
+      }, 100);
     }
   }
 
@@ -166,7 +175,7 @@ export class TradingViewDataFeed {
   }
 
   public disconnect() {
-    console.log('Disconnecting from Binance Futures WebSocket');
+    console.log('Disconnecting WebSocket for interval:', this.interval);
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;

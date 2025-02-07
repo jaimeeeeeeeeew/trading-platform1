@@ -119,12 +119,18 @@ export default function Chart() {
       setIsLoading(true);
       setInterval(newInterval);
 
+      // Limpiar estado actual
       cleanupWebSocket();
       if (candlestickSeriesRef.current) {
         candlestickSeriesRef.current.setData([]);
       }
       historicalDataRef.current = [];
+      setVolumeProfileData([]);
 
+      // Esperar a que se complete la limpieza
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Cargar nuevos datos
       await loadInitialData(currentSymbol);
 
       toast({
@@ -179,9 +185,11 @@ export default function Chart() {
 
         console.log('Formatted candlesticks:', formattedCandlesticks.length, 'for interval:', interval);
 
+        // Asegurarse de que las series estén limpias
         candlestickSeriesRef.current.setData([]);
         historicalDataRef.current = [];
 
+        // Establecer nuevos datos
         candlestickSeriesRef.current.setData(formattedCandlesticks);
         handleAutoFit();
 
@@ -192,11 +200,11 @@ export default function Chart() {
 
         updateVolumeProfile(historicalDataRef.current);
 
-        // Small delay before initializing WebSocket to ensure historical data is loaded
-        setTimeout(() => {
-          cleanupWebSocket(); 
-          initializeWebSocket(formattedSymbol);
-        }, 1000);
+        // Esperar a que los datos históricos se establezcan antes de iniciar WebSocket
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        cleanupWebSocket();
+        initializeWebSocket(formattedSymbol);
 
         toast({
           title: 'Data Loaded',
