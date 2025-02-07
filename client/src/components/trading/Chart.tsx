@@ -634,7 +634,7 @@ export default function Chart() {
           onValueChange={(value) => setActiveIndicator(value as ActiveIndicator)}
         >
           <SelectTrigger className="w-32 bg-background">
-            <SelectValue placeholder="Indicadores" />
+            <SelectValue placeholder="Indicadores" defaultValue="Indicadores">Indicadores</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">Ninguno</SelectItem>
