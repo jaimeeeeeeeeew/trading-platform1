@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, Time, ISeriesApi, CandlestickData, LogicalRange } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
-//import { ArrowLeftRight } from 'lucide-react'; // Removed import
+//import { ArrowLeftRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VolumeProfile } from './VolumeProfile';
 import { tradingViewService } from '@/lib/tradingview-service';
@@ -30,6 +30,15 @@ interface SecondaryIndicators {
   deltaCvd: number[];
   rsi: number[];
   timestamps: number[];
+}
+
+interface OHLCVData {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  time: Time;
 }
 
 const INTERVALS = {
@@ -106,6 +115,8 @@ export default function Chart() {
   });
   const [activeIndicator, setActiveIndicator] = useState<ActiveIndicator>('none');
   const [visibleRange, setVisibleRange] = useState<{from: number; to: number} | null>(null);
+  const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
+  const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
 
   const cleanupWebSocket = () => {
     if (wsRef.current) {
@@ -500,16 +511,20 @@ export default function Chart() {
       crosshair: {
         mode: 1,
         vertLine: {
-          color: '#6B7280',
           width: 1,
+          color: '#6B7280',
           style: 1,
           labelBackgroundColor: '#1e222d',
+          labelVisible: true,
+          visible: true,
         },
         horzLine: {
-          color: '#6B7280',
           width: 1,
+          color: '#6B7280',
           style: 1,
           labelBackgroundColor: '#1e222d',
+          labelVisible: true,
+          visible: true,
         },
       },
       timeScale: {
@@ -523,6 +538,7 @@ export default function Chart() {
           top: 0.35,
           bottom: 0.35,
         },
+        entireTextOnly: false,
       },
     });
 
@@ -542,11 +558,26 @@ export default function Chart() {
     handleResize();
     window.addEventListener('resize', handleResize);
 
-    chart.subscribeCrosshairMove(() => {
-      updateVisiblePriceRange();
-      updatePriceCoordinate();
-    });
+    chart.subscribeCrosshairMove(param => {
+      if (
+        param.point === undefined ||
+        !param.time ||
+        param.point.x < 0 ||
+        param.point.y < 0
+      ) {
+        setCrosshairData(null);
+        setCrosshairPrice(null);
+        return;
+      }
 
+      const price = candlestickSeries.coordinateToPrice(param.point.y);
+      setCrosshairPrice(price);
+
+      const data = param.seriesData.get(candlestickSeries) as OHLCVData;
+      if (data) {
+        setCrosshairData(data);
+      }
+    });
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
       updateVisiblePriceRange();
       updatePriceCoordinate();
@@ -618,6 +649,23 @@ export default function Chart() {
           Delta CVD
         </Button>
       </div>
+
+      {crosshairData && (
+        <div className="absolute top-14 left-2 z-10 bg-background/90 p-2 rounded-md border border-border shadow-lg text-xs">
+          <div className="grid grid-cols-2 gap-x-4">
+            <span className="text-muted-foreground">O:</span>
+            <span className="font-mono">{crosshairData.open.toFixed(2)}</span>
+            <span className="text-muted-foreground">H:</span>
+            <span className="font-mono">{crosshairData.high.toFixed(2)}</span>
+            <span className="text-muted-foreground">L:</span>
+            <span className="font-mono">{crosshairData.low.toFixed(2)}</span>
+            <span className="text-muted-foreground">C:</span>
+            <span className="font-mono">{crosshairData.close.toFixed(2)}</span>
+            <span className="text-muted-foreground">V:</span>
+            <span className="font-mono">{crosshairData.volume.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
 
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
