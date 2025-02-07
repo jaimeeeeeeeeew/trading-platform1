@@ -46,25 +46,32 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
   try {
     console.log('Generating volume profile with current price:', currentPrice);
     const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-    const dataMinPrice = 90000;
-    const dataMaxPrice = 105000;
-    const interval = 50;
 
+    // Ajustar el rango para que cubra todo el espectro visible
+    const dataMinPrice = Math.floor(currentPrice * 0.95);
+    const dataMaxPrice = Math.ceil(currentPrice * 1.05);
+    const interval = 10; // Siempre generar barras cada 10 dólares
+
+    // Asegurarnos de que generamos una barra para cada nivel de precio
     for (let price = dataMinPrice; price <= dataMaxPrice; price += interval) {
       const distanceFromCurrent = Math.abs(price - currentPrice);
-      const volumeBase = Math.max(0, 1 - (distanceFromCurrent / 5000) ** 0.5);
-      const randomFactor = 0.5 + Math.random();
+      // Ajustar la fórmula para que genere más volumen cerca del precio actual
+      const volumeBase = Math.max(0, 1 - (distanceFromCurrent / (currentPrice * 0.02)) ** 2);
+      const randomFactor = 0.8 + Math.random() * 0.4; // Menos variación aleatoria
       const volume = volumeBase * randomFactor * 1000;
+
+      console.log(`Generating bar for price ${price} with volume ${volume}`);
       volumeProfileData.push({ price, volume, normalizedVolume: 0 });
     }
 
-    volumeProfileData.sort((a, b) => a.price - b.price);
+    // Normalizar los volúmenes
     const maxVolume = Math.max(...volumeProfileData.map(d => d.volume));
     const normalizedData = volumeProfileData.map(data => ({
       ...data,
       normalizedVolume: data.volume / maxVolume
     }));
 
+    console.log(`Generated ${normalizedData.length} bars from ${dataMinPrice} to ${dataMaxPrice}`);
     return normalizedData;
   } catch (error) {
     console.error('Error generating volume profile:', error);
