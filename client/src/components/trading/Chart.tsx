@@ -58,12 +58,12 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
 
     const dataMinPrice = Math.floor(currentPrice * 0.95);
     const dataMaxPrice = Math.ceil(currentPrice * 1.05);
-    const interval = 10; 
+    const interval = 10;
 
     for (let price = dataMinPrice; price <= dataMaxPrice; price += interval) {
       const distanceFromCurrent = Math.abs(price - currentPrice);
       const volumeBase = Math.max(0, 1 - (distanceFromCurrent / (currentPrice * 0.02)) ** 2);
-      const randomFactor = 0.8 + Math.random() * 0.4; 
+      const randomFactor = 0.8 + Math.random() * 0.4;
       const volume = volumeBase * randomFactor * 1000;
 
       console.log(`Generating bar for price ${price} with volume ${volume}`);
@@ -147,7 +147,7 @@ export default function Chart() {
       try {
         const candlesticks = await tradingViewService.getHistory({
           symbol: formattedSymbol,
-          resolution: tradingViewService.intervalToResolution(newInterval), 
+          resolution: tradingViewService.intervalToResolution(newInterval),
           from: Math.floor(ninetyDaysAgo / 1000),
           to: Math.floor(now / 1000)
         });
@@ -307,9 +307,9 @@ export default function Chart() {
         candlestickSeriesRef.current.setData(formattedCandlesticks);
         handleAutoFit();
 
-        historicalDataRef.current = formattedCandlesticks.map(c => ({ 
-          close: c.close, 
-          volume: c.volume 
+        historicalDataRef.current = formattedCandlesticks.map(c => ({
+          close: c.close,
+          volume: c.volume
         }));
 
         updateVolumeProfile(historicalDataRef.current);
@@ -388,9 +388,9 @@ export default function Chart() {
       const minPrice = 90000;
       const maxPrice = 105000;
 
-      setVisiblePriceRange({ 
-        min: minPrice, 
-        max: maxPrice 
+      setVisiblePriceRange({
+        min: minPrice,
+        max: maxPrice
       });
 
       const lastPoint = allData[allData.length - 1];
@@ -462,7 +462,7 @@ export default function Chart() {
     const { width, height } = container.current.getBoundingClientRect();
     const indicatorHeight = activeIndicator !== 'none' ? height * 0.2 : 0;
 
-    chartRef.current.applyOptions({ 
+    chartRef.current.applyOptions({
       width,
       height: height - indicatorHeight,
       layout: {
@@ -605,29 +605,26 @@ export default function Chart() {
       </div>
 
       {crosshairData && (
-        <div className="absolute top-2 left-28 z-10 bg-background/90 p-2 rounded-md border border-border shadow-lg text-xs flex items-center gap-4">
-          <span className="font-mono">
-            O: {crosshairData.open?.toFixed(2) || '0.00'}
-          </span>
-          <span className="font-mono">
-            H: {crosshairData.high?.toFixed(2) || '0.00'}
-          </span>
-          <span className="font-mono">
-            L: {crosshairData.low?.toFixed(2) || '0.00'}
-          </span>
-          <span className="font-mono">
-            C: {crosshairData.close?.toFixed(2) || '0.00'}
-          </span>
-          <span className="font-mono">
-            V: {(crosshairData.volume || 0).toFixed(2)}
-          </span>
-          <span 
-            className={`font-mono ${calculateChange(crosshairData.open, crosshairData.close) >= 0 
-              ? 'text-green-500' 
-              : 'text-red-500'}`}
-          >
-            {calculateChange(crosshairData.open, crosshairData.close).toFixed(2)}%
-          </span>
+        <div className="absolute top-2 left-28 z-10 bg-background/90 p-2 rounded-md border border-border shadow-lg text-xs flex items-center gap-2">
+          <div className={`flex items-center gap-2 ${calculateChange(crosshairData.open, crosshairData.close) >= 0
+            ? 'text-green-500'
+            : 'text-red-500'}`}>
+            <span className="font-mono text-xs">
+              {crosshairData.open?.toFixed(2) || '0.00'}
+            </span>
+            <span className="font-mono text-xs">
+              {crosshairData.high?.toFixed(2) || '0.00'}
+            </span>
+            <span className="font-mono text-xs">
+              {crosshairData.low?.toFixed(2) || '0.00'}
+            </span>
+            <span className="font-mono text-xs">
+              {crosshairData.close?.toFixed(2) || '0.00'}
+            </span>
+            <span className="font-mono text-xs">
+              {calculateChange(crosshairData.open, crosshairData.close).toFixed(2)}%
+            </span>
+          </div>
         </div>
       )}
 
@@ -637,10 +634,10 @@ export default function Chart() {
           onValueChange={(value) => setActiveIndicator(value as ActiveIndicator)}
         >
           <SelectTrigger className="w-32 bg-background">
-            <SelectValue placeholder="Indicators" />
+            <SelectValue placeholder="Indicadores" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">None</SelectItem>
+            <SelectItem value="none">Ninguno</SelectItem>
             <SelectItem value="rsi">RSI</SelectItem>
             <SelectItem value="funding">Funding Rate</SelectItem>
             <SelectItem value="longShort">Long/Short Ratio</SelectItem>
@@ -653,9 +650,9 @@ export default function Chart() {
         <div ref={container} className="w-full h-full" />
 
         {container.current && volumeProfileData.length > 0 && currentChartPrice && (
-          <div 
-            className="absolute right-20 top-0 h-full" 
-            style={{ 
+          <div
+            className="absolute right-20 top-0 h-full"
+            style={{
               width: '120px',
               zIndex: 2,
               pointerEvents: 'none',
@@ -676,7 +673,7 @@ export default function Chart() {
         )}
 
         {activeIndicator !== 'none' && (
-          <div 
+          <div
             className="absolute bottom-0 left-0 w-full bg-card-foreground/5"
             style={{ height: '20%' }}
           >
