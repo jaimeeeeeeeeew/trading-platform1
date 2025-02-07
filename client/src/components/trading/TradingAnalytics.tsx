@@ -57,21 +57,32 @@ export default function TradingAnalytics() {
   });
 
   const fetchMetrics = async () => {
-    if (!date?.from || !date?.to || !currentSymbol) return;
+    if (!date?.from || !date?.to || !currentSymbol) {
+      console.log('Missing required data for fetching metrics:', { date, currentSymbol });
+      return;
+    }
 
     try {
       setIsLoading(true);
-      const metrics = await bingXService.calculatePnLMetrics(
+      console.log('Fetching metrics for:', {
+        symbol: currentSymbol.replace('BINANCE:', '').replace('PERP', ''),
+        from: date.from.getTime(),
+        to: date.to.getTime()
+      });
+
+      const response = await bingXService.calculatePnLMetrics(
         currentSymbol.replace('BINANCE:', '').replace('PERP', ''),
         date.from.getTime(),
         date.to.getTime()
       );
-      setMetrics(metrics);
+
+      console.log('Received metrics:', response);
+      setMetrics(response);
     } catch (error) {
       console.error('Error fetching metrics:', error);
       toast({
         title: 'Error',
-        description: 'Error al obtener métricas de trading',
+        description: error instanceof Error ? error.message : 'Error al obtener métricas de trading',
         variant: 'destructive',
       });
     } finally {
@@ -79,7 +90,7 @@ export default function TradingAnalytics() {
     }
   };
 
-  const handleSaveApiKey = () => {
+  const handleSaveApiKey = async () => {
     if (!apiKey || !apiSecret) {
       toast({
         title: "Error",
@@ -90,7 +101,12 @@ export default function TradingAnalytics() {
     }
 
     try {
+      setIsLoading(true);
       bingXService.setApiCredentials(apiKey, apiSecret);
+
+      // Test the credentials by fetching account info
+      await bingXService.getAccountSummary();
+
       localStorage.setItem('bingx_api_key', apiKey);
       localStorage.setItem('bingx_api_secret', apiSecret);
 
@@ -99,14 +115,22 @@ export default function TradingAnalytics() {
         description: "Credenciales guardadas correctamente",
       });
 
-      fetchMetrics();
+      await fetchMetrics();
     } catch (error) {
-      console.error('Error saving API credentials:', error);
+      console.error('Error validating API credentials:', error);
       toast({
         title: "Error",
-        description: "Error al guardar las credenciales",
+        description: "Error al validar las credenciales. Por favor verifica tus datos.",
         variant: "destructive",
       });
+
+      // Clear stored credentials on error
+      localStorage.removeItem('bingx_api_key');
+      localStorage.removeItem('bingx_api_secret');
+      setApiKey('');
+      setApiSecret('');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -123,7 +147,7 @@ export default function TradingAnalytics() {
   }, []);
 
   useEffect(() => {
-    if (apiKey && apiSecret) {
+    if (apiKey && apiSecret && date?.from && date?.to && currentSymbol) {
       fetchMetrics();
     }
   }, [date, currentSymbol]);
@@ -212,13 +236,13 @@ export default function TradingAnalytics() {
           <div className="grid grid-cols-2 gap-2">
             <MetricCard
               title="PnL Periodo"
-              value={metrics ? `${(metrics.totalPnL).toFixed(2)}%` : '0.00%'}
+              value={metrics ? `${metrics.totalPnL?.toFixed(2)}%` : '0.00%'}
               trend={metrics?.totalPnL >= 0 ? 'up' : 'down'}
               icon={<BarChart className="h-3 w-3" />}
             />
             <MetricCard
               title="Win Rate"
-              value={metrics ? `${metrics.winRate.toFixed(2)}%` : '0.00%'}
+              value={metrics ? `${metrics.winRate?.toFixed(2)}%` : '0.00%'}
               trend={metrics?.winRate >= 50 ? 'up' : 'down'}
               icon={<Activity className="h-3 w-3" />}
             />
@@ -279,7 +303,7 @@ export default function TradingAnalytics() {
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Win Rate:</span>
-                  <span className="font-medium">{metrics ? `${metrics.winRate.toFixed(2)}%` : '0.00%'}</span>
+                  <span className="font-medium">{metrics ? `${metrics.winRate?.toFixed(2)}%` : '0.00%'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Mejor Racha:</span>
@@ -294,7 +318,7 @@ export default function TradingAnalytics() {
                   <span className={cn(
                     "font-medium",
                     metrics?.totalPnL >= 0 ? "text-primary" : "text-destructive"
-                  )}>{metrics ? `${metrics.totalPnL.toFixed(2)}%` : '0.00%'}</span>
+                  )}>{metrics ? `${metrics.totalPnL?.toFixed(2)}%` : '0.00%'}</span>
                 </div>
               </div>
             </div>
