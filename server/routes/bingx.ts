@@ -16,10 +16,11 @@ router.post('/sign', async (req, res) => {
 
     console.log('Received query string for signing:', queryString);
 
-    // Create HMAC SHA256 signature exactly as BingX expects
+    // BingX requires HMAC SHA256 signature of the query string
     const signature = createHmac('sha256', apiSecret)
       .update(queryString)
-      .digest('hex');
+      .digest('hex')
+      .toLowerCase(); // BingX expects lowercase signature
 
     console.log('Generated signature:', signature);
 

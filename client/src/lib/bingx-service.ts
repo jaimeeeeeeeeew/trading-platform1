@@ -46,7 +46,7 @@ export class BingXService {
       // Sort parameters alphabetically as required by BingX
       const queryString = Object.entries(allParams)
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, value]) => `${key}=${value}`)
+        .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
         .join('&');
 
       console.log('Query string before signing:', queryString);
@@ -82,6 +82,7 @@ export class BingXService {
       });
 
       const data = await response.json();
+      console.log('BingX API Response:', data);
 
       if (response.ok && data.code === 0) {
         return data;
@@ -96,7 +97,9 @@ export class BingXService {
 
   public async testConnection(): Promise<boolean> {
     try {
-      const response = await this.makeRequest('/user/balance');
+      console.log('Testing BingX API connection...');
+      const response = await this.makeRequest('/user/hello');
+      console.log('Test connection response:', response);
       return response.code === 0;
     } catch (error) {
       console.error('Error testing connection:', error);
