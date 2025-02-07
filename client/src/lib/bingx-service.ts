@@ -14,6 +14,7 @@ export class BingXService {
   private static instance: BingXService;
   private apiKey: string = '';
   private apiSecret: string = '';
+  private baseUrl: string = 'https://open-api.bingx.com/openApi/swap/v2';
 
   private constructor() {}
 
@@ -32,11 +33,14 @@ export class BingXService {
   private async makeRequest(endpoint: string, method: string = 'GET', params: Record<string, any> = {}): Promise<any> {
     try {
       const timestamp = Date.now();
-      const queryParams = new URLSearchParams({
+      const queryString = Object.entries({
         ...params,
-        timestamp: timestamp.toString(),
+        timestamp,
         apiKey: this.apiKey
-      });
+      })
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, value]) => `${key}=${value}`)
+        .join('&');
 
       // Get signature from backend
       const signatureResponse = await fetch('/api/bingx/sign', {
@@ -45,7 +49,7 @@ export class BingXService {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          queryString: queryParams.toString(),
+          queryString,
           apiSecret: this.apiSecret
         })
       });
@@ -55,22 +59,29 @@ export class BingXService {
       }
 
       const { signature } = await signatureResponse.json();
-      queryParams.append('signature', signature);
+      const url = `${this.baseUrl}${endpoint}?${queryString}&signature=${signature}`;
 
-      const url = `https://open-api.bingx.com${endpoint}?${queryParams.toString()}`;
+      console.log('Making request to:', url);
 
       const response = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-BX-APIKEY': this.apiKey
         }
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(`BingX API error: ${errorData.msg || response.statusText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      if (data.code !== 0) {
+        throw new Error(`BingX API error: ${data.msg}`);
+      }
+
+      return data;
     } catch (error) {
       console.error('Error making request to BingX:', error);
       throw error;
@@ -79,19 +90,27 @@ export class BingXService {
 
   public async getTradeHistory(symbol: string, startTime?: number, endTime?: number): Promise<TradeHistory[]> {
     const params: Record<string, any> = {
-      symbol,
+      symbol: symbol.toUpperCase(),
       limit: 1000
     };
 
     if (startTime) params.startTime = startTime;
     if (endTime) params.endTime = endTime;
 
-    const response = await this.makeRequest('/openApi/swap/v2/trade/history', 'GET', params);
+    const response = await this.makeRequest('/trade/history', 'GET', params);
     return response.data;
   }
 
   public async getAccountSummary(): Promise<any> {
-    const response = await this.makeRequest('/openApi/swap/v2/user/balance');
+    const response = await this.makeRequest('/user/balance');
+    return response.data;
+  }
+
+  public async getPositions(symbol?: string): Promise<any> {
+    const params: Record<string, any> = {};
+    if (symbol) params.symbol = symbol.toUpperCase();
+
+    const response = await this.makeRequest('/position/list', 'GET', params);
     return response.data;
   }
 
@@ -107,7 +126,13 @@ export class BingXService {
     unprofitableTrades: number;
   }> {
     try {
-      const trades = await this.getTradeHistory(symbol, startTime, endTime);
+      const [trades, positions] = await Promise.all([
+        this.getTradeHistory(symbol, startTime, endTime),
+        this.getPositions(symbol)
+      ]);
+
+      console.log('Retrieved trades:', trades);
+      console.log('Current positions:', positions);
 
       let totalPnL = 0;
       let profitableTrades = 0;
@@ -135,6 +160,15 @@ export class BingXService {
           maxLoseStreak = Math.max(maxLoseStreak, currentLoseStreak);
         }
       });
+
+      // Add unrealized PnL from open positions
+      if (positions) {
+        positions.forEach((position: any) => {
+          if (position.symbol === symbol) {
+            totalPnL += parseFloat(position.unrealizedPnl);
+          }
+        });
+      }
 
       const totalTrades = trades.length;
       const unprofitableTrades = totalTrades - profitableTrades;
