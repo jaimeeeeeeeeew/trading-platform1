@@ -42,7 +42,7 @@ class TradingViewService {
   }
 
   public intervalToResolution(interval: string): Resolution {
-    // Mapeo corregido de intervalos de trading a resoluciones de TradingView
+    // Mapeo directo de intervalos de trading a resoluciones de TradingView
     const map: Record<string, Resolution> = {
       '1m': '1',
       '5m': '5',
@@ -51,11 +51,16 @@ class TradingViewService {
       '4h': '240',
       '1d': 'D',
     };
-    return map[interval] || '1';  // Default a 1 minuto si no se encuentra
+    const resolution = map[interval];
+    if (!resolution) {
+      console.error('Invalid interval:', interval);
+      return '1';  // Default a 1 minuto si no se encuentra
+    }
+    return resolution;
   }
 
   private resolutionToBinanceInterval(resolution: Resolution): string {
-    // Mapeo corregido de resoluciones de TradingView a intervalos de Binance
+    // Mapeo directo de resoluciones de TradingView a intervalos de Binance
     const map: Record<Resolution, string> = {
       '1': '1m',
       '5': '5m',
@@ -64,7 +69,12 @@ class TradingViewService {
       '240': '4h',
       'D': '1d'
     };
-    return map[resolution] || '1m';  // Default a 1 minuto si no se encuentra
+    const interval = map[resolution];
+    if (!interval) {
+      console.error('Invalid resolution:', resolution);
+      return '1m';  // Default a 1 minuto si no se encuentra
+    }
+    return interval;
   }
 
   async getHistory({ symbol, resolution, from, to, countback }: HistoryParams): Promise<Bar[]> {
@@ -107,7 +117,7 @@ class TradingViewService {
       const sortedData = allData
         .flat()
         .sort((a, b) => a[0] - b[0])
-        .filter((value, index, self) => 
+        .filter((value, index, self) =>
           index === 0 || value[0] !== self[index - 1][0]
         );
 
