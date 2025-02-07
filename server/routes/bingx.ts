@@ -14,14 +14,15 @@ router.post('/sign', async (req, res) => {
       });
     }
 
+    // Log the received data for debugging
     console.log('Received request to sign query string');
     console.log('Query string:', queryString);
 
-    // BingX requires HMAC SHA256 signature of the query string
+    // Create signature exactly as BingX expects
     const signature = createHmac('sha256', apiSecret)
       .update(queryString)
       .digest('hex')
-      .toLowerCase(); // BingX expects lowercase signature
+      .toLowerCase(); // BingX requires lowercase signature
 
     console.log('Generated signature:', signature);
 

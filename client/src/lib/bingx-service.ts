@@ -1,5 +1,7 @@
 import { tradingViewConfig } from '@/lib/config';
 
+type Resolution = '1' | '5' | '15' | '60' | '240' | 'D';
+
 interface TradeHistory {
   symbol: string;
   side: 'BUY' | 'SELL';
@@ -14,7 +16,7 @@ export class BingXService {
   private static instance: BingXService;
   private apiKey: string = '';
   private apiSecret: string = '';
-  private baseUrl: string = 'https://open-api.bingx.com';
+  private baseUrl: string = 'https://open-api.bingx.com/openApi/swap/v2';
 
   private constructor() {}
 
@@ -36,6 +38,7 @@ export class BingXService {
         throw new Error('API credentials not set');
       }
 
+      // Add required parameters
       const timestamp = Date.now();
       const allParams = {
         ...params,
@@ -43,10 +46,14 @@ export class BingXService {
         apiKey: this.apiKey
       };
 
-      // Sort parameters alphabetically as required by BingX
+      // Sort parameters alphabetically and encode values
       const queryString = Object.entries(allParams)
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+        .map(([key, value]) => {
+          // Ensure numeric values are converted to strings
+          const stringValue = typeof value === 'number' ? value.toString() : value;
+          return `${key}=${encodeURIComponent(stringValue)}`;
+        })
         .join('&');
 
       console.log('Making request to endpoint:', endpoint);
@@ -72,10 +79,10 @@ export class BingXService {
       const { signature } = await signatureResponse.json();
       console.log('Received signature from server');
 
-      const url = `${this.baseUrl}${endpoint}?${queryString}&signature=${signature}`;
-      console.log('Making request to:', url);
+      const requestUrl = `${this.baseUrl}${endpoint}?${queryString}&signature=${signature}`;
+      console.log('Making request to:', requestUrl);
 
-      const response = await fetch(url, {
+      const response = await fetch(requestUrl, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -86,10 +93,10 @@ export class BingXService {
       const data = await response.json();
       console.log('BingX API Response:', data);
 
-      if (response.ok && data.code === 0) {
+      if (data.code === 0) {
         return data;
       } else {
-        throw new Error(data.msg || `HTTP error! status: ${response.status}`);
+        throw new Error(data.msg || `Request failed with code ${data.code}`);
       }
     } catch (error) {
       console.error('Error making request to BingX:', error);
@@ -100,7 +107,7 @@ export class BingXService {
   public async testConnection(): Promise<boolean> {
     try {
       console.log('Testing BingX API connection...');
-      const response = await this.makeRequest('/openApi/spot/v1/account/info');
+      const response = await this.makeRequest('/openApi/swap/v2/user/balance');
       console.log('Test connection response:', response);
       return response.code === 0;
     } catch (error) {
@@ -129,7 +136,7 @@ export class BingXService {
 
   public async getAccountSummary(): Promise<any> {
     try {
-      const response = await this.makeRequest('/user/balance');
+      const response = await this.makeRequest('/openApi/swap/v2/user/balance');
       return response.data;
     } catch (error) {
       console.error('Error fetching account summary:', error);
