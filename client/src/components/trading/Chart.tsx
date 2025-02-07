@@ -148,12 +148,11 @@ export default function Chart() {
 
     try {
       const formattedSymbol = formatSymbolForBinance(symbol);
-      console.log('Loading historical data for:', formattedSymbol);
+      console.log('Loading historical data for:', formattedSymbol, 'interval:', interval);
 
       const now = Date.now();
       const ninetyDaysAgo = now - (90 * 24 * 60 * 60 * 1000);
 
-      // Use TradingViewService for historical data
       let candlesticks;
       try {
         candlesticks = await tradingViewService.getHistory({
@@ -162,7 +161,7 @@ export default function Chart() {
           from: Math.floor(ninetyDaysAgo / 1000),
           to: Math.floor(now / 1000)
         });
-        console.log('Successfully fetched candlesticks:', candlesticks.length);
+        console.log('Successfully fetched candlesticks:', candlesticks.length, 'for interval:', interval);
       } catch (fetchError) {
         console.error('Error fetching candlesticks:', fetchError);
         throw fetchError;
@@ -178,7 +177,7 @@ export default function Chart() {
           volume: candle.volume || 0
         }));
 
-        console.log('Formatted candlesticks:', formattedCandlesticks.length);
+        console.log('Formatted candlesticks:', formattedCandlesticks.length, 'for interval:', interval);
 
         candlestickSeriesRef.current.setData([]);
         historicalDataRef.current = [];
@@ -201,7 +200,7 @@ export default function Chart() {
 
         toast({
           title: 'Data Loaded',
-          description: `Loaded ${formattedCandlesticks.length} historical candles`,
+          description: `Loaded ${formattedCandlesticks.length} historical candles for ${interval}`,
         });
       } else {
         console.error('No candlesticks data available or series not initialized');
