@@ -34,14 +34,73 @@ class TradingViewService {
     return TradingViewService.instance;
   }
 
+  private formatSymbolForBinance(symbol: string): string {
+    return symbol
+      .toUpperCase()
+      .replace('BINANCE:', '')
+      .replace('PERP', '');
+  }
+
   async getHistory({ symbol, resolution, from, to, countback }: HistoryParams): Promise<Bar[]> {
     try {
-      console.log('Attempting to fetch history for:', symbol);
-      return [];
+      const formattedSymbol = this.formatSymbolForBinance(symbol);
+      console.log('Fetching history for:', formattedSymbol, 'resolution:', resolution);
+
+      // Calculate time segments to fetch more historical data
+      const timeSegments = [];
+      const segmentSize = 1000; // Binance limit per request
+      const timeRange = to - from;
+      const numberOfSegments = Math.ceil(timeRange / (segmentSize * parseInt(resolution) * 60));
+
+      for (let i = 0; i < numberOfSegments; i++) {
+        const segmentTo = to - (i * segmentSize * parseInt(resolution) * 60);
+        const segmentFrom = Math.max(from, segmentTo - (segmentSize * parseInt(resolution) * 60));
+        timeSegments.push({ from: segmentFrom, to: segmentTo });
+      }
+
+      // Fetch data for each time segment
+      const responses = await Promise.all(
+        timeSegments.map(segment =>
+          fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${this.resolutionToInterval(resolution)}&limit=1000&startTime=${segment.from * 1000}&endTime=${segment.to * 1000}`)
+        )
+      );
+
+      const allData = await Promise.all(responses.map(r => r.json()));
+
+      // Flatten and sort all segments
+      const sortedData = allData
+        .flat()
+        .sort((a, b) => a[0] - b[0])
+        .filter((value, index, self) => 
+          index === 0 || value[0] !== self[index - 1][0]
+        );
+
+      // Transform to Bar format
+      return sortedData.map(d => ({
+        time: (d[0] / 1000).toString(),
+        open: parseFloat(d[1]),
+        high: parseFloat(d[2]),
+        low: parseFloat(d[3]),
+        close: parseFloat(d[4]),
+        volume: parseFloat(d[5])
+      }));
+
     } catch (error) {
       console.error('Error fetching history:', error);
       throw error;
     }
+  }
+
+  private resolutionToInterval(resolution: Resolution): string {
+    const map: Record<Resolution, string> = {
+      '1': '1m',
+      '5': '5m',
+      '15': '15m',
+      '60': '1h',
+      '240': '4h',
+      'D': '1d'
+    };
+    return map[resolution];
   }
 
   static intervalToResolution(interval: string): Resolution {

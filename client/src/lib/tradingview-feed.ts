@@ -21,25 +21,43 @@ export class TradingViewDataFeed {
   private ws: WebSocket | null = null;
   private subscribers: Map<string, (data: any) => void> = new Map();
   private symbol: string;
+  private interval: string;
   private lastBar: Bar | null = null;
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private isReconnecting: boolean = false;
 
-  constructor(symbol: string) {
+  constructor(symbol: string, interval: string = '1m') {
     this.symbol = symbol.toLowerCase().replace(':', '').replace('perp', '');
-    console.log('Initializing Binance Futures WebSocket for:', this.symbol);
+    this.interval = interval;
+    console.log('Initializing Binance Futures WebSocket for:', this.symbol, 'interval:', interval);
     this.connect();
   }
 
   private connect() {
     try {
-      // Binance Futures WebSocket URL
-      const wsUrl = `wss://fstream.binance.com/ws/${this.symbol}@aggTrade/${this.symbol}@kline_1m`;
+      if (this.isReconnecting) return;
+      this.isReconnecting = true;
+
+      // Binance Futures WebSocket URL with dynamic interval
+      const wsUrl = `wss://fstream.binance.com/ws/${this.symbol}@aggTrade/${this.symbol}@kline_${this.interval}`;
+
+      if (this.ws) {
+        this.ws.close();
+        this.ws = null;
+      }
+
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
         console.log('Connected to Binance Futures WebSocket');
         this.reconnectAttempts = 0;
+        this.isReconnecting = false;
+        if (this.reconnectTimeout) {
+          clearTimeout(this.reconnectTimeout);
+          this.reconnectTimeout = null;
+        }
       };
 
       this.ws.onmessage = (event) => {
@@ -53,6 +71,7 @@ export class TradingViewDataFeed {
 
       this.ws.onerror = (error) => {
         console.error('WebSocket error:', error);
+        this.handleReconnect();
       };
 
       this.ws.onclose = () => {
@@ -67,26 +86,37 @@ export class TradingViewDataFeed {
   }
 
   private handleReconnect() {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-      setTimeout(() => this.connect(), 5000 * Math.pow(2, this.reconnectAttempts - 1));
+      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000);
+      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms...`);
+
+      this.reconnectTimeout = setTimeout(() => {
+        this.isReconnecting = false;
+        this.connect();
+      }, delay);
+    } else {
+      console.error('Max reconnection attempts reached');
+      this.isReconnecting = false;
     }
   }
 
   private handleBinanceMessage(data: any) {
     if (data.e === 'aggTrade') {
-      // Procesar datos de trades agregados
       const priceData: PriceData = {
         symbol: this.symbol,
         price: parseFloat(data.p),
         volume: parseFloat(data.q),
-        high: parseFloat(data.p), // En trades agregados solo tenemos el precio actual
+        high: parseFloat(data.p),
         low: parseFloat(data.p)
       };
       this.notifySubscribers('price', priceData);
     } else if (data.e === 'kline') {
-      // Procesar datos de velas
       const kline = data.k;
       const bar: Bar = {
         time: Math.floor(kline.t / 1000),
@@ -96,8 +126,9 @@ export class TradingViewDataFeed {
         close: parseFloat(kline.c),
         volume: parseFloat(kline.v)
       };
+
       this.lastBar = bar;
-      // También notificamos el precio actual
+
       const priceData: PriceData = {
         symbol: this.symbol,
         price: parseFloat(kline.c),
@@ -105,12 +136,26 @@ export class TradingViewDataFeed {
         high: parseFloat(kline.h),
         low: parseFloat(kline.l)
       };
+
       this.notifySubscribers('price', priceData);
+      this.notifySubscribers('kline', bar);
     }
   }
 
   public onPriceUpdate(callback: (data: PriceData) => void) {
     this.subscribers.set('price', callback);
+  }
+
+  public onKlineUpdate(callback: (data: Bar) => void) {
+    this.subscribers.set('kline', callback);
+  }
+
+  public updateInterval(newInterval: string) {
+    if (this.interval !== newInterval) {
+      this.interval = newInterval;
+      console.log('Updating interval to:', newInterval);
+      this.connect(); // Reconnect with new interval
+    }
   }
 
   private notifySubscribers(type: string, data: any) {
@@ -122,11 +167,16 @@ export class TradingViewDataFeed {
 
   public disconnect() {
     console.log('Disconnecting from Binance Futures WebSocket');
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
     this.subscribers.clear();
+    this.isReconnecting = false;
   }
 
   public getConfiguration() {

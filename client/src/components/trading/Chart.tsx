@@ -150,49 +150,49 @@ export default function Chart() {
       console.log('Loading historical data for:', formattedSymbol);
 
       const now = Date.now();
-      const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+      const ninetyDaysAgo = now - (90 * 24 * 60 * 60 * 1000); // Increased to 90 days
 
-      const responses = await Promise.all([
-        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${interval}&limit=1000&endTime=${now}`),
-        fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${interval}&limit=1000&endTime=${thirtyDaysAgo}`)
-      ]);
-
-      const datas = await Promise.all(responses.map(r => r.json()));
-
-      if (datas.some(data => data.code !== undefined)) {
-        throw new Error('API response error');
-      }
-
-      const allData = [...datas[1], ...datas[0]].sort((a, b) => a[0] - b[0]);
-      console.log('Received data:', allData.length, 'candles');
-
-      const candlesticks = allData.map((d: any) => ({
-        time: Math.floor(d[0] / 1000) as Time,
-        open: parseFloat(d[1]),
-        high: parseFloat(d[2]),
-        low: parseFloat(d[3]),
-        close: parseFloat(d[4]),
-        volume: parseFloat(d[5])
-      }));
+      // Use TradingViewService for historical data
+      const candlesticks = await tradingViewService.getHistory({
+        symbol: formattedSymbol,
+        resolution: TradingViewService.intervalToResolution(interval),
+        from: Math.floor(ninetyDaysAgo / 1000),
+        to: Math.floor(now / 1000)
+      });
 
       if (candlestickSeriesRef.current && candlesticks.length > 0) {
+        const formattedCandlesticks = candlesticks.map(candle => ({
+          time: parseInt(candle.time) as Time,
+          open: candle.open,
+          high: candle.high,
+          low: candle.low,
+          close: candle.close,
+          volume: candle.volume || 0
+        }));
+
         candlestickSeriesRef.current.setData([]);
         historicalDataRef.current = [];
 
-        candlestickSeriesRef.current.setData(candlesticks);
+        candlestickSeriesRef.current.setData(formattedCandlesticks);
         handleAutoFit();
 
-        historicalDataRef.current = candlesticks.map(c => ({ 
+        historicalDataRef.current = formattedCandlesticks.map(c => ({ 
           close: c.close, 
           volume: c.volume 
         }));
 
         updateVolumeProfile(historicalDataRef.current);
 
+        // Small delay before initializing WebSocket to ensure historical data is loaded
         setTimeout(() => {
           cleanupWebSocket(); 
           initializeWebSocket(formattedSymbol);
         }, 1000);
+
+        toast({
+          title: 'Data Loaded',
+          description: `Loaded ${formattedCandlesticks.length} historical candles`,
+        });
       }
     } catch (error) {
       console.error('Error loading historical data:', error);
