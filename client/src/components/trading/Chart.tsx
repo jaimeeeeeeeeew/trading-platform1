@@ -121,30 +121,75 @@ export default function Chart() {
 
       console.log('Changing interval from', interval, 'to', newInterval);
 
-      // 1. Limpiar completamente el estado actual
+      // 1. Desconectar WebSocket y limpiar datos
       cleanupWebSocket();
+
+      // 2. Limpiar completamente el estado
       if (candlestickSeriesRef.current) {
         candlestickSeriesRef.current.setData([]);
       }
       historicalDataRef.current = [];
       setVolumeProfileData([]);
 
-      // 2. Esperar a que la limpieza se complete
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // 3. Actualizar el intervalo
+      // 3. Cambiar el intervalo
       setInterval(newInterval);
 
       // 4. Esperar a que el estado se actualice
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      // 5. Cargar nuevos datos con el nuevo intervalo
-      await loadInitialData(currentSymbol);
+      // 5. Cargar nuevos datos
+      const formattedSymbol = formatSymbolForBinance(currentSymbol);
+
+      const now = Date.now();
+      const ninetyDaysAgo = now - (90 * 24 * 60 * 60 * 1000);
+
+      try {
+        const candlesticks = await tradingViewService.getHistory({
+          symbol: formattedSymbol,
+          resolution: tradingViewService.intervalToResolution(newInterval), // Usar el nuevo intervalo directamente
+          from: Math.floor(ninetyDaysAgo / 1000),
+          to: Math.floor(now / 1000)
+        });
+
+        if (candlestickSeriesRef.current && candlesticks && candlesticks.length > 0) {
+          const formattedCandlesticks = candlesticks.map(candle => ({
+            time: parseInt(candle.time) as Time,
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
+            volume: candle.volume || 0
+          }));
+
+          // Establecer los nuevos datos
+          candlestickSeriesRef.current.setData(formattedCandlesticks);
+          handleAutoFit();
+
+          // Actualizar el historial
+          historicalDataRef.current = formattedCandlesticks.map(c => ({
+            close: c.close,
+            volume: c.volume
+          }));
+
+          updateVolumeProfile(historicalDataRef.current);
+
+          // Iniciar nuevo WebSocket
+          initializeWebSocket(formattedSymbol);
+        }
+      } catch (error) {
+        console.error('Error loading data for new interval:', error);
+        toast({
+          title: 'Error',
+          description: 'Error loading data for the new interval',
+          variant: 'destructive',
+        });
+      }
 
       toast({
         title: 'Interval Changed',
         description: `Changed to ${INTERVALS[newInterval].label}`,
       });
+
     } catch (error) {
       console.error('Error changing interval:', error);
       toast({
@@ -154,6 +199,58 @@ export default function Chart() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const initializeWebSocket = (symbol: string) => {
+    try {
+      cleanupWebSocket();
+
+      const wsUrl = `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@kline_${interval}`;
+      console.log('Connecting WebSocket:', wsUrl);
+
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('WebSocket connected for interval:', interval);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.e === 'kline' && data.k.i === interval && data.s === symbol.toUpperCase()) {
+            const kline = data.k;
+            const bar = {
+              time: Math.floor(kline.t / 1000) as Time,
+              open: parseFloat(kline.o),
+              high: parseFloat(kline.h),
+              low: parseFloat(kline.l),
+              close: parseFloat(kline.c),
+              volume: parseFloat(kline.v)
+            };
+
+            if (candlestickSeriesRef.current) {
+              candlestickSeriesRef.current.update(bar);
+              const lastCandle = { close: parseFloat(kline.c), volume: parseFloat(kline.v) };
+              historicalDataRef.current = [...historicalDataRef.current.slice(-1499), lastCandle];
+              updateVolumeProfile(historicalDataRef.current);
+            }
+          }
+        } catch (error) {
+          console.error('Error processing message:', error);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      ws.onclose = () => {
+        console.log('WebSocket disconnected');
+      };
+    } catch (error) {
+      console.error('Error initializing WebSocket:', error);
     }
   };
 
@@ -250,76 +347,6 @@ export default function Chart() {
         description: 'Error loading historical data',
         variant: 'destructive',
       });
-    }
-  };
-
-  const initializeWebSocket = (symbol: string) => {
-    try {
-      cleanupWebSocket();
-
-      const wsUrl = `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@kline_${interval}`;
-      console.log('Connecting WebSocket:', wsUrl);
-
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log('WebSocket connected for interval:', interval);
-        toast({
-          title: 'Connected',
-          description: 'Real-time connection established',
-        });
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          // Verificar que el mensaje corresponda al intervalo actual
-          if (data.e === 'kline' && data.k.i === interval && data.s === symbol.toUpperCase()) {
-            const kline = data.k;
-            const bar = {
-              time: Math.floor(kline.t / 1000) as Time,
-              open: parseFloat(kline.o),
-              high: parseFloat(kline.h),
-              low: parseFloat(kline.l),
-              close: parseFloat(kline.c),
-              volume: parseFloat(kline.v)
-            };
-
-            if (candlestickSeriesRef.current) {
-              candlestickSeriesRef.current.update(bar);
-              const lastCandle = { close: parseFloat(kline.c), volume: parseFloat(kline.v) };
-              historicalDataRef.current = [...historicalDataRef.current.slice(-1499), lastCandle];
-              updateVolumeProfile(historicalDataRef.current);
-            }
-          }
-        } catch (error) {
-          console.error('Error processing message:', error);
-        }
-      };
-
-      let reconnectTimeout: NodeJS.Timeout;
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        toast({
-          title: 'Connection Error',
-          description: 'Real-time data connection error. Retrying...',
-          variant: 'destructive',
-        });
-      };
-
-      ws.onclose = () => {
-        console.log('WebSocket disconnected for interval:', interval);
-        if (wsRef.current === ws) {
-          clearTimeout(reconnectTimeout);
-          reconnectTimeout = setTimeout(() => {
-            initializeWebSocket(symbol);
-          }, 5000);
-        }
-      };
-    } catch (error) {
-      console.error('Error initializing WebSocket:', error);
     }
   };
 
