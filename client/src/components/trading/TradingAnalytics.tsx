@@ -236,13 +236,13 @@ export default function TradingAnalytics() {
           <div className="grid grid-cols-2 gap-2">
             <MetricCard
               title="PnL Periodo"
-              value={metrics ? `${metrics.totalPnL?.toFixed(2)}%` : '0.00%'}
+              value={metrics ? `${metrics.totalPnL?.toFixed(2) || '0.00'}%` : '0.00%'}
               trend={metrics?.totalPnL >= 0 ? 'up' : 'down'}
               icon={<BarChart className="h-3 w-3" />}
             />
             <MetricCard
               title="Win Rate"
-              value={metrics ? `${metrics.winRate?.toFixed(2)}%` : '0.00%'}
+              value={metrics ? `${metrics.winRate?.toFixed(2) || '0.00'}%` : '0.00%'}
               trend={metrics?.winRate >= 50 ? 'up' : 'down'}
               icon={<Activity className="h-3 w-3" />}
             />
@@ -280,11 +280,11 @@ export default function TradingAnalytics() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Promedio Ganancia:</span>
-                <span className="font-medium text-primary">${metrics?.avgWinAmount.toFixed(2) || '0.00'}</span>
+                <span className="font-medium text-primary">${metrics?.avgWinAmount?.toFixed(2) || '0.00'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Promedio Pérdida:</span>
-                <span className="font-medium text-destructive">${metrics?.avgLossAmount.toFixed(2) || '0.00'}</span>
+                <span className="font-medium text-destructive">${metrics?.avgLossAmount?.toFixed(2) || '0.00'}</span>
               </div>
             </div>
           </div>
@@ -303,7 +303,7 @@ export default function TradingAnalytics() {
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Win Rate:</span>
-                  <span className="font-medium">{metrics ? `${metrics.winRate?.toFixed(2)}%` : '0.00%'}</span>
+                  <span className="font-medium">{metrics ? `${metrics.winRate?.toFixed(2) || '0.00'}%` : '0.00%'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Mejor Racha:</span>
@@ -318,7 +318,9 @@ export default function TradingAnalytics() {
                   <span className={cn(
                     "font-medium",
                     metrics?.totalPnL >= 0 ? "text-primary" : "text-destructive"
-                  )}>{metrics ? `${metrics.totalPnL?.toFixed(2)}%` : '0.00%'}</span>
+                  )}>
+                    {metrics ? `${metrics.totalPnL?.toFixed(2) || '0.00'}%` : '0.00%'}
+                  </span>
                 </div>
               </div>
             </div>
