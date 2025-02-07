@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, Time, ISeriesApi, CandlestickData, LogicalRange } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeftRight } from 'lucide-react';
+//import { ArrowLeftRight } from 'lucide-react'; // Removed import
 import { Button } from '@/components/ui/button';
 import { VolumeProfile } from './VolumeProfile';
 import { tradingViewService } from '@/lib/tradingview-service';
@@ -354,27 +354,7 @@ export default function Chart() {
     if (!chartRef.current) return;
 
     const timeScale = chartRef.current.timeScale();
-    const visibleRange = timeScale.getVisibleLogicalRange();
-
-    if (visibleRange !== null) {
-      const currentRange: LogicalRange = {
-        from: visibleRange.from,
-        to: visibleRange.to,
-      };
-
-      timeScale.fitContent();
-      const newRange = timeScale.getVisibleLogicalRange();
-
-      if (newRange !== null) {
-        timeScale.setVisibleLogicalRange({
-          from: currentRange.from,
-          to: currentRange.to,
-        });
-        setTimeout(() => {
-          timeScale.setVisibleLogicalRange(newRange);
-        }, 50);
-      }
-    }
+    timeScale.fitContent();
   };
 
   const updatePriceCoordinate = () => {
@@ -709,12 +689,11 @@ export default function Chart() {
       <div className="absolute top-2 right-2 z-10">
         <Button
           onClick={handleAutoFit}
-          className="bg-background hover:bg-background/90 shadow-md"
-          size="icon"
+          className="bg-background hover:bg-background/90 shadow-md w-8 h-8 text-sm font-medium"
           variant="outline"
-          title="Ajustar a la vista"
+          title="Autoajustar"
         >
-          <ArrowLeftRight className="h-4 w-4" />
+          A
         </Button>
       </div>
     </div>
