@@ -654,15 +654,15 @@ export default function Chart() {
         <div className="absolute top-14 left-2 z-10 bg-background/90 p-2 rounded-md border border-border shadow-lg text-xs">
           <div className="grid grid-cols-2 gap-x-4">
             <span className="text-muted-foreground">O:</span>
-            <span className="font-mono">{crosshairData.open.toFixed(2)}</span>
+            <span className="font-mono">{crosshairData.open?.toFixed(2) || '0.00'}</span>
             <span className="text-muted-foreground">H:</span>
-            <span className="font-mono">{crosshairData.high.toFixed(2)}</span>
+            <span className="font-mono">{crosshairData.high?.toFixed(2) || '0.00'}</span>
             <span className="text-muted-foreground">L:</span>
-            <span className="font-mono">{crosshairData.low.toFixed(2)}</span>
+            <span className="font-mono">{crosshairData.low?.toFixed(2) || '0.00'}</span>
             <span className="text-muted-foreground">C:</span>
-            <span className="font-mono">{crosshairData.close.toFixed(2)}</span>
+            <span className="font-mono">{crosshairData.close?.toFixed(2) || '0.00'}</span>
             <span className="text-muted-foreground">V:</span>
-            <span className="font-mono">{crosshairData.volume.toFixed(2)}</span>
+            <span className="font-mono">{(crosshairData.volume || 0).toFixed(2)}</span>
           </div>
         </div>
       )}
