@@ -14,10 +14,14 @@ router.post('/sign', async (req, res) => {
       });
     }
 
-    // Create HMAC SHA256 signature
+    console.log('Received query string for signing:', queryString);
+
+    // Create HMAC SHA256 signature exactly as BingX expects
     const signature = createHmac('sha256', apiSecret)
       .update(queryString)
       .digest('hex');
+
+    console.log('Generated signature:', signature);
 
     res.json({ signature });
   } catch (error) {

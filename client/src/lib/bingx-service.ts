@@ -32,15 +32,24 @@ export class BingXService {
 
   private async makeRequest(endpoint: string, method: string = 'GET', params: Record<string, any> = {}): Promise<any> {
     try {
+      if (!this.apiKey || !this.apiSecret) {
+        throw new Error('API credentials not set');
+      }
+
       const timestamp = Date.now();
-      const queryString = Object.entries({
+      const allParams = {
         ...params,
         timestamp,
         apiKey: this.apiKey
-      })
+      };
+
+      // Sort parameters alphabetically as required by BingX
+      const queryString = Object.entries(allParams)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([key, value]) => `${key}=${value}`)
         .join('&');
+
+      console.log('Query string before signing:', queryString);
 
       // Get signature from backend
       const signatureResponse = await fetch('/api/bingx/sign', {
@@ -55,7 +64,8 @@ export class BingXService {
       });
 
       if (!signatureResponse.ok) {
-        throw new Error('Failed to get signature from server');
+        const error = await signatureResponse.json();
+        throw new Error(`Failed to get signature: ${error.details || error.error}`);
       }
 
       const { signature } = await signatureResponse.json();
@@ -71,47 +81,68 @@ export class BingXService {
         }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`BingX API error: ${errorData.msg || response.statusText}`);
-      }
-
       const data = await response.json();
-      if (data.code !== 0) {
-        throw new Error(`BingX API error: ${data.msg}`);
-      }
 
-      return data;
+      if (response.ok && data.code === 0) {
+        return data;
+      } else {
+        throw new Error(data.msg || `HTTP error! status: ${response.status}`);
+      }
     } catch (error) {
       console.error('Error making request to BingX:', error);
       throw error;
     }
   }
 
+  public async testConnection(): Promise<boolean> {
+    try {
+      const response = await this.makeRequest('/user/balance');
+      return response.code === 0;
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      return false;
+    }
+  }
+
   public async getTradeHistory(symbol: string, startTime?: number, endTime?: number): Promise<TradeHistory[]> {
-    const params: Record<string, any> = {
-      symbol: symbol.toUpperCase(),
-      limit: 1000
-    };
+    try {
+      const params: Record<string, any> = {
+        symbol: symbol.toUpperCase(),
+        limit: 1000
+      };
 
-    if (startTime) params.startTime = startTime;
-    if (endTime) params.endTime = endTime;
+      if (startTime) params.startTime = startTime;
+      if (endTime) params.endTime = endTime;
 
-    const response = await this.makeRequest('/trade/history', 'GET', params);
-    return response.data;
+      const response = await this.makeRequest('/trade/history', 'GET', params);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching trade history:', error);
+      throw error;
+    }
   }
 
   public async getAccountSummary(): Promise<any> {
-    const response = await this.makeRequest('/user/balance');
-    return response.data;
+    try {
+      const response = await this.makeRequest('/user/balance');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching account summary:', error);
+      throw error;
+    }
   }
 
   public async getPositions(symbol?: string): Promise<any> {
-    const params: Record<string, any> = {};
-    if (symbol) params.symbol = symbol.toUpperCase();
+    try {
+      const params: Record<string, any> = {};
+      if (symbol) params.symbol = symbol.toUpperCase();
 
-    const response = await this.makeRequest('/position/list', 'GET', params);
-    return response.data;
+      const response = await this.makeRequest('/position/list', 'GET', params);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching positions:', error);
+      throw error;
+    }
   }
 
   public async calculatePnLMetrics(symbol: string, startTime: number, endTime: number): Promise<{

@@ -105,31 +105,37 @@ export default function TradingAnalytics() {
       setIsLoading(true);
       bingXService.setApiCredentials(apiKey, apiSecret);
 
-      // Test the credentials by fetching account info
-      await bingXService.getAccountSummary();
+      // Test the connection before saving credentials
+      const isValid = await bingXService.testConnection();
 
+      if (!isValid) {
+        throw new Error('No se pudo validar las credenciales');
+      }
+
+      // If we get here, the credentials are valid
       localStorage.setItem('bingx_api_key', apiKey);
       localStorage.setItem('bingx_api_secret', apiSecret);
 
       toast({
         title: "Éxito",
-        description: "Credenciales guardadas correctamente",
+        description: "Credenciales guardadas y validadas correctamente",
       });
 
       await fetchMetrics();
     } catch (error) {
       console.error('Error validating API credentials:', error);
-      toast({
-        title: "Error",
-        description: "Error al validar las credenciales. Por favor verifica tus datos.",
-        variant: "destructive",
-      });
 
       // Clear stored credentials on error
       localStorage.removeItem('bingx_api_key');
       localStorage.removeItem('bingx_api_secret');
       setApiKey('');
       setApiSecret('');
+
+      toast({
+        title: "Error de validación",
+        description: error instanceof Error ? error.message : "Error al validar las credenciales. Por favor verifica tus datos.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -333,7 +339,7 @@ export default function TradingAnalytics() {
           </div>
         </TabsContent>
       </Tabs>
-      <div className="flex items-center justify-between mb-2"> {/* This section remains mostly unchanged */}
+      <div className="flex items-center justify-between mb-2">
         <Popover>
           <PopoverTrigger asChild>
             <Button
