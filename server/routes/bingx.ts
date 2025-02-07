@@ -14,7 +14,8 @@ router.post('/sign', async (req, res) => {
       });
     }
 
-    console.log('Received query string for signing:', queryString);
+    console.log('Received request to sign query string');
+    console.log('Query string:', queryString);
 
     // BingX requires HMAC SHA256 signature of the query string
     const signature = createHmac('sha256', apiSecret)

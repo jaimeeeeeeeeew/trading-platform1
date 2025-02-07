@@ -14,7 +14,7 @@ export class BingXService {
   private static instance: BingXService;
   private apiKey: string = '';
   private apiSecret: string = '';
-  private baseUrl: string = 'https://open-api.bingx.com/openApi/swap/v2';
+  private baseUrl: string = 'https://open-api.bingx.com';
 
   private constructor() {}
 
@@ -49,6 +49,7 @@ export class BingXService {
         .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
         .join('&');
 
+      console.log('Making request to endpoint:', endpoint);
       console.log('Query string before signing:', queryString);
 
       // Get signature from backend
@@ -69,8 +70,9 @@ export class BingXService {
       }
 
       const { signature } = await signatureResponse.json();
-      const url = `${this.baseUrl}${endpoint}?${queryString}&signature=${signature}`;
+      console.log('Received signature from server');
 
+      const url = `${this.baseUrl}${endpoint}?${queryString}&signature=${signature}`;
       console.log('Making request to:', url);
 
       const response = await fetch(url, {
@@ -98,7 +100,7 @@ export class BingXService {
   public async testConnection(): Promise<boolean> {
     try {
       console.log('Testing BingX API connection...');
-      const response = await this.makeRequest('/user/hello');
+      const response = await this.makeRequest('/openApi/spot/v1/account/info');
       console.log('Test connection response:', response);
       return response.code === 0;
     } catch (error) {
