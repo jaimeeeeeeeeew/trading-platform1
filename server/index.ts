@@ -49,6 +49,11 @@ app.use((req, res, next) => {
 (async () => {
   const server = registerRoutes(app);
 
+  // Register BingX routes
+  import('./routes/bingx').then(bingXRoutes => {
+    app.use('/api/bingx', bingXRoutes.default);
+  });
+
   // Error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     console.error('Error:', err);

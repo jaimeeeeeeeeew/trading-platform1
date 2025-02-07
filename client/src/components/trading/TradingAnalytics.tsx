@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,51 +29,138 @@ import {
 } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { bingXService } from '@/lib/bingx-service';
+import { useTrading } from '@/lib/trading-context';
+
+interface TradingMetrics {
+  totalPnL: number;
+  winRate: number;
+  winningStreak: number;
+  losingStreak: number;
+  avgWinAmount: number;
+  avgLossAmount: number;
+  totalTrades: number;
+  profitableTrades: number;
+  unprofitableTrades: number;
+}
 
 export default function TradingAnalytics() {
   const [apiKey, setApiKey] = useState('');
+  const [apiSecret, setApiSecret] = useState('');
+  const [metrics, setMetrics] = useState<TradingMetrics | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { currentSymbol } = useTrading();
   const [date, setDate] = useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
     to: new Date(),
   });
 
+  const fetchMetrics = async () => {
+    if (!date?.from || !date?.to || !currentSymbol) return;
+
+    try {
+      setIsLoading(true);
+      const metrics = await bingXService.calculatePnLMetrics(
+        currentSymbol.replace('BINANCE:', '').replace('PERP', ''),
+        date.from.getTime(),
+        date.to.getTime()
+      );
+      setMetrics(metrics);
+    } catch (error) {
+      console.error('Error fetching metrics:', error);
+      toast({
+        title: 'Error',
+        description: 'Error al obtener métricas de trading',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSaveApiKey = () => {
-    if (!apiKey) {
+    if (!apiKey || !apiSecret) {
       toast({
         title: "Error",
-        description: "Por favor ingresa una API key válida",
+        description: "Por favor ingresa tanto la API key como el API secret",
         variant: "destructive",
       });
       return;
     }
 
-    // TODO: Implementar guardado seguro de API key
-    toast({
-      title: "Éxito",
-      description: "API key guardada correctamente",
-    });
+    try {
+      bingXService.setApiCredentials(apiKey, apiSecret);
+      localStorage.setItem('bingx_api_key', apiKey);
+      localStorage.setItem('bingx_api_secret', apiSecret);
+
+      toast({
+        title: "Éxito",
+        description: "Credenciales guardadas correctamente",
+      });
+
+      fetchMetrics();
+    } catch (error) {
+      console.error('Error saving API credentials:', error);
+      toast({
+        title: "Error",
+        description: "Error al guardar las credenciales",
+        variant: "destructive",
+      });
+    }
   };
+
+  useEffect(() => {
+    const savedApiKey = localStorage.getItem('bingx_api_key');
+    const savedApiSecret = localStorage.getItem('bingx_api_secret');
+
+    if (savedApiKey && savedApiSecret) {
+      setApiKey(savedApiKey);
+      setApiSecret(savedApiSecret);
+      bingXService.setApiCredentials(savedApiKey, savedApiSecret);
+      fetchMetrics();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (apiKey && apiSecret) {
+      fetchMetrics();
+    }
+  }, [date, currentSymbol]);
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-2">
         <div className="space-y-1">
-          <Label htmlFor="api-key" className="text-[10px]">API Key del Exchange</Label>
-          <div className="flex gap-1">
-            <Input
-              id="api-key"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Ingresa tu API key"
-              className="text-[10px] h-6"
-            />
+          <div className="flex gap-2">
+            <div>
+              <Label htmlFor="api-key" className="text-[10px]">API Key</Label>
+              <Input
+                id="api-key"
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="BingX API Key"
+                className="text-[10px] h-6"
+              />
+            </div>
+            <div>
+              <Label htmlFor="api-secret" className="text-[10px]">API Secret</Label>
+              <Input
+                id="api-secret"
+                type="password"
+                value={apiSecret}
+                onChange={(e) => setApiSecret(e.target.value)}
+                placeholder="BingX API Secret"
+                className="text-[10px] h-6"
+              />
+            </div>
             <Button 
               onClick={handleSaveApiKey}
-              className="h-6 text-[10px] px-2"
+              className="h-6 text-[10px] px-2 mt-4"
+              disabled={isLoading}
             >
-              Guardar
+              {isLoading ? 'Cargando...' : 'Guardar'}
             </Button>
           </div>
         </div>
@@ -125,14 +212,14 @@ export default function TradingAnalytics() {
           <div className="grid grid-cols-2 gap-2">
             <MetricCard
               title="PnL Periodo"
-              value="+12.45%"
-              trend="up"
+              value={metrics ? `${(metrics.totalPnL).toFixed(2)}%` : '0.00%'}
+              trend={metrics?.totalPnL >= 0 ? 'up' : 'down'}
               icon={<BarChart className="h-3 w-3" />}
             />
             <MetricCard
               title="Win Rate"
-              value="68%"
-              trend="up"
+              value={metrics ? `${metrics.winRate.toFixed(2)}%` : '0.00%'}
+              trend={metrics?.winRate >= 50 ? 'up' : 'down'}
               icon={<Activity className="h-3 w-3" />}
             />
           </div>
@@ -140,13 +227,13 @@ export default function TradingAnalytics() {
           <div className="grid grid-cols-2 gap-2">
             <MetricCard
               title="Racha Ganadora"
-              value="8 trades"
+              value={metrics ? `${metrics.winningStreak} trades` : '0 trades'}
               trend="up"
               icon={<Trophy className="h-3 w-3" />}
             />
             <MetricCard
               title="Racha Perdedora"
-              value="3 trades"
+              value={metrics ? `${metrics.losingStreak} trades` : '0 trades'}
               trend="down"
               icon={<TrendingDown className="h-3 w-3" />}
             />
@@ -157,27 +244,23 @@ export default function TradingAnalytics() {
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Trades:</span>
-                <span className="font-medium">156</span>
+                <span className="font-medium">{metrics?.totalTrades || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Trades Ganadores:</span>
-                <span className="font-medium text-primary">106</span>
+                <span className="font-medium text-primary">{metrics?.profitableTrades || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Trades Perdedores:</span>
-                <span className="font-medium text-destructive">50</span>
+                <span className="font-medium text-destructive">{metrics?.unprofitableTrades || 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Promedio R/R:</span>
-                <span className="font-medium">1:2.5</span>
+                <span className="text-muted-foreground">Promedio Ganancia:</span>
+                <span className="font-medium text-primary">${metrics?.avgWinAmount.toFixed(2) || '0.00'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Mejor Trade:</span>
-                <span className="font-medium text-primary">+5.8%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Peor Trade:</span>
-                <span className="font-medium text-destructive">-2.1%</span>
+                <span className="text-muted-foreground">Promedio Pérdida:</span>
+                <span className="font-medium text-destructive">${metrics?.avgLossAmount.toFixed(2) || '0.00'}</span>
               </div>
             </div>
           </div>
@@ -191,24 +274,27 @@ export default function TradingAnalytics() {
             </div>
             <div className="space-y-1">
               <p className="text-[10px] text-muted-foreground">
-                Análisis de comportamiento basado en tus últimas operaciones:
+                Análisis basado en tus operaciones del periodo seleccionado:
               </p>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Riesgo promedio:</span>
-                  <span className="font-medium">1.2%</span>
+                  <span className="text-muted-foreground">Win Rate:</span>
+                  <span className="font-medium">{metrics ? `${metrics.winRate.toFixed(2)}%` : '0.00%'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Ratio R/R promedio:</span>
-                  <span className="font-medium">1:2.5</span>
+                  <span className="text-muted-foreground">Mejor Racha:</span>
+                  <span className="font-medium">{metrics?.winningStreak || 0} trades</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tiempo promedio trade:</span>
-                  <span className="font-medium">4h 23m</span>
+                  <span className="text-muted-foreground">Peor Racha:</span>
+                  <span className="font-medium">{metrics?.losingStreak || 0} trades</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Drawdown máximo:</span>
-                  <span className="font-medium text-destructive">-8.3%</span>
+                  <span className="text-muted-foreground">PnL Total:</span>
+                  <span className={cn(
+                    "font-medium",
+                    metrics?.totalPnL >= 0 ? "text-primary" : "text-destructive"
+                  )}>{metrics ? `${metrics.totalPnL.toFixed(2)}%` : '0.00%'}</span>
                 </div>
               </div>
             </div>
@@ -219,19 +305,29 @@ export default function TradingAnalytics() {
           <div className="space-y-2">
             <div className="flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
-              <h3 className="text-[10px] font-medium">Sugerencias AI</h3>
+              <h3 className="text-[10px] font-medium">Sugerencias</h3>
             </div>
             <div className="space-y-1">
               <p className="text-[10px] text-muted-foreground">
                 Sugerencias basadas en el análisis de tu operativa:
               </p>
-              <ul className="text-[10px] space-y-0.5">
-                <li>• Considera reducir el tiempo en operaciones perdedoras</li>
-                <li>• Tu mejor rendimiento es en operaciones cortas</li>
-                <li>• Las entradas más exitosas son durante la sesión europea</li>
-                <li>• Has mostrado mejor desempeño en tendencias alcistas</li>
-                <li>• Tu gestión de riesgo es más efectiva en pares mayores</li>
-              </ul>
+              {metrics && (
+                <ul className="text-[10px] space-y-0.5">
+                  {metrics.winRate < 50 && (
+                    <li>• Considera mejorar tu estrategia de entrada, tu win rate está por debajo del 50%</li>
+                  )}
+                  {metrics.losingStreak > 5 && (
+                    <li>• Tu racha perdedora es significativa, revisa tu gestión de riesgo</li>
+                  )}
+                  {metrics.avgLossAmount > metrics.avgWinAmount && (
+                    <li>• Tus pérdidas promedio son mayores que tus ganancias, ajusta tu ratio riesgo/beneficio</li>
+                  )}
+                  {metrics.totalPnL < 0 && (
+                    <li>• Tu PnL es negativo, considera tomar un descanso y revisar tu estrategia</li>
+                  )}
+                  <li>• Mantén un diario de trading para identificar patrones en tus operaciones</li>
+                </ul>
+              )}
             </div>
           </div>
         </TabsContent>
