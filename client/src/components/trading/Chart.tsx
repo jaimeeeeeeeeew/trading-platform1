@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, Time, ISeriesApi, CandlestickData, LogicalRange } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
-//import { ArrowLeftRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VolumeProfile } from './VolumeProfile';
 import { tradingViewService } from '@/lib/tradingview-service';
@@ -57,24 +56,20 @@ const generateSimulatedVolumeProfile = (currentPrice: number) => {
     console.log('Generating volume profile with current price:', currentPrice);
     const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
 
-    // Ajustar el rango para que cubra todo el espectro visible
     const dataMinPrice = Math.floor(currentPrice * 0.95);
     const dataMaxPrice = Math.ceil(currentPrice * 1.05);
-    const interval = 10; // Siempre generar barras cada 10 dólares
+    const interval = 10; 
 
-    // Asegurarnos de que generamos una barra para cada nivel de precio
     for (let price = dataMinPrice; price <= dataMaxPrice; price += interval) {
       const distanceFromCurrent = Math.abs(price - currentPrice);
-      // Ajustar la fórmula para que genere más volumen cerca del precio actual
       const volumeBase = Math.max(0, 1 - (distanceFromCurrent / (currentPrice * 0.02)) ** 2);
-      const randomFactor = 0.8 + Math.random() * 0.4; // Menos variación aleatoria
+      const randomFactor = 0.8 + Math.random() * 0.4; 
       const volume = volumeBase * randomFactor * 1000;
 
       console.log(`Generating bar for price ${price} with volume ${volume}`);
       volumeProfileData.push({ price, volume, normalizedVolume: 0 });
     }
 
-    // Normalizar los volúmenes
     const maxVolume = Math.max(...volumeProfileData.map(d => d.volume));
     const normalizedData = volumeProfileData.map(data => ({
       ...data,
@@ -132,23 +127,18 @@ export default function Chart() {
 
       console.log('Changing interval from', interval, 'to', newInterval);
 
-      // 1. Desconectar WebSocket y limpiar datos
       cleanupWebSocket();
 
-      // 2. Limpiar completamente el estado
       if (candlestickSeriesRef.current) {
         candlestickSeriesRef.current.setData([]);
       }
       historicalDataRef.current = [];
       setVolumeProfileData([]);
 
-      // 3. Cambiar el intervalo
       setInterval(newInterval);
 
-      // 4. Esperar a que el estado se actualice
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // 5. Cargar nuevos datos
       const formattedSymbol = formatSymbolForBinance(currentSymbol);
 
       const now = Date.now();
@@ -157,7 +147,7 @@ export default function Chart() {
       try {
         const candlesticks = await tradingViewService.getHistory({
           symbol: formattedSymbol,
-          resolution: tradingViewService.intervalToResolution(newInterval), // Usar el nuevo intervalo directamente
+          resolution: tradingViewService.intervalToResolution(newInterval), 
           from: Math.floor(ninetyDaysAgo / 1000),
           to: Math.floor(now / 1000)
         });
@@ -172,11 +162,9 @@ export default function Chart() {
             volume: candle.volume || 0
           }));
 
-          // Establecer los nuevos datos
           candlestickSeriesRef.current.setData(formattedCandlesticks);
           handleAutoFit();
 
-          // Actualizar el historial
           historicalDataRef.current = formattedCandlesticks.map(c => ({
             close: c.close,
             volume: c.volume
@@ -184,7 +172,6 @@ export default function Chart() {
 
           updateVolumeProfile(historicalDataRef.current);
 
-          // Iniciar nuevo WebSocket
           initializeWebSocket(formattedSymbol);
         }
       } catch (error) {
@@ -275,7 +262,6 @@ export default function Chart() {
       const now = Date.now();
       const ninetyDaysAgo = now - (90 * 24 * 60 * 60 * 1000);
 
-      // Guardar el intervalo actual para validación
       const currentInterval = interval;
 
       let candlesticks;
@@ -287,7 +273,6 @@ export default function Chart() {
           to: Math.floor(now / 1000)
         });
 
-        // Verificar que el intervalo no haya cambiado durante la carga
         if (currentInterval !== interval) {
           console.log('Interval changed during data fetch, aborting');
           return;
@@ -300,7 +285,6 @@ export default function Chart() {
       }
 
       if (candlestickSeriesRef.current && candlesticks && candlesticks.length > 0) {
-        // Verificar nuevamente el intervalo
         if (currentInterval !== interval) {
           console.log('Interval changed before processing data, aborting');
           return;
@@ -315,7 +299,6 @@ export default function Chart() {
           volume: candle.volume || 0
         }));
 
-        // Una última verificación antes de establecer los datos
         if (currentInterval !== interval) {
           console.log('Interval changed before setting data, aborting');
           return;
@@ -331,10 +314,8 @@ export default function Chart() {
 
         updateVolumeProfile(historicalDataRef.current);
 
-        // Esperar antes de iniciar el WebSocket
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Verificación final antes de iniciar WebSocket
         if (currentInterval !== interval) {
           console.log('Interval changed before WebSocket initialization, aborting');
           return;
@@ -461,7 +442,6 @@ export default function Chart() {
   const fetchSecondaryIndicators = async (symbol: string) => {
     try {
       const now = Date.now();
-      // Create timestamps in ascending order (oldest to newest)
       const timestamps = Array.from({ length: 100 }, (_, i) => now - (99 - i) * 60000);
 
       setSecondaryIndicators({
@@ -494,6 +474,11 @@ export default function Chart() {
         horzLines: { color: '#1e222d' },
       }
     });
+  };
+
+  const calculateChange = (open?: number, close?: number) => {
+    if (!open || !close) return 0;
+    return ((close - open) / open) * 100;
   };
 
   useEffect(() => {
@@ -619,53 +604,50 @@ export default function Chart() {
         </Select>
       </div>
 
-      <div className="absolute top-2 right-24 z-10 flex gap-2">
-        <Button
-          variant={activeIndicator === 'rsi' ? 'default' : 'outline'}
-          className="h-7 text-xs px-2 bg-background"
-          onClick={() => setActiveIndicator(prev => prev === 'rsi' ? 'none' : 'rsi')}
-        >
-          RSI
-        </Button>
-        <Button
-          variant={activeIndicator === 'funding' ? 'default' : 'outline'}
-          className="h-7 text-xs px-2 bg-background"
-          onClick={() => setActiveIndicator(prev => prev === 'funding' ? 'none' : 'funding')}
-        >
-          Funding
-        </Button>
-        <Button
-          variant={activeIndicator === 'longShort' ? 'default' : 'outline'}
-          className="h-7 text-xs px-2 bg-background"
-          onClick={() => setActiveIndicator(prev => prev === 'longShort' ? 'none' : 'longShort')}
-        >
-          L/S Ratio
-        </Button>
-        <Button
-          variant={activeIndicator === 'deltaCvd' ? 'default' : 'outline'}
-          className="h-7 text-xs px-2 bg-background"
-          onClick={() => setActiveIndicator(prev => prev === 'deltaCvd' ? 'none' : 'deltaCvd')}
-        >
-          Delta CVD
-        </Button>
-      </div>
-
       {crosshairData && (
-        <div className="absolute top-14 left-2 z-10 bg-background/90 p-2 rounded-md border border-border shadow-lg text-xs">
-          <div className="grid grid-cols-2 gap-x-4">
-            <span className="text-muted-foreground">O:</span>
-            <span className="font-mono">{crosshairData.open?.toFixed(2) || '0.00'}</span>
-            <span className="text-muted-foreground">H:</span>
-            <span className="font-mono">{crosshairData.high?.toFixed(2) || '0.00'}</span>
-            <span className="text-muted-foreground">L:</span>
-            <span className="font-mono">{crosshairData.low?.toFixed(2) || '0.00'}</span>
-            <span className="text-muted-foreground">C:</span>
-            <span className="font-mono">{crosshairData.close?.toFixed(2) || '0.00'}</span>
-            <span className="text-muted-foreground">V:</span>
-            <span className="font-mono">{(crosshairData.volume || 0).toFixed(2)}</span>
-          </div>
+        <div className="absolute top-2 left-28 z-10 bg-background/90 p-2 rounded-md border border-border shadow-lg text-xs flex items-center gap-4">
+          <span className="font-mono">
+            O: {crosshairData.open?.toFixed(2) || '0.00'}
+          </span>
+          <span className="font-mono">
+            H: {crosshairData.high?.toFixed(2) || '0.00'}
+          </span>
+          <span className="font-mono">
+            L: {crosshairData.low?.toFixed(2) || '0.00'}
+          </span>
+          <span className="font-mono">
+            C: {crosshairData.close?.toFixed(2) || '0.00'}
+          </span>
+          <span className="font-mono">
+            V: {(crosshairData.volume || 0).toFixed(2)}
+          </span>
+          <span 
+            className={`font-mono ${calculateChange(crosshairData.open, crosshairData.close) >= 0 
+              ? 'text-green-500' 
+              : 'text-red-500'}`}
+          >
+            {calculateChange(crosshairData.open, crosshairData.close).toFixed(2)}%
+          </span>
         </div>
       )}
+
+      <div className="absolute top-2 right-24 z-10">
+        <Select
+          value={activeIndicator}
+          onValueChange={(value) => setActiveIndicator(value as ActiveIndicator)}
+        >
+          <SelectTrigger className="w-32 bg-background">
+            <SelectValue placeholder="Indicators" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            <SelectItem value="rsi">RSI</SelectItem>
+            <SelectItem value="funding">Funding Rate</SelectItem>
+            <SelectItem value="longShort">Long/Short Ratio</SelectItem>
+            <SelectItem value="deltaCvd">Delta CVD</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
