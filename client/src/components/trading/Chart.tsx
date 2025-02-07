@@ -116,7 +116,7 @@ export default function Chart() {
 
   const handleIntervalChange = async (newInterval: IntervalKey) => {
     try {
-      if (isLoading) return; // Prevenir cambios mientras se está cargando
+      if (isLoading) return;
       setIsLoading(true);
 
       console.log('Changing interval from', interval, 'to', newInterval);
@@ -129,13 +129,16 @@ export default function Chart() {
       historicalDataRef.current = [];
       setVolumeProfileData([]);
 
-      // 2. Actualizar el estado del intervalo
+      // 2. Esperar a que la limpieza se complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 3. Actualizar el intervalo
       setInterval(newInterval);
 
-      // 3. Esperar a que la limpieza se complete
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // 4. Esperar a que el estado se actualice
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      // 4. Cargar nuevos datos con el nuevo intervalo
+      // 5. Cargar nuevos datos con el nuevo intervalo
       await loadInitialData(currentSymbol);
 
       toast({
@@ -189,6 +192,12 @@ export default function Chart() {
       }
 
       if (candlestickSeriesRef.current && candlesticks && candlesticks.length > 0) {
+        // Verificar nuevamente el intervalo
+        if (currentInterval !== interval) {
+          console.log('Interval changed before processing data, aborting');
+          return;
+        }
+
         const formattedCandlesticks = candlesticks.map(candle => ({
           time: parseInt(candle.time) as Time,
           open: candle.open,
@@ -198,11 +207,9 @@ export default function Chart() {
           volume: candle.volume || 0
         }));
 
-        console.log('Formatted candlesticks:', formattedCandlesticks.length, 'for interval:', interval);
-
-        // Verificar nuevamente que el intervalo no haya cambiado
+        // Una última verificación antes de establecer los datos
         if (currentInterval !== interval) {
-          console.log('Interval changed during formatting, aborting');
+          console.log('Interval changed before setting data, aborting');
           return;
         }
 
@@ -219,7 +226,7 @@ export default function Chart() {
         // Esperar antes de iniciar el WebSocket
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Verificar una última vez antes de iniciar el WebSocket
+        // Verificación final antes de iniciar WebSocket
         if (currentInterval !== interval) {
           console.log('Interval changed before WebSocket initialization, aborting');
           return;
