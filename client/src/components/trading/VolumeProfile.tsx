@@ -48,51 +48,68 @@ export const VolumeProfile = ({
       svg.selectAll('*').remove();
       svg.attr('width', width).attr('height', height);
 
-      // Calcular el rango de precios visible actual
-      const visiblePriceSpan = Math.abs(priceCoordinates.maxPrice - priceCoordinates.minPrice);
+      // Calcular el nivel de zoom basado en el rango visible
       const zoomLevel = Math.abs(visibleLogicalRange.to - visibleLogicalRange.from);
 
       // Determinar el tamaño de agrupación basado en el zoom
       let bucketSize: number;
-      if (zoomLevel <= 50) { // Zoom muy cercano
-        bucketSize = 10;
-      } else if (zoomLevel <= 150) { // Zoom medio
-        bucketSize = 50;
-      } else { // Zoom lejano
-        bucketSize = 100;
+      if (zoomLevel <= 50) {
+        bucketSize = 10; // Zoom cercano: barras cada 10 dólares
+      } else if (zoomLevel <= 150) {
+        bucketSize = 50; // Zoom medio: barras cada 50 dólares (5 barras de 10)
+      } else {
+        bucketSize = 100; // Zoom lejano: barras cada 100 dólares (2 barras de 50)
       }
 
       console.log('Zoom metrics:', {
-        visiblePriceSpan,
         zoomLevel,
-        selectedBucketSize: bucketSize
+        bucketSize,
+        dataPoints: data.length
       });
 
       // Agrupar los datos según el bucketSize
-      const groupedData = new Map<number, { volume: number; normalizedVolume: number }>();
+      const groupedData = new Map<number, { volume: number; count: number }>();
 
+      // Primera pasada: agrupar volúmenes
       data.forEach(item => {
-        const bucketPrice = Math.round(item.price / bucketSize) * bucketSize;
+        const bucketPrice = Math.floor(item.price / bucketSize) * bucketSize;
         const existing = groupedData.get(bucketPrice);
 
         if (existing) {
           existing.volume += item.volume;
-          existing.normalizedVolume = Math.max(existing.normalizedVolume, item.normalizedVolume);
+          existing.count += 1;
         } else {
           groupedData.set(bucketPrice, {
             volume: item.volume,
-            normalizedVolume: item.normalizedVolume
+            count: 1
           });
         }
       });
 
-      // Convertir el Map a array y ordenar por precio
+      // Convertir el Map a array y calcular volúmenes normalizados
       const bars = Array.from(groupedData.entries())
-        .map(([price, data]) => ({
-          price,
-          ...data
-        }))
+        .map(([price, { volume, count }]) => {
+          return {
+            price,
+            volume,
+            count,
+            avgVolume: volume / count
+          };
+        })
         .sort((a, b) => a.price - b.price);
+
+      // Calcular el volumen máximo para normalización
+      const maxVolume = Math.max(...bars.map(b => b.avgVolume));
+      const normalizedBars = bars.map(bar => ({
+        ...bar,
+        normalizedVolume: bar.avgVolume / maxVolume
+      }));
+
+      console.log('Normalized bars:', {
+        bucketSize,
+        barsCount: normalizedBars.length,
+        sampleBar: normalizedBars[0]
+      });
 
       // Configurar escalas
       const xScale = d3.scaleLinear()
@@ -104,6 +121,7 @@ export const VolumeProfile = ({
         .range([priceCoordinates.minY, priceCoordinates.maxY]);
 
       // Calcular altura de las barras
+      const visiblePriceSpan = Math.abs(priceCoordinates.maxPrice - priceCoordinates.minPrice);
       const pixelsPerPrice = Math.abs(priceCoordinates.maxY - priceCoordinates.minY) / visiblePriceSpan;
       const barHeight = Math.max(1, pixelsPerPrice * bucketSize * 0.9);
 
@@ -118,7 +136,7 @@ export const VolumeProfile = ({
 
       // Dibujar barras
       svg.selectAll('rect')
-        .data(bars)
+        .data(normalizedBars)
         .join('rect')
         .attr('y', d => priceScale(d.price))
         .attr('x', d => xScale(d.normalizedVolume))
@@ -131,7 +149,7 @@ export const VolumeProfile = ({
       const fontSize = Math.min(12, Math.max(8, barHeight * 0.7));
       if (barHeight >= 8) {
         svg.selectAll('text')
-          .data(bars)
+          .data(normalizedBars)
           .join('text')
           .attr('x', 5)
           .attr('y', d => priceScale(d.price) + barHeight / 2)
@@ -139,7 +157,7 @@ export const VolumeProfile = ({
           .attr('fill', '#ffffff')
           .attr('font-size', `${fontSize}px`)
           .attr('opacity', barHeight < 12 ? 0.8 : 1)
-          .text(d => d.price.toFixed(0));
+          .text(d => `${d.price} (${d.count})`); // Mostrar precio y cantidad de barras agrupadas
       }
 
     } catch (error) {
