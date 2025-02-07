@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeftRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VolumeProfile } from './VolumeProfile';
+import { tradingViewService } from '@/lib/tradingview-service';
 import {
   Select,
   SelectContent,
@@ -150,17 +151,24 @@ export default function Chart() {
       console.log('Loading historical data for:', formattedSymbol);
 
       const now = Date.now();
-      const ninetyDaysAgo = now - (90 * 24 * 60 * 60 * 1000); // Increased to 90 days
+      const ninetyDaysAgo = now - (90 * 24 * 60 * 60 * 1000);
 
       // Use TradingViewService for historical data
-      const candlesticks = await tradingViewService.getHistory({
-        symbol: formattedSymbol,
-        resolution: TradingViewService.intervalToResolution(interval),
-        from: Math.floor(ninetyDaysAgo / 1000),
-        to: Math.floor(now / 1000)
-      });
+      let candlesticks;
+      try {
+        candlesticks = await tradingViewService.getHistory({
+          symbol: formattedSymbol,
+          resolution: tradingViewService.intervalToResolution(interval),
+          from: Math.floor(ninetyDaysAgo / 1000),
+          to: Math.floor(now / 1000)
+        });
+        console.log('Successfully fetched candlesticks:', candlesticks.length);
+      } catch (fetchError) {
+        console.error('Error fetching candlesticks:', fetchError);
+        throw fetchError;
+      }
 
-      if (candlestickSeriesRef.current && candlesticks.length > 0) {
+      if (candlestickSeriesRef.current && candlesticks && candlesticks.length > 0) {
         const formattedCandlesticks = candlesticks.map(candle => ({
           time: parseInt(candle.time) as Time,
           open: candle.open,
@@ -169,6 +177,8 @@ export default function Chart() {
           close: candle.close,
           volume: candle.volume || 0
         }));
+
+        console.log('Formatted candlesticks:', formattedCandlesticks.length);
 
         candlestickSeriesRef.current.setData([]);
         historicalDataRef.current = [];
@@ -193,6 +203,9 @@ export default function Chart() {
           title: 'Data Loaded',
           description: `Loaded ${formattedCandlesticks.length} historical candles`,
         });
+      } else {
+        console.error('No candlesticks data available or series not initialized');
+        throw new Error('No data available');
       }
     } catch (error) {
       console.error('Error loading historical data:', error);

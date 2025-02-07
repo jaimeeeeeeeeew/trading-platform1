@@ -41,6 +41,18 @@ class TradingViewService {
       .replace('PERP', '');
   }
 
+  public intervalToResolution(interval: string): Resolution {
+    const map: Record<string, Resolution> = {
+      '1m': '1',
+      '5m': '5',
+      '15m': '15',
+      '1h': '60',
+      '4h': '240',
+      '1d': 'D',
+    };
+    return map[interval] || '60';
+  }
+
   async getHistory({ symbol, resolution, from, to, countback }: HistoryParams): Promise<Bar[]> {
     try {
       const formattedSymbol = this.formatSymbolForBinance(symbol);
@@ -58,14 +70,22 @@ class TradingViewService {
         timeSegments.push({ from: segmentFrom, to: segmentTo });
       }
 
+      console.log(`Fetching ${timeSegments.length} segments of historical data`);
+
       // Fetch data for each time segment
       const responses = await Promise.all(
         timeSegments.map(segment =>
           fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${formattedSymbol}&interval=${this.resolutionToInterval(resolution)}&limit=1000&startTime=${segment.from * 1000}&endTime=${segment.to * 1000}`)
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              return response.json();
+            })
         )
       );
 
-      const allData = await Promise.all(responses.map(r => r.json()));
+      const allData = await Promise.all(responses);
 
       // Flatten and sort all segments
       const sortedData = allData
@@ -74,6 +94,8 @@ class TradingViewService {
         .filter((value, index, self) => 
           index === 0 || value[0] !== self[index - 1][0]
         );
+
+      console.log(`Received ${sortedData.length} total candles`);
 
       // Transform to Bar format
       return sortedData.map(d => ({
@@ -101,18 +123,6 @@ class TradingViewService {
       'D': '1d'
     };
     return map[resolution];
-  }
-
-  static intervalToResolution(interval: string): Resolution {
-    const map: Record<string, Resolution> = {
-      '1m': '1',
-      '5m': '5',
-      '15m': '15',
-      '1h': '60',
-      '4h': '240',
-      '1d': 'D',
-    };
-    return map[interval] || '60';
   }
 }
 
