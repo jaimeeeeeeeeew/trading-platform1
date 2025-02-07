@@ -116,10 +116,12 @@ export default function Chart() {
 
   const handleIntervalChange = async (newInterval: IntervalKey) => {
     try {
+      if (isLoading) return; // Prevenir cambios mientras se está cargando
       setIsLoading(true);
-      setInterval(newInterval);
 
-      // Limpiar estado actual
+      console.log('Changing interval from', interval, 'to', newInterval);
+
+      // 1. Limpiar completamente el estado actual
       cleanupWebSocket();
       if (candlestickSeriesRef.current) {
         candlestickSeriesRef.current.setData([]);
@@ -127,10 +129,13 @@ export default function Chart() {
       historicalDataRef.current = [];
       setVolumeProfileData([]);
 
-      // Esperar a que se complete la limpieza
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // 2. Actualizar el estado del intervalo
+      setInterval(newInterval);
 
-      // Cargar nuevos datos
+      // 3. Esperar a que la limpieza se complete
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 4. Cargar nuevos datos con el nuevo intervalo
       await loadInitialData(currentSymbol);
 
       toast({
@@ -159,14 +164,24 @@ export default function Chart() {
       const now = Date.now();
       const ninetyDaysAgo = now - (90 * 24 * 60 * 60 * 1000);
 
+      // Guardar el intervalo actual para validación
+      const currentInterval = interval;
+
       let candlesticks;
       try {
         candlesticks = await tradingViewService.getHistory({
           symbol: formattedSymbol,
-          resolution: tradingViewService.intervalToResolution(interval),
+          resolution: tradingViewService.intervalToResolution(currentInterval),
           from: Math.floor(ninetyDaysAgo / 1000),
           to: Math.floor(now / 1000)
         });
+
+        // Verificar que el intervalo no haya cambiado durante la carga
+        if (currentInterval !== interval) {
+          console.log('Interval changed during data fetch, aborting');
+          return;
+        }
+
         console.log('Successfully fetched candlesticks:', candlesticks.length, 'for interval:', interval);
       } catch (fetchError) {
         console.error('Error fetching candlesticks:', fetchError);
@@ -185,11 +200,12 @@ export default function Chart() {
 
         console.log('Formatted candlesticks:', formattedCandlesticks.length, 'for interval:', interval);
 
-        // Asegurarse de que las series estén limpias
-        candlestickSeriesRef.current.setData([]);
-        historicalDataRef.current = [];
+        // Verificar nuevamente que el intervalo no haya cambiado
+        if (currentInterval !== interval) {
+          console.log('Interval changed during formatting, aborting');
+          return;
+        }
 
-        // Establecer nuevos datos
         candlestickSeriesRef.current.setData(formattedCandlesticks);
         handleAutoFit();
 
@@ -200,8 +216,14 @@ export default function Chart() {
 
         updateVolumeProfile(historicalDataRef.current);
 
-        // Esperar a que los datos históricos se establezcan antes de iniciar WebSocket
+        // Esperar antes de iniciar el WebSocket
         await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Verificar una última vez antes de iniciar el WebSocket
+        if (currentInterval !== interval) {
+          console.log('Interval changed before WebSocket initialization, aborting');
+          return;
+        }
 
         cleanupWebSocket();
         initializeWebSocket(formattedSymbol);
@@ -235,7 +257,7 @@ export default function Chart() {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('WebSocket connected for interval:', interval);
         toast({
           title: 'Connected',
           description: 'Real-time connection established',
@@ -245,7 +267,8 @@ export default function Chart() {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.e === 'kline' && data.s === symbol.toUpperCase()) {
+          // Verificar que el mensaje corresponda al intervalo actual
+          if (data.e === 'kline' && data.k.i === interval && data.s === symbol.toUpperCase()) {
             const kline = data.k;
             const bar = {
               time: Math.floor(kline.t / 1000) as Time,
@@ -280,7 +303,7 @@ export default function Chart() {
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
+        console.log('WebSocket disconnected for interval:', interval);
         if (wsRef.current === ws) {
           clearTimeout(reconnectTimeout);
           reconnectTimeout = setTimeout(() => {
