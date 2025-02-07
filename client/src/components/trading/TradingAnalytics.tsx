@@ -11,7 +11,8 @@ import {
   Calendar,
   AlertCircle,
   Trophy,
-  TrendingDown
+  TrendingDown,
+  Key
 } from 'lucide-react';
 import {
   Tabs,
@@ -154,83 +155,57 @@ export default function TradingAnalytics() {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between mb-2">
-        <div className="space-y-1">
-          <div className="flex gap-2">
-            <div>
-              <Label htmlFor="api-key" className="text-[10px]">API Key</Label>
-              <Input
-                id="api-key"
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="BingX API Key"
-                className="text-[10px] h-6"
-              />
-            </div>
-            <div>
-              <Label htmlFor="api-secret" className="text-[10px]">API Secret</Label>
-              <Input
-                id="api-secret"
-                type="password"
-                value={apiSecret}
-                onChange={(e) => setApiSecret(e.target.value)}
-                placeholder="BingX API Secret"
-                className="text-[10px] h-6"
-              />
-            </div>
-            <Button 
-              onClick={handleSaveApiKey}
-              className="h-6 text-[10px] px-2 mt-4"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Cargando...' : 'Guardar'}
-            </Button>
-          </div>
-        </div>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant={"outline"}
-              className={cn(
-                "justify-start text-left font-normal h-6",
-                !date && "text-muted-foreground"
-              )}
-            >
-              <Calendar className="mr-2 h-3 w-3" />
-              {date?.from ? (
-                date.to ? (
-                  <>
-                    {format(date.from, "LLL dd", { locale: es })} -{" "}
-                    {format(date.to, "LLL dd, y", { locale: es })}
-                  </>
-                ) : (
-                  format(date.from, "LLL dd, y", { locale: es })
-                )
-              ) : (
-                <span>Selecciona un rango</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="end">
-            <CalendarComponent
-              initialFocus
-              mode="range"
-              defaultMonth={date?.from}
-              selected={date}
-              onSelect={setDate}
-              numberOfMonths={2}
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-
       <Tabs defaultValue="performance" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-6">
+        <TabsList className="grid w-full grid-cols-4 h-6">
           <TabsTrigger value="performance" className="text-[10px]">Rendimiento</TabsTrigger>
           <TabsTrigger value="analysis" className="text-[10px]">Análisis</TabsTrigger>
           <TabsTrigger value="suggestions" className="text-[10px]">Sugerencias</TabsTrigger>
+          <TabsTrigger value="apis" className="text-[10px]">APIs</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="apis">
+          <Card className="p-4">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Key className="h-4 w-4" />
+                <h3 className="text-sm font-medium">Configuración de APIs</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="api-key">API Key</Label>
+                  <Input
+                    id="api-key"
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Ingresa tu BingX API Key"
+                    className="h-8"
+                  />
+                  <p className="text-[10px] text-muted-foreground">La API Key de tu cuenta de BingX</p>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="api-secret">API Secret</Label>
+                  <Input
+                    id="api-secret"
+                    type="password"
+                    value={apiSecret}
+                    onChange={(e) => setApiSecret(e.target.value)}
+                    placeholder="Ingresa tu BingX API Secret"
+                    className="h-8"
+                  />
+                  <p className="text-[10px] text-muted-foreground">El API Secret de tu cuenta de BingX</p>
+                </div>
+                <Button 
+                  onClick={handleSaveApiKey}
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Guardando...' : 'Guardar Credenciales'}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="performance" className="space-y-2">
           <div className="grid grid-cols-2 gap-2">
@@ -358,6 +333,43 @@ export default function TradingAnalytics() {
           </div>
         </TabsContent>
       </Tabs>
+      <div className="flex items-center justify-between mb-2"> {/* This section remains mostly unchanged */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className={cn(
+                "justify-start text-left font-normal h-6",
+                !date && "text-muted-foreground"
+              )}
+            >
+              <Calendar className="mr-2 h-3 w-3" />
+              {date?.from ? (
+                date.to ? (
+                  <>
+                    {format(date.from, "LLL dd", { locale: es })} -{" "}
+                    {format(date.to, "LLL dd, y", { locale: es })}
+                  </>
+                ) : (
+                  format(date.from, "LLL dd, y", { locale: es })
+                )
+              ) : (
+                <span>Selecciona un rango</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <CalendarComponent
+              initialFocus
+              mode="range"
+              defaultMonth={date?.from}
+              selected={date}
+              onSelect={setDate}
+              numberOfMonths={2}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
     </div>
   );
 }
