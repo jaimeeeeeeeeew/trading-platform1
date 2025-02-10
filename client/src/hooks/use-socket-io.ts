@@ -67,8 +67,8 @@ export function useSocketIO({
       path: '/trading-socket',
       reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
-      transports: ['websocket'],
-      timeout: 30000,
+      transports: ['websocket', 'polling'],
+      timeout: 45000,
       forceNew: true,
       autoConnect: true,
       reconnection: true,
@@ -119,7 +119,9 @@ export function useSocketIO({
 
     socket.on('reconnect_needed', () => {
       console.log('⚠️ Reconexión necesaria, intentando reconectar...');
-      socket.connect();
+      if (!socket.connected && reconnectAttempts.current < maxReconnectAttempts) {
+        socket.connect();
+      }
     });
 
     socket.on('error', (error) => {

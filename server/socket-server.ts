@@ -20,15 +20,16 @@ export function setupSocketServer(httpServer: HTTPServer) {
     path: '/trading-socket',
     cors: {
       origin: "*",
-      methods: ["GET", "POST"]
+      methods: ["GET", "POST"],
+      credentials: true
     },
-    pingTimeout: 30000,
-    pingInterval: 15000,
-    transports: ['websocket'],
-    connectTimeout: 30000,
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket', 'polling'],
+    connectTimeout: 45000,
     maxHttpBufferSize: 1e6,
-    allowUpgrades: false,
-    upgradeTimeout: 15000
+    allowUpgrades: true,
+    upgradeTimeout: 30000
   });
 
   io.on('connection', (socket) => {
@@ -63,7 +64,11 @@ export function setupSocketServer(httpServer: HTTPServer) {
 
     socket.on('orderbook_data', (data) => {
       try {
-        console.log('📊 Datos de orderbook recibidos - Cliente:', socket.id);
+        console.log('📊 Datos de orderbook recibidos - Cliente:', socket.id, {
+          timestamp: new Date().toISOString(),
+          dataType: typeof data,
+          hasData: !!data
+        });
         lastOrderbookData = data;
         processAndSendOrderbookData(socket, data);
       } catch (error) {
@@ -86,6 +91,14 @@ export function setupSocketServer(httpServer: HTTPServer) {
     socket.on('disconnect', (reason) => {
       console.log('🔴 Cliente Socket.IO desconectado - ID:', socket.id, 'Razón:', reason);
       clearHeartbeatCheck();
+
+      // Intentar reconexión después de un tiempo si la desconexión no fue intencional
+      if (reason === 'transport close' || reason === 'ping timeout') {
+        setTimeout(() => {
+          console.log('🔄 Enviando señal de reconexión al cliente:', socket.id);
+          io.to(socket.id).emit('reconnect_needed');
+        }, 5000);
+      }
     });
 
     startHeartbeatCheck();
@@ -96,7 +109,12 @@ export function setupSocketServer(httpServer: HTTPServer) {
 
 function processAndSendOrderbookData(socket: any, data: any) {
   if (!data || !data.bids || !data.asks) {
-    console.warn('⚠️ Datos de orderbook inválidos:', data);
+    console.warn('⚠️ Datos de orderbook inválidos:', {
+      timestamp: new Date().toISOString(),
+      tieneData: !!data,
+      tieneBids: data?.bids?.length,
+      tieneAsks: data?.asks?.length
+    });
     return;
   }
 
