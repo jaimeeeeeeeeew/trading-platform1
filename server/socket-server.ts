@@ -26,10 +26,10 @@ export function setupSocketServer(httpServer: HTTPServer) {
     },
     pingTimeout: 120000,
     pingInterval: 25000,
-    transports: ['websocket', 'polling'],
+    transports: ['websocket'],
     connectTimeout: 120000,
     maxHttpBufferSize: 1e6,
-    allowUpgrades: true,
+    allowUpgrades: false,
     upgradeTimeout: 30000,
     cookie: false
   });

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-type ConnectionState = 'listening' | 'connected' | 'disconnected';
+type ConnectionState = 'connected' | 'disconnected';
 
 interface UseSocketOptions {
   enabled?: boolean;
@@ -73,7 +73,7 @@ export function useSocketIO({
 
     const socket = io(window.location.origin, {
       path: '/trading-socket',
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'], // Solo usar WebSocket
       timeout: 60000,
       reconnection: true,
       reconnectionAttempts: maxReconnectAttempts,
@@ -82,8 +82,8 @@ export function useSocketIO({
       randomizationFactor: 0.5,
       autoConnect: true,
       forceNew: true,
-      upgrade: true,
-      rememberUpgrade: true
+      upgrade: false, // Deshabilitar actualización de transporte
+      rememberUpgrade: false
     });
 
     socketRef.current = socket;
