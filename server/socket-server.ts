@@ -43,11 +43,10 @@ export function setupSocketServer(httpServer: HTTPServer) {
               console.log('Estructura raw de los primeros bids:', JSON.stringify(arg.bids.slice(0, 5)));
               arg.bids.slice(0, 5).forEach((bid: any, i: number) => {
                 console.log(`Bid ${i + 1} estructura completa:`, bid);
-                // Intentar acceder a los datos de diferentes maneras posibles
                 if (Array.isArray(bid)) {
                   console.log(`Precio: ${bid[0]}, Cantidad: ${bid[1]}`);
                 } else if (typeof bid === 'object') {
-                  console.log(`Precio: ${bid.price || bid.p}, Cantidad: ${bid.quantity || bid.q || bid.amount || bid.a}`);
+                  console.log(`Precio: ${bid.Price}, Cantidad: ${bid.Quantity}`);
                 }
               });
               console.log(`... y ${arg.bids.length - 5} más`);
@@ -61,7 +60,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
                 if (Array.isArray(ask)) {
                   console.log(`Precio: ${ask[0]}, Cantidad: ${ask[1]}`);
                 } else if (typeof ask === 'object') {
-                  console.log(`Precio: ${ask.price || ask.p}, Cantidad: ${ask.quantity || ask.q || ask.amount || ask.a}`);
+                  console.log(`Precio: ${ask.Price}, Cantidad: ${ask.Quantity}`);
                 }
               });
               console.log(`... y ${arg.asks.length - 5} más`);
