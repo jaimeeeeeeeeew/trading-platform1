@@ -8,12 +8,13 @@ export function setupSocketServer(httpServer: HTTPServer) {
     path: '/trading-socket',
     cors: {
       origin: "*",
-      methods: ["GET", "POST"],
-      credentials: true
+      methods: ["GET", "POST", "OPTIONS"],
+      credentials: true,
+      allowedHeaders: ["*"]
     },
     pingTimeout: 60000,
     pingInterval: 10000,
-    transports: ['polling', 'websocket'],
+    transports: ['websocket', 'polling'],
     connectTimeout: 60000
   });
 
@@ -22,6 +23,12 @@ export function setupSocketServer(httpServer: HTTPServer) {
   io.on('connection', (socket) => {
     console.log('🟢 New client connected - ID:', socket.id);
 
+    socket.on('market_data', (data) => {
+      console.log('📊 Received market data:', data);
+      // Broadcast the data to all connected clients except sender
+      socket.broadcast.emit('market_update', data);
+    });
+
     socket.on('disconnect', (reason) => {
       console.log('🔴 Client disconnected:', {
         id: socket.id,
@@ -29,7 +36,6 @@ export function setupSocketServer(httpServer: HTTPServer) {
       });
     });
 
-    // Basic error handling
     socket.on('error', (error) => {
       console.error('❌ Socket error:', socket.id, error);
     });
