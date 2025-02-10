@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { VolumeProfile } from './VolumeProfile';
 import { tradingViewService } from '@/lib/tradingview-service';
+import { useSocketIO } from '@/hooks/use-socket-io';
 import {
   Select,
   SelectContent,
@@ -51,38 +52,6 @@ const INTERVALS = {
 
 type IntervalKey = keyof typeof INTERVALS;
 
-const generateSimulatedVolumeProfile = (currentPrice: number) => {
-  try {
-    console.log('Generating volume profile with current price:', currentPrice);
-    const volumeProfileData: Array<{ price: number; volume: number; normalizedVolume: number }> = [];
-
-    const dataMinPrice = Math.floor(currentPrice * 0.95);
-    const dataMaxPrice = Math.ceil(currentPrice * 1.05);
-    const interval = 10;
-
-    for (let price = dataMinPrice; price <= dataMaxPrice; price += interval) {
-      const distanceFromCurrent = Math.abs(price - currentPrice);
-      const volumeBase = Math.max(0, 1 - (distanceFromCurrent / (currentPrice * 0.02)) ** 2);
-      const randomFactor = 0.8 + Math.random() * 0.4;
-      const volume = volumeBase * randomFactor * 1000;
-
-      console.log(`Generating bar for price ${price} with volume ${volume}`);
-      volumeProfileData.push({ price, volume, normalizedVolume: 0 });
-    }
-
-    const maxVolume = Math.max(...volumeProfileData.map(d => d.volume));
-    const normalizedData = volumeProfileData.map(data => ({
-      ...data,
-      normalizedVolume: data.volume / maxVolume
-    }));
-
-    console.log(`Generated ${normalizedData.length} bars from ${dataMinPrice} to ${dataMaxPrice}`);
-    return normalizedData;
-  } catch (error) {
-    console.error('Error generating volume profile:', error);
-    return [];
-  }
-};
 
 type ActiveIndicator = 'none' | 'rsi' | 'funding' | 'longShort' | 'deltaCvd';
 
@@ -112,6 +81,27 @@ export default function Chart() {
   const [visibleRange, setVisibleRange] = useState<{from: number; to: number} | null>(null);
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
   const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
+
+  const { socket } = useSocketIO({
+    onProfileData: (data) => {
+      if (!data || data.length === 0) return;
+
+      const processedData = data.map(item => ({
+        price: item.price,
+        volume: item.volume,
+        normalizedVolume: 0 
+      }));
+
+      const maxVolume = Math.max(...processedData.map(d => d.volume));
+      const normalizedData = processedData.map(data => ({
+        ...data,
+        normalizedVolume: data.volume / maxVolume
+      }));
+
+      setVolumeProfileData(normalizedData);
+    }
+  });
+
 
   const cleanupWebSocket = () => {
     if (wsRef.current) {
@@ -432,8 +422,6 @@ export default function Chart() {
       if (!currentPrice || isNaN(currentPrice)) return;
 
       setCurrentChartPrice(currentPrice);
-      const simulatedData = generateSimulatedVolumeProfile(currentPrice);
-      setVolumeProfileData(simulatedData);
     } catch (error) {
       console.error('Error updating volume profile:', error);
     }

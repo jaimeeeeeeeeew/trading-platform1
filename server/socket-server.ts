@@ -42,20 +42,22 @@ export function setupSocketServer(httpServer: HTTPServer) {
       if (eventName === 'orderbook_data') {
         const orderBookData = args[0];
         if (orderBookData && orderBookData.bids && orderBookData.asks) {
-          // Procesar bids y asks para el perfil
+          // Procesar datos para el perfil de volumen
           const processedData = processOrderBookForProfile(orderBookData.bids, orderBookData.asks);
 
-          // Enviar datos procesados para el perfil
-          socket.emit('profile_data', processedData);
+          // Agrupar los datos en rangos de $10
+          const groupedData = groupDataByPriceRange(processedData, 10);
 
-          // Log de datos procesados
+          // Enviar datos procesados para el perfil
+          socket.emit('profile_data', groupedData);
+
           console.log('\n📊 Datos procesados para el perfil:');
-          console.log(`- Total niveles de precio: ${processedData.length}`);
-          console.log('- Muestra de datos:', processedData.slice(0, 3));
+          console.log(`- Total niveles de precio: ${groupedData.length}`);
+          console.log('- Muestra de datos:', groupedData.slice(0, 3));
         }
       }
 
-      // Mantener el logging detallado original
+      // Log detallado para debugging
       console.log(`\n🟣 Evento Socket.IO recibido - ${eventName}:`);
       args.forEach((arg) => {
         if (arg && typeof arg === 'object') {
@@ -63,14 +65,14 @@ export function setupSocketServer(httpServer: HTTPServer) {
             console.log('\nOrderbook Data:');
             if (arg.bids) {
               console.log('\nBids:');
-              arg.bids.slice(0, 5).forEach((bid: OrderBookLevel, i: number) => {
+              arg.bids.slice(0, 5).forEach((bid: OrderBookLevel) => {
                 console.log(`Precio: ${bid.Price}, Cantidad: ${bid.Quantity}`);
               });
               console.log(`... y ${arg.bids.length - 5} más`);
             }
             if (arg.asks) {
               console.log('\nAsks:');
-              arg.asks.slice(0, 5).forEach((ask: OrderBookLevel, i: number) => {
+              arg.asks.slice(0, 5).forEach((ask: OrderBookLevel) => {
                 console.log(`Precio: ${ask.Price}, Cantidad: ${ask.Quantity}`);
               });
               console.log(`... y ${arg.asks.length - 5} más`);
@@ -118,8 +120,30 @@ function processOrderBookForProfile(
     });
   });
 
-  // Ordenar por precio
   return processedData.sort((a, b) => a.price - b.price);
+}
+
+function groupDataByPriceRange(data: ProcessedOrderBookData[], rangeSize: number): ProcessedOrderBookData[] {
+  const groupedData = new Map<number, ProcessedOrderBookData>();
+
+  data.forEach(item => {
+    const bucketPrice = Math.floor(item.price / rangeSize) * rangeSize;
+    const existing = groupedData.get(bucketPrice);
+
+    if (existing) {
+      existing.volume += item.volume;
+      existing.total = item.side === 'bid' ? Math.max(existing.total, item.total) : Math.max(existing.total, item.total);
+    } else {
+      groupedData.set(bucketPrice, {
+        price: bucketPrice,
+        volume: item.volume,
+        side: item.side,
+        total: item.total
+      });
+    }
+  });
+
+  return Array.from(groupedData.values()).sort((a, b) => a.price - b.price);
 }
 
 export { io };
