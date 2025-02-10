@@ -7,7 +7,7 @@ interface UseSocketOptions {
   enabled?: boolean;
   onData?: (data: any) => void;
   onProfileData?: (data: ProfileData[]) => void;
-  onError?: (error: any) => void;
+  onError?: () => void;
 }
 
 interface ProfileData {
@@ -42,7 +42,7 @@ export function useSocketIO({
       clearInterval(heartbeatInterval.current);
     }
     heartbeatInterval.current = setInterval(() => {
-      if (socket.connected) {
+      if (socket && socket.connected) {
         console.log('📤 Enviando heartbeat');
         socket.emit('heartbeat');
       }
@@ -73,7 +73,7 @@ export function useSocketIO({
 
     const socket = io(window.location.origin, {
       path: '/trading-socket',
-      transports: ['websocket'], // Solo usar WebSocket
+      transports: ['polling', 'websocket'], // Permitir fallback a polling
       timeout: 60000,
       reconnection: true,
       reconnectionAttempts: maxReconnectAttempts,
@@ -82,8 +82,7 @@ export function useSocketIO({
       randomizationFactor: 0.5,
       autoConnect: true,
       forceNew: true,
-      upgrade: false, // Deshabilitar actualización de transporte
-      rememberUpgrade: false
+      upgrade: true
     });
 
     socketRef.current = socket;
@@ -126,7 +125,7 @@ export function useSocketIO({
 
     socket.on('error', (error) => {
       console.error('❌ Error:', error);
-      onError?.(error);
+      onError?.();
     });
 
     socket.on('connect_error', (error) => {
@@ -135,7 +134,7 @@ export function useSocketIO({
       if (reconnectAttempts.current >= maxReconnectAttempts) {
         console.log('❌ Máximo de intentos de reconexión alcanzado');
         socket.disconnect();
-        onError?.(error);
+        onError?.();
       }
     });
 

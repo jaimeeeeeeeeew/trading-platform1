@@ -26,10 +26,10 @@ export function setupSocketServer(httpServer: HTTPServer) {
     },
     pingTimeout: 120000,
     pingInterval: 25000,
-    transports: ['websocket'],
+    transports: ['polling', 'websocket'], // Permitir ambos transportes
     connectTimeout: 120000,
     maxHttpBufferSize: 1e6,
-    allowUpgrades: false,
+    allowUpgrades: true,
     upgradeTimeout: 30000,
     cookie: false
   });
@@ -129,6 +129,15 @@ export function setupSocketServer(httpServer: HTTPServer) {
         consecutiveFailures
       });
       cleanup();
+    });
+
+    // Manejar el evento de actualización de transporte
+    socket.on('upgrading', () => {
+      console.log('🔄 Actualizando transporte para cliente:', socket.id);
+    });
+
+    socket.on('upgraded', () => {
+      console.log('✅ Transporte actualizado para cliente:', socket.id);
     });
 
     // Iniciar el primer heartbeat check
