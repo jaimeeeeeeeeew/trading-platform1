@@ -52,7 +52,14 @@ export const VolumeProfile = ({
       const zoomLevel = Math.abs(visibleLogicalRange.to - visibleLogicalRange.from);
 
       // Determinar el tamaño de agrupación basado en el zoom
-      let bucketSize = 10; // Fijamos en 10$ como solicitado
+      let bucketSize: number;
+      if (zoomLevel <= 50) {
+        bucketSize = 10; // Zoom cercano: barras cada 10 dólares
+      } else if (zoomLevel <= 150) {
+        bucketSize = 50; // Zoom medio: barras cada 50 dólares (5 barras de 10)
+      } else {
+        bucketSize = 100; // Zoom lejano: barras cada 100 dólares (2 barras de 50)
+      }
 
       console.log('Zoom metrics:', {
         zoomLevel,
@@ -81,12 +88,14 @@ export const VolumeProfile = ({
 
       // Convertir el Map a array y calcular volúmenes normalizados
       const bars = Array.from(groupedData.entries())
-        .map(([price, { volume, count }]) => ({
-          price,
-          volume,
-          count,
-          avgVolume: volume / count
-        }))
+        .map(([price, { volume, count }]) => {
+          return {
+            price,
+            volume,
+            count,
+            avgVolume: volume / count
+          };
+        })
         .sort((a, b) => a.price - b.price);
 
       // Calcular el volumen máximo para normalización
@@ -95,6 +104,12 @@ export const VolumeProfile = ({
         ...bar,
         normalizedVolume: bar.avgVolume / maxVolume
       }));
+
+      console.log('Normalized bars:', {
+        bucketSize,
+        barsCount: normalizedBars.length,
+        sampleBar: normalizedBars[0]
+      });
 
       // Configurar escalas
       const xScale = d3.scaleLinear()
@@ -142,7 +157,7 @@ export const VolumeProfile = ({
           .attr('fill', '#ffffff')
           .attr('font-size', `${fontSize}px`)
           .attr('opacity', barHeight < 12 ? 0.8 : 1)
-          .text(d => `${d.price} (${d.volume.toFixed(2)})`);
+          .text(d => `${d.price} (${d.count})`); // Mostrar precio y cantidad de barras agrupadas
       }
 
     } catch (error) {

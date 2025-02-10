@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import SecondaryIndicator from './SecondaryIndicator';
-import { useSocketIO } from '@/hooks/use-socket-io';
 
 interface PriceCoordinates {
   currentPrice: number;
@@ -113,12 +112,6 @@ export default function Chart() {
   const [visibleRange, setVisibleRange] = useState<{from: number; to: number} | null>(null);
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
   const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
-  const [socketVolumeData, setSocketVolumeData] = useState<Array<{
-    price: number;
-    volume: number;
-    side: 'bid' | 'ask';
-    total: number;
-  }>>([]);
 
   const cleanupWebSocket = () => {
     if (wsRef.current) {
@@ -439,19 +432,8 @@ export default function Chart() {
       if (!currentPrice || isNaN(currentPrice)) return;
 
       setCurrentChartPrice(currentPrice);
-
-      // Si tenemos datos del socket, los usamos; si no, usamos la simulación
-      if (socketVolumeData.length > 0) {
-        const normalizedData = socketVolumeData.map(item => ({
-          price: item.price,
-          volume: item.volume,
-          normalizedVolume: item.volume / Math.max(...socketVolumeData.map(d => d.volume))
-        }));
-        setVolumeProfileData(normalizedData);
-      } else {
-        const simulatedData = generateSimulatedVolumeProfile(currentPrice);
-        setVolumeProfileData(simulatedData);
-      }
+      const simulatedData = generateSimulatedVolumeProfile(currentPrice);
+      setVolumeProfileData(simulatedData);
     } catch (error) {
       console.error('Error updating volume profile:', error);
     }
@@ -600,28 +582,6 @@ export default function Chart() {
     handleResize();
     fetchSecondaryIndicators(currentSymbol);
   }, [activeIndicator, currentSymbol]);
-
-  const { isConnected, onProfileData, onError } = useSocketIO({
-    enabled: true,
-    onProfileData: (data) => {
-      console.log('Recibidos datos de perfil via Socket.IO:', data);
-      if (Array.isArray(data)) {
-        setSocketVolumeData(data);
-        // Trigger volume profile update when new data arrives
-        if (data.length > 0) {
-          updateVolumeProfile([{ close: currentChartPrice || 0, volume: 0 }]);
-        }
-      }
-    },
-    onError: (error) => {
-      console.error('Error en Socket.IO:', error);
-      toast({
-        title: 'Error de conexión',
-        description: 'Error al conectar con el servidor de datos',
-        variant: 'destructive',
-      });
-    }
-  });
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
