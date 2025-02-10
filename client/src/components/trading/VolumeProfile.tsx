@@ -39,7 +39,12 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0 || !priceCoordinates || !visibleLogicalRange) {
-      console.log('No hay datos suficientes para renderizar el perfil de volumen');
+      console.log('Esperando datos para renderizar el perfil de volumen:', {
+        tieneRef: !!svgRef.current,
+        datosLength: data?.length,
+        tieneCoords: !!priceCoordinates,
+        tieneRango: !!visibleLogicalRange
+      });
       return;
     }
 
@@ -49,81 +54,86 @@ export const VolumeProfile = ({
       svg.selectAll('*').remove();
       svg.attr('width', width).attr('height', height);
 
-      // Filtrar datos relevantes basados en el precio actual
-      const relevantData = data.filter(item => 
-        item.price >= currentPrice * 0.95 && 
-        item.price <= currentPrice * 1.05
-      );
+      // Procesar y agrupar datos por nivel de precio
+      const priceStep = 10; // Agrupar cada $10
+      const volumeByPrice = new Map<number, number>();
 
-      if (relevantData.length === 0) {
-        console.log('No hay datos relevantes para mostrar en el rango de precios actual');
-        return;
-      }
-
-      console.log('Renderizando perfil de volumen con datos:', {
-        totalDatos: data.length,
-        datosRelevantes: relevantData.length,
-        rango: {
-          min: currentPrice * 0.95,
-          max: currentPrice * 1.05
-        }
+      data.forEach(item => {
+        const priceLevel = Math.floor(item.price / priceStep) * priceStep;
+        const currentVolume = volumeByPrice.get(priceLevel) || 0;
+        volumeByPrice.set(priceLevel, currentVolume + item.volume);
       });
 
-      // Calcular el volumen máximo para normalización
-      const maxVolume = Math.max(...relevantData.map(d => d.volume));
-      const normalizedBars = relevantData.map(bar => ({
-        ...bar,
-        normalizedVolume: bar.volume / maxVolume
+      // Convertir a array y calcular volumen normalizado
+      const processedData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
+        price,
+        volume,
+        normalizedVolume: 0
       }));
+
+      // Calcular volumen normalizado
+      const maxVolume = Math.max(...processedData.map(d => d.volume));
+      const normalizedData = processedData.map(data => ({
+        ...data,
+        normalizedVolume: data.volume / maxVolume
+      }));
+
+      console.log('Datos procesados para el perfil:', {
+        nivelesDePrecio: normalizedData.length,
+        rangoDePrecio: {
+          min: Math.min(...normalizedData.map(d => d.price)),
+          max: Math.max(...normalizedData.map(d => d.price))
+        },
+        volumenMax: maxVolume
+      });
 
       // Configurar escalas
       const xScale = d3.scaleLinear()
         .domain([0, 1])
-        .range([width, 0]);
+        .range([0, width]);
 
       const priceScale = d3.scaleLinear()
         .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
-        .range([priceCoordinates.minY, priceCoordinates.maxY]);
+        .range([priceCoordinates.maxY, priceCoordinates.minY]);
 
       // Calcular altura de las barras
-      const barHeight = Math.max(1, 20);
+      const barHeight = Math.max(2, height / normalizedData.length / 2);
 
       // Función para color de barras
-      const getBarColor = (price: number, normalizedVolume: number) => {
+      const getBarColor = (price: number, volume: number) => {
         const isAboveCurrent = price > currentPrice;
-        const intensity = Math.pow(normalizedVolume, 0.5);
+        const alpha = Math.min(0.8, 0.3 + (volume / maxVolume) * 0.7);
         return isAboveCurrent 
-          ? d3.interpolateRgb('#26a69a88', '#26a69a')(intensity)
-          : d3.interpolateRgb('#ef535088', '#ef5350')(intensity);
+          ? `rgba(38, 166, 154, ${alpha})` // Verde para precios por encima
+          : `rgba(239, 83, 80, ${alpha})`; // Rojo para precios por debajo
       };
 
       // Dibujar barras
       svg.selectAll('rect')
-        .data(normalizedBars)
+        .data(normalizedData)
         .join('rect')
+        .attr('x', 0)
         .attr('y', d => priceScale(d.price))
-        .attr('x', d => xScale(d.normalizedVolume))
+        .attr('width', d => xScale(d.normalizedVolume))
         .attr('height', barHeight)
-        .attr('width', d => width - xScale(d.normalizedVolume))
-        .attr('fill', d => getBarColor(d.price, d.normalizedVolume))
-        .attr('opacity', 0.8);
+        .attr('fill', d => getBarColor(d.price, d.volume))
+        .attr('opacity', 1);
 
-      // Mostrar etiquetas si hay espacio suficiente
+      // Añadir etiquetas de precio y volumen si hay espacio
       if (barHeight >= 8) {
         svg.selectAll('text')
-          .data(normalizedBars)
+          .data(normalizedData)
           .join('text')
           .attr('x', 5)
           .attr('y', d => priceScale(d.price) + barHeight / 2)
           .attr('dy', '0.32em')
-          .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .attr('opacity', 0.8)
-          .text(d => `${d.price.toFixed(0)} (${d.volume.toFixed(2)})`);
+          .attr('fill', '#ffffff')
+          .text(d => `${d.price.toFixed(0)} (${d.volume.toFixed(1)})`);
       }
 
     } catch (error) {
-      console.error('Error rendering volume profile:', error);
+      console.error('Error renderizando perfil de volumen:', error);
     }
   }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates, visibleLogicalRange]);
 
