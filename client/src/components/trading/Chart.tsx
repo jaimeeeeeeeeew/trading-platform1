@@ -601,14 +601,25 @@ export default function Chart() {
     fetchSecondaryIndicators(currentSymbol);
   }, [activeIndicator, currentSymbol]);
 
-  useSocketIO({
+  const { isConnected, onProfileData, onError } = useSocketIO({
     enabled: true,
     onProfileData: (data) => {
       console.log('Recibidos datos de perfil via Socket.IO:', data);
-      setSocketVolumeData(data);
+      if (Array.isArray(data)) {
+        setSocketVolumeData(data);
+        // Trigger volume profile update when new data arrives
+        if (data.length > 0) {
+          updateVolumeProfile([{ close: currentChartPrice || 0, volume: 0 }]);
+        }
+      }
     },
     onError: (error) => {
       console.error('Error en Socket.IO:', error);
+      toast({
+        title: 'Error de conexión',
+        description: 'Error al conectar con el servidor de datos',
+        variant: 'destructive',
+      });
     }
   });
 
