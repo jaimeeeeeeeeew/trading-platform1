@@ -25,6 +25,30 @@ export function useSocketIO({
   const socketRef = useRef<Socket | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+  const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
+
+  const startHeartbeat = (socket: Socket) => {
+    if (heartbeatInterval.current) {
+      clearInterval(heartbeatInterval.current);
+    }
+    heartbeatInterval.current = setInterval(() => {
+      if (socket.connected) {
+        socket.emit('heartbeat');
+      }
+    }, 30000); // Heartbeat cada 30 segundos
+  };
+
+  const stopHeartbeat = () => {
+    if (heartbeatInterval.current) {
+      clearInterval(heartbeatInterval.current);
+      heartbeatInterval.current = null;
+    }
+  };
+
+  const requestInitialData = (socket: Socket) => {
+    console.log('📡 Solicitando datos iniciales del orderbook...');
+    socket.emit('request_orderbook');
+  };
 
   useEffect(() => {
     if (!enabled) return;
@@ -34,19 +58,19 @@ export function useSocketIO({
       reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
       transports: ['websocket'],
-      timeout: 10000
+      timeout: 10000,
+      forceNew: true,
+      autoConnect: true
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
       console.log('🟢 Socket.IO conectado - ID:', socket.id);
-      console.log('📡 Solicitando datos iniciales del orderbook...');
       setIsConnected(true);
       reconnectAttempts.current = 0;
-
-      // Solicitar datos iniciales del orderbook al conectar
-      socket.emit('request_orderbook');
+      startHeartbeat(socket);
+      requestInitialData(socket);
     });
 
     socket.on('marketData', (data) => {
@@ -81,6 +105,17 @@ export function useSocketIO({
     socket.on('disconnect', (reason) => {
       console.log('🔴 Socket.IO desconectado - Razón:', reason);
       setIsConnected(false);
+      stopHeartbeat();
+
+      if (reason === 'io server disconnect' || reason === 'transport close') {
+        // Si el servidor cerró la conexión, intentamos reconectar manualmente
+        setTimeout(() => {
+          if (socket && !socket.connected && reconnectAttempts.current < maxReconnectAttempts) {
+            console.log('🔄 Intentando reconexión manual...');
+            socket.connect();
+          }
+        }, 1000);
+      }
     });
 
     socket.on('reconnect_attempt', (attempt) => {
@@ -89,10 +124,16 @@ export function useSocketIO({
 
     socket.on('reconnect', (attempt) => {
       console.log('🟢 Socket.IO reconectado después de', attempt, 'intentos');
+      requestInitialData(socket);
+    });
+
+    socket.on('heartbeat', () => {
+      console.log('💓 Heartbeat recibido');
     });
 
     return () => {
       console.log('🧹 Limpiando conexión Socket.IO');
+      stopHeartbeat();
       socket.disconnect();
       socketRef.current = null;
     };
@@ -104,6 +145,11 @@ export function useSocketIO({
       socketRef.current.emit('orderbook_data', data);
     } else {
       console.warn('⚠️ Socket.IO no está conectado, no se pueden enviar datos');
+      // Intentar reconectar si no estamos conectados
+      if (socketRef.current && reconnectAttempts.current < maxReconnectAttempts) {
+        console.log('🔄 Intentando reconexión antes de enviar datos...');
+        socketRef.current.connect();
+      }
     }
   };
 

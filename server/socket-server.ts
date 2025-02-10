@@ -23,54 +23,36 @@ export function setupSocketServer(httpServer: HTTPServer) {
     },
     path: '/socket.io',
     pingTimeout: 10000,
-    pingInterval: 5000
+    pingInterval: 5000,
+    transports: ['websocket']
   });
 
   io.on('connection', (socket) => {
     console.log('Cliente Socket.IO conectado - ID:', socket.id);
 
+    let lastOrderbookData: any = null;
+
     socket.on('request_orderbook', () => {
       console.log('📥 Solicitud de orderbook recibida del cliente:', socket.id);
+      // Si tenemos datos del último orderbook, los enviamos inmediatamente
+      if (lastOrderbookData) {
+        processAndSendOrderbookData(socket, lastOrderbookData);
+      }
     });
 
     socket.on('orderbook_data', (data) => {
       try {
         console.log('📊 Datos de orderbook recibidos - Cliente:', socket.id);
-
-        if (!data || !data.bids || !data.asks) {
-          console.warn('⚠️ Datos de orderbook inválidos:', data);
-          return;
-        }
-
-        console.log('📈 Resumen del orderbook:', {
-          timestamp: new Date().toISOString(),
-          bidsCount: data.bids.length,
-          asksCount: data.asks.length,
-          firstBid: data.bids[0],
-          firstAsk: data.asks[0]
-        });
-
-        // Procesar datos para el perfil de volumen
-        const processedData = processOrderBookForProfile(data.bids, data.asks);
-        console.log('🔄 Datos procesados:', {
-          totalNiveles: processedData.length,
-          muestra: processedData.slice(0, 2)
-        });
-
-        // Agrupar los datos en rangos de $10
-        const groupedData = groupDataByPriceRange(processedData, 10);
-        console.log('📊 Datos agrupados:', {
-          totalGrupos: groupedData.length,
-          muestra: groupedData.slice(0, 2)
-        });
-
-        // Enviar datos procesados al cliente
-        socket.emit('profile_data', groupedData);
-        console.log('📤 Datos de perfil enviados al cliente:', socket.id);
-
+        lastOrderbookData = data;
+        processAndSendOrderbookData(socket, data);
       } catch (error) {
         console.error('❌ Error procesando datos del orderbook:', error);
       }
+    });
+
+    socket.on('heartbeat', () => {
+      socket.emit('heartbeat');
+      console.log('💓 Heartbeat respondido para cliente:', socket.id);
     });
 
     socket.on('disconnect', (reason) => {
@@ -79,6 +61,39 @@ export function setupSocketServer(httpServer: HTTPServer) {
   });
 
   return io;
+}
+
+function processAndSendOrderbookData(socket: any, data: any) {
+  if (!data || !data.bids || !data.asks) {
+    console.warn('⚠️ Datos de orderbook inválidos:', data);
+    return;
+  }
+
+  console.log('📈 Resumen del orderbook:', {
+    timestamp: new Date().toISOString(),
+    bidsCount: data.bids.length,
+    asksCount: data.asks.length,
+    firstBid: data.bids[0],
+    firstAsk: data.asks[0]
+  });
+
+  // Procesar datos para el perfil de volumen
+  const processedData = processOrderBookForProfile(data.bids, data.asks);
+  console.log('🔄 Datos procesados:', {
+    totalNiveles: processedData.length,
+    muestra: processedData.slice(0, 2)
+  });
+
+  // Agrupar los datos en rangos de $10
+  const groupedData = groupDataByPriceRange(processedData, 10);
+  console.log('📊 Datos agrupados:', {
+    totalGrupos: groupedData.length,
+    muestra: groupedData.slice(0, 2)
+  });
+
+  // Enviar datos procesados al cliente
+  socket.emit('profile_data', groupedData);
+  console.log('📤 Datos de perfil enviados al cliente:', socket.id);
 }
 
 function processOrderBookForProfile(

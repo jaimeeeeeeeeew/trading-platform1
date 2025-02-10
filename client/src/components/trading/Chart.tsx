@@ -51,18 +51,21 @@ const INTERVALS = {
 } as const;
 
 type IntervalKey = keyof typeof INTERVALS;
-
-
 type ActiveIndicator = 'none' | 'rsi' | 'funding' | 'longShort' | 'deltaCvd';
 
 export default function Chart() {
+  // Todos los refs primero
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const historicalDataRef = useRef<Array<{ close: number; volume: number }>>([]);
+
+  // Context hooks
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
+
+  // Todos los estados juntos
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [isLoading, setIsLoading] = useState(false);
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number }>>([]);
@@ -82,6 +85,7 @@ export default function Chart() {
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
   const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
 
+  // Custom hooks después de los estados
   const { socket } = useSocketIO({
     onProfileData: (data) => {
       if (!data || data.length === 0) return;
@@ -102,7 +106,7 @@ export default function Chart() {
     }
   });
 
-
+  // Funciones auxiliares
   const cleanupWebSocket = () => {
     if (wsRef.current) {
       wsRef.current.close();
@@ -115,8 +119,6 @@ export default function Chart() {
       if (isLoading) return;
       setIsLoading(true);
 
-      console.log('Changing interval from', interval, 'to', newInterval);
-
       cleanupWebSocket();
 
       if (candlestickSeriesRef.current) {
@@ -124,7 +126,6 @@ export default function Chart() {
       }
       historicalDataRef.current = [];
       setVolumeProfileData([]);
-
       setInterval(newInterval);
 
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -161,7 +162,6 @@ export default function Chart() {
           }));
 
           updateVolumeProfile(historicalDataRef.current);
-
           initializeWebSocket(formattedSymbol);
         }
       } catch (error) {
@@ -195,8 +195,6 @@ export default function Chart() {
       cleanupWebSocket();
 
       const wsUrl = `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@kline_${interval}`;
-      console.log('Connecting WebSocket:', wsUrl);
-
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -247,11 +245,8 @@ export default function Chart() {
 
     try {
       const formattedSymbol = formatSymbolForBinance(symbol);
-      console.log('Loading historical data for:', formattedSymbol, 'interval:', interval);
-
       const now = Date.now();
       const ninetyDaysAgo = now - (90 * 24 * 60 * 60 * 1000);
-
       const currentInterval = interval;
 
       let candlesticks;
@@ -268,7 +263,6 @@ export default function Chart() {
           return;
         }
 
-        console.log('Successfully fetched candlesticks:', candlesticks.length, 'for interval:', interval);
       } catch (fetchError) {
         console.error('Error fetching candlesticks:', fetchError);
         throw fetchError;
@@ -289,11 +283,6 @@ export default function Chart() {
           volume: candle.volume || 0
         }));
 
-        if (currentInterval !== interval) {
-          console.log('Interval changed before setting data, aborting');
-          return;
-        }
-
         candlestickSeriesRef.current.setData(formattedCandlesticks);
         handleAutoFit();
 
@@ -303,24 +292,12 @@ export default function Chart() {
         }));
 
         updateVolumeProfile(historicalDataRef.current);
-
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        if (currentInterval !== interval) {
-          console.log('Interval changed before WebSocket initialization, aborting');
-          return;
-        }
-
-        cleanupWebSocket();
         initializeWebSocket(formattedSymbol);
 
         toast({
           title: 'Data Loaded',
           description: `Loaded ${formattedCandlesticks.length} historical candles for ${interval}`,
         });
-      } else {
-        console.error('No candlesticks data available or series not initialized');
-        throw new Error('No data available');
       }
     } catch (error) {
       console.error('Error loading historical data:', error);
@@ -334,9 +311,7 @@ export default function Chart() {
 
   const handleAutoFit = () => {
     if (!chartRef.current) return;
-
-    const timeScale = chartRef.current.timeScale();
-    timeScale.fitContent();
+    chartRef.current.timeScale().fitContent();
   };
 
   const updatePriceCoordinate = () => {
@@ -360,10 +335,6 @@ export default function Chart() {
 
     try {
       const timeScale = chartRef.current.timeScale();
-      const priceScale = chartRef.current.priceScale('right');
-
-      if (!timeScale || !priceScale) return;
-
       const visibleLogicalRange = timeScale.getVisibleLogicalRange();
       if (visibleLogicalRange) {
         setVisibleRange(visibleLogicalRange);
@@ -405,8 +376,6 @@ export default function Chart() {
 
           setPriceCoordinates(coordinates);
           setPriceCoordinate(currentY);
-
-          console.log('Updated Price Coordinates:', coordinates);
         }
       }
     } catch (error) {
@@ -424,23 +393,6 @@ export default function Chart() {
       setCurrentChartPrice(currentPrice);
     } catch (error) {
       console.error('Error updating volume profile:', error);
-    }
-  };
-
-  const fetchSecondaryIndicators = async (symbol: string) => {
-    try {
-      const now = Date.now();
-      const timestamps = Array.from({ length: 100 }, (_, i) => now - (99 - i) * 60000);
-
-      setSecondaryIndicators({
-        fundingRate: Array.from({ length: 100 }, () => (Math.random() - 0.5) * 0.002),
-        longShortRatio: Array.from({ length: 100 }, () => 1 + Math.random()),
-        deltaCvd: Array.from({ length: 100 }, () => Math.random() * 1000 - 500),
-        rsi: Array.from({ length: 100 }, () => Math.random() * 100),
-        timestamps
-      });
-    } catch (error) {
-      console.error('Error fetching secondary indicators:', error);
     }
   };
 
@@ -469,6 +421,7 @@ export default function Chart() {
     return ((close - open) / open) * 100;
   };
 
+  // useEffect para la inicialización del gráfico
   useEffect(() => {
     if (!container.current || !currentSymbol) return;
 
@@ -551,6 +504,7 @@ export default function Chart() {
         setCrosshairData(data);
       }
     });
+
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
       updateVisiblePriceRange();
       updatePriceCoordinate();
@@ -566,10 +520,10 @@ export default function Chart() {
     };
   }, [currentSymbol]);
 
+  // useEffect para manejar cambios en el indicador activo
   useEffect(() => {
     handleResize();
-    fetchSecondaryIndicators(currentSymbol);
-  }, [activeIndicator, currentSymbol]);
+  }, [activeIndicator]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
