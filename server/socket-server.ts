@@ -39,15 +39,30 @@ export function setupSocketServer(httpServer: HTTPServer) {
             console.log('\nOrderbook Data:');
             if (arg.bids) {
               console.log('\nBids:');
-              arg.bids.slice(0, 5).forEach((bid: any) => {
-                console.log(`Precio: ${bid[0]}, Cantidad: ${bid[1]}`);
+              // Mostrar la estructura raw de los primeros 5 bids
+              console.log('Estructura raw de los primeros bids:', JSON.stringify(arg.bids.slice(0, 5)));
+              arg.bids.slice(0, 5).forEach((bid: any, i: number) => {
+                console.log(`Bid ${i + 1} estructura completa:`, bid);
+                // Intentar acceder a los datos de diferentes maneras posibles
+                if (Array.isArray(bid)) {
+                  console.log(`Precio: ${bid[0]}, Cantidad: ${bid[1]}`);
+                } else if (typeof bid === 'object') {
+                  console.log(`Precio: ${bid.price || bid.p}, Cantidad: ${bid.quantity || bid.q || bid.amount || bid.a}`);
+                }
               });
               console.log(`... y ${arg.bids.length - 5} más`);
             }
             if (arg.asks) {
               console.log('\nAsks:');
-              arg.asks.slice(0, 5).forEach((ask: any) => {
-                console.log(`Precio: ${ask[0]}, Cantidad: ${ask[1]}`);
+              // Mostrar la estructura raw de los primeros 5 asks
+              console.log('Estructura raw de los primeros asks:', JSON.stringify(arg.asks.slice(0, 5)));
+              arg.asks.slice(0, 5).forEach((ask: any, i: number) => {
+                console.log(`Ask ${i + 1} estructura completa:`, ask);
+                if (Array.isArray(ask)) {
+                  console.log(`Precio: ${ask[0]}, Cantidad: ${ask[1]}`);
+                } else if (typeof ask === 'object') {
+                  console.log(`Precio: ${ask.price || ask.p}, Cantidad: ${ask.quantity || ask.q || ask.amount || ask.a}`);
+                }
               });
               console.log(`... y ${arg.asks.length - 5} más`);
             }
