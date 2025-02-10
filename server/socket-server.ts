@@ -25,10 +25,10 @@ export function setupSocketServer(httpServer: HTTPServer) {
       allowedHeaders: ["my-custom-header", "Cache-Control", "Pragma"],
     },
     allowEIO3: true,
-    pingTimeout: 30000,
-    pingInterval: 15000,
+    pingTimeout: 60000, // Increased timeout
+    pingInterval: 25000, // Increased interval
     transports: ['polling'], // Start with polling only
-    connectTimeout: 30000,
+    connectTimeout: 60000, // Increased timeout
     maxHttpBufferSize: 1e6,
     allowUpgrades: true,
     upgradeTimeout: 15000,
@@ -36,24 +36,10 @@ export function setupSocketServer(httpServer: HTTPServer) {
   });
 
   io.on('connection', (socket) => {
-    console.log('🟢 Socket.IO conectado - ID:', socket.id, 'Transport:', socket.conn.transport.name);
+    console.log('🟢 Cliente conectado - ID:', socket.id);
 
     let lastOrderbookData: any = null;
     let heartbeatTimeout: NodeJS.Timeout | null = null;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 10;
-
-    const startHeartbeatCheck = () => {
-      clearHeartbeatCheck();
-      heartbeatTimeout = setTimeout(() => {
-        console.log('⚠️ No se recibió heartbeat del cliente:', socket.id);
-        if (reconnectAttempts < maxReconnectAttempts) {
-          reconnectAttempts++;
-          console.log(`🔄 Intento de reconexión ${reconnectAttempts}/${maxReconnectAttempts}`);
-          socket.emit('reconnect_needed');
-        }
-      }, 30000);
-    };
 
     const clearHeartbeatCheck = () => {
       if (heartbeatTimeout) {
@@ -62,8 +48,14 @@ export function setupSocketServer(httpServer: HTTPServer) {
       }
     };
 
+    // Solo mantener el heartbeat básico
+    socket.on('heartbeat', () => {
+      socket.emit('heartbeat_ack');
+      console.log('💓 Heartbeat de cliente:', socket.id);
+    });
+
     socket.on('request_orderbook', () => {
-      console.log('📥 Solicitud de orderbook:', socket.id);
+      console.log('📥 Solicitud de orderbook del cliente:', socket.id);
       if (lastOrderbookData) {
         processAndSendOrderbookData(socket, lastOrderbookData);
       }
@@ -71,32 +63,12 @@ export function setupSocketServer(httpServer: HTTPServer) {
 
     socket.on('orderbook_data', (data) => {
       try {
-        console.log('📊 Datos recibidos:', {
-          timestamp: new Date().toISOString(),
-          clientId: socket.id,
-          transport: socket.conn.transport.name,
-          dataType: typeof data,
-          hasData: !!data,
-          dataSize: JSON.stringify(data).length
-        });
-
+        console.log('📊 Datos recibidos del cliente:', socket.id);
         lastOrderbookData = data;
         processAndSendOrderbookData(socket, data);
       } catch (error) {
         console.error('❌ Error procesando datos:', error);
-        socket.emit('error', { message: 'Error procesando datos' });
       }
-    });
-
-    socket.on('heartbeat', () => {
-      socket.emit('heartbeat_ack');
-      console.log('💓 Heartbeat recibido:', socket.id);
-      startHeartbeatCheck();
-      reconnectAttempts = 0;
-    });
-
-    socket.conn.on('upgrade', (transport) => {
-      console.log('🔄 Transport actualizado:', socket.id, transport.name);
     });
 
     socket.on('error', (error) => {
@@ -105,26 +77,12 @@ export function setupSocketServer(httpServer: HTTPServer) {
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('🔴 Socket desconectado:', {
+      console.log('🔴 Cliente desconectado:', {
         id: socket.id,
         reason,
-        transport: socket.conn.transport.name,
-        attempts: reconnectAttempts
       });
-
       clearHeartbeatCheck();
-
-      if ((reason === 'transport close' || reason === 'ping timeout') && reconnectAttempts < maxReconnectAttempts) {
-        const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts), 5000);
-        setTimeout(() => {
-          console.log('🔄 Enviando señal de reconexión:', socket.id);
-          socket.emit('reconnect_needed');
-          reconnectAttempts++;
-        }, backoffTime);
-      }
     });
-
-    startHeartbeatCheck();
   });
 
   return io;
@@ -132,31 +90,17 @@ export function setupSocketServer(httpServer: HTTPServer) {
 
 function processAndSendOrderbookData(socket: any, data: any) {
   if (!data || !data.bids || !data.asks) {
-    console.warn('⚠️ Datos inválidos:', {
-      timestamp: new Date().toISOString(),
-      clientId: socket.id,
-      tieneData: !!data,
-      tieneBids: data?.bids?.length,
-      tieneAsks: data?.asks?.length,
-      transport: socket.conn.transport.name
-    });
+    console.warn('⚠️ Datos inválidos del cliente:', socket.id);
     return;
   }
 
   try {
     const processedData = processOrderBookForProfile(data.bids, data.asks);
     const groupedData = groupDataByPriceRange(processedData, 10);
-
     socket.emit('profile_data', groupedData);
-    console.log('📤 Datos enviados:', {
-      timestamp: new Date().toISOString(),
-      clientId: socket.id,
-      datosEnviados: groupedData.length,
-      transport: socket.conn.transport.name
-    });
+    console.log('📤 Datos procesados enviados al cliente:', socket.id);
   } catch (error) {
-    console.error('❌ Error procesando:', error);
-    socket.emit('error', { message: 'Error procesando datos' });
+    console.error('❌ Error procesando datos:', error);
   }
 }
 
