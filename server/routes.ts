@@ -1,7 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
-import { setupSocketServer } from "./socket-server";
 import pkg from 'pg';
 const { Pool } = pkg;
 
@@ -83,8 +82,6 @@ export function registerRoutes(app: Express): Server {
   const server = createServer(app);
   setupAuth(app);
 
-  // Inicializar Socket.IO
-  const io = setupSocketServer(server);
 
   // Nueva ruta para insertar datos de mercado
   app.post('/api/market-data', async (req, res) => {
