@@ -36,7 +36,7 @@ export function useSocketIO({
       if (socket.connected) {
         socket.emit('heartbeat');
       }
-    }, 30000);
+    }, 25000); // Reducido a 25 segundos
   };
 
   const stopHeartbeat = () => {
@@ -54,8 +54,10 @@ export function useSocketIO({
   };
 
   const requestInitialData = (socket: Socket) => {
-    console.log('📡 Solicitando datos iniciales del orderbook...');
-    socket.emit('request_orderbook');
+    if (socket.connected) {
+      console.log('📡 Solicitando datos iniciales del orderbook...');
+      socket.emit('request_orderbook');
+    }
   };
 
   useEffect(() => {
@@ -66,9 +68,12 @@ export function useSocketIO({
       reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
       transports: ['websocket', 'polling'],
-      timeout: 10000,
-      forceNew: true,
-      autoConnect: true
+      timeout: 45000,
+      forceNew: false,
+      autoConnect: true,
+      reconnection: true,
+      reconnectionDelayMax: 10000,
+      randomizationFactor: 0.5
     });
 
     socketRef.current = socket;
@@ -89,7 +94,6 @@ export function useSocketIO({
         muestra: data.slice(0, 3)
       });
 
-      // Validar y procesar los datos antes de pasarlos al callback
       if (Array.isArray(data) && data.length > 0) {
         const validData = data.every(item => 
           typeof item.price === 'number' && 
@@ -109,8 +113,8 @@ export function useSocketIO({
       }
     });
 
-    socket.on('heartbeat', () => {
-      console.log('💓 Heartbeat recibido');
+    socket.on('heartbeat_ack', () => {
+      console.log('💓 Heartbeat confirmado');
     });
 
     socket.on('error', (error) => {
@@ -118,55 +122,46 @@ export function useSocketIO({
       onError?.(error);
     });
 
-    socket.on('disconnect', (reason) => {
-      console.log('🔴 Socket.IO desconectado - Razón:', reason);
-      setIsConnected(false);
-      stopHeartbeat();
-    });
-
     socket.on('connect_error', (error) => {
       console.error('❌ Error de conexión Socket.IO:', error);
       onError?.(error);
 
       if (error.message.includes('websocket')) {
-        console.log('⚠️ Error en WebSocket, intentando polling...');
+        console.log('⚠️ Error en WebSocket, cambiando a polling...');
         socket.io.opts.transports = ['polling', 'websocket'];
       }
-
-      attemptReconnect(socket, 'connect_error');
     });
 
-        socket.on('disconnect', (reason) => {
+    socket.on('disconnect', (reason) => {
       console.log('🔴 Socket.IO desconectado - Razón:', reason);
       setIsConnected(false);
       stopHeartbeat();
 
-      if (
-        reason === 'io server disconnect' || 
-        reason === 'transport close' || 
-        reason === 'transport error'
-      ) {
-        attemptReconnect(socket, reason);
+      if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'transport error') {
+        const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
+        console.log(`🔄 Reintentando conexión en ${backoffTime}ms...`);
+
+        clearReconnectTimeout();
+        reconnectTimeout.current = setTimeout(() => {
+          if (!socket.connected && reconnectAttempts.current < maxReconnectAttempts) {
+            socket.connect();
+            reconnectAttempts.current += 1;
+          }
+        }, backoffTime);
       }
     });
-    
-    socket.on('marketData', (data) => {
-      console.log('📊 Datos de mercado recibidos:', {
-        timestamp: new Date().toISOString(),
-        data: data
-      });
-      onData?.(data);
-    });
 
-    socket.on('reconnect_attempt', (attempt) => {
-      console.log('🔄 Intento de reconexión Socket.IO:', attempt);
-    });
-
-    socket.on('reconnect', (attempt) => {
-      console.log('🟢 Socket.IO reconectado después de', attempt, 'intentos');
+    socket.on('reconnect', (attemptNumber) => {
+      console.log('🟢 Socket.IO reconectado después de', attemptNumber, 'intentos');
       requestInitialData(socket);
     });
 
+    socket.on('reconnect_attempt', () => {
+      console.log('🔄 Intento de reconexión Socket.IO');
+      if (socket.io.opts.transports!.includes('polling')) {
+        socket.io.opts.transports = ['websocket', 'polling'];
+      }
+    });
 
     return () => {
       console.log('🧹 Limpiando conexión Socket.IO');
@@ -184,22 +179,6 @@ export function useSocketIO({
     } else {
       console.warn('⚠️ Socket.IO no está conectado, no se pueden enviar datos');
     }
-  };
-
-  const attemptReconnect = (socket: Socket, reason: string) => {
-    if (!socket || reconnectAttempts.current >= maxReconnectAttempts) return;
-
-    const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
-    console.log(`🔄 Programando reconexión en ${backoffTime}ms (intento ${reconnectAttempts.current + 1})`);
-
-    clearReconnectTimeout();
-    reconnectTimeout.current = setTimeout(() => {
-      if (!socket.connected && reconnectAttempts.current < maxReconnectAttempts) {
-        console.log('🔄 Intentando reconexión...');
-        socket.connect();
-        reconnectAttempts.current += 1;
-      }
-    }, backoffTime);
   };
 
   return {

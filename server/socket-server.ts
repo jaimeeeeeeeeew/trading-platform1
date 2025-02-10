@@ -22,11 +22,18 @@ export function setupSocketServer(httpServer: HTTPServer) {
       methods: ["GET", "POST"]
     },
     path: '/socket.io',
-    pingTimeout: 10000,
-    pingInterval: 5000,
+    pingTimeout: 60000, // Aumentado a 60 segundos
+    pingInterval: 25000, // Aumentado a 25 segundos
     transports: ['websocket', 'polling'],
-    connectTimeout: 10000,
-    maxHttpBufferSize: 1e6
+    connectTimeout: 45000, // Aumentado a 45 segundos
+    maxHttpBufferSize: 1e6,
+    allowUpgrades: true,
+    upgradeTimeout: 30000,
+    cookie: {
+      name: 'socket.io',
+      httpOnly: true,
+      path: '/'
+    }
   });
 
   io.on('connection', (socket) => {
@@ -41,8 +48,15 @@ export function setupSocketServer(httpServer: HTTPServer) {
       }
       heartbeatTimeout = setTimeout(() => {
         console.log('⚠️ No se recibió heartbeat del cliente:', socket.id);
-        socket.disconnect(true);
-      }, 45000); // 45 segundos sin heartbeat = desconexión
+        socket.emit('reconnect_attempt');
+      }, 45000);
+    };
+
+    const clearHeartbeatCheck = () => {
+      if (heartbeatTimeout) {
+        clearTimeout(heartbeatTimeout);
+        heartbeatTimeout = null;
+      }
     };
 
     socket.on('request_orderbook', () => {
@@ -64,19 +78,24 @@ export function setupSocketServer(httpServer: HTTPServer) {
     });
 
     socket.on('heartbeat', () => {
-      socket.emit('heartbeat');
+      socket.emit('heartbeat_ack');
       console.log('💓 Heartbeat respondido para cliente:', socket.id);
       startHeartbeatCheck();
     });
 
     socket.on('error', (error) => {
       console.error('❌ Error en socket:', socket.id, error);
+      clearHeartbeatCheck();
     });
 
     socket.on('disconnect', (reason) => {
       console.log('Cliente Socket.IO desconectado - ID:', socket.id, 'Razón:', reason);
-      if (heartbeatTimeout) {
-        clearTimeout(heartbeatTimeout);
+      clearHeartbeatCheck();
+
+      // Intenta reconexión si la desconexión no fue intencional
+      if (reason === 'transport close' || reason === 'ping timeout') {
+        console.log('🔄 Intentando reconexión automática para:', socket.id);
+        socket.connect();
       }
     });
 
@@ -93,29 +112,15 @@ function processAndSendOrderbookData(socket: any, data: any) {
     return;
   }
 
-  console.log('📈 Resumen del orderbook:', {
-    timestamp: new Date().toISOString(),
-    bidsCount: data.bids.length,
-    asksCount: data.asks.length,
-    firstBid: data.bids[0],
-    firstAsk: data.asks[0]
-  });
-
   try {
     const processedData = processOrderBookForProfile(data.bids, data.asks);
-    console.log('🔄 Datos procesados:', {
-      totalNiveles: processedData.length,
-      muestra: processedData.slice(0, 2)
-    });
-
     const groupedData = groupDataByPriceRange(processedData, 10);
-    console.log('📊 Datos agrupados:', {
-      totalGrupos: groupedData.length,
-      muestra: groupedData.slice(0, 2)
-    });
 
     socket.emit('profile_data', groupedData);
-    console.log('📤 Datos de perfil enviados al cliente:', socket.id);
+    console.log('📤 Datos de perfil enviados al cliente:', socket.id, {
+      timestamp: new Date().toISOString(),
+      datosEnviados: groupedData.length
+    });
   } catch (error) {
     console.error('❌ Error en el procesamiento de datos:', error);
     socket.emit('error', { message: 'Error procesando datos' });
