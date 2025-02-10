@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import './socket-server'; // Importar el servidor Socket.IO
+import { setupSocketServer } from './socket-server';
 
 const app = express();
 
@@ -49,6 +49,9 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = registerRoutes(app);
+
+  // Inicializar Socket.IO con el servidor HTTP existente
+  setupSocketServer(server);
 
   // Error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

@@ -14,7 +14,8 @@ export function useSocketIO({ enabled = true, onData, onError }: UseSocketOption
   useEffect(() => {
     if (!enabled) return;
 
-    const socket = io('http://localhost:5050', {
+    const socket = io(window.location.origin, {
+      path: '/socket.io',
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
     });
@@ -22,7 +23,7 @@ export function useSocketIO({ enabled = true, onData, onError }: UseSocketOption
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('Socket.IO conectado en puerto 5050');
+      console.log('Socket.IO conectado');
       setIsConnected(true);
     });
 
