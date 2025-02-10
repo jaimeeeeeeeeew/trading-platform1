@@ -15,11 +15,11 @@ interface ProfileData {
   total: number;
 }
 
-export function useSocketIO({ 
-  enabled = true, 
-  onData, 
+export function useSocketIO({
+  enabled = true,
+  onData,
   onProfileData,
-  onError 
+  onError
 }: UseSocketOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
@@ -36,7 +36,7 @@ export function useSocketIO({
       if (socket.connected) {
         socket.emit('heartbeat');
       }
-    }, 25000);
+    }, 15000);
   };
 
   const stopHeartbeat = () => {
@@ -64,11 +64,11 @@ export function useSocketIO({
     if (!enabled) return;
 
     const socket = io(window.location.origin, {
-      path: '/socket.io',
+      path: '/trading-socket',
       reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
       transports: ['websocket'],
-      timeout: 45000,
+      timeout: 30000,
       forceNew: true,
       autoConnect: true,
       reconnection: true,
@@ -95,8 +95,8 @@ export function useSocketIO({
       });
 
       if (Array.isArray(data) && data.length > 0) {
-        const validData = data.every(item => 
-          typeof item.price === 'number' && 
+        const validData = data.every(item =>
+          typeof item.price === 'number' &&
           typeof item.volume === 'number' &&
           (item.side === 'bid' || item.side === 'ask') &&
           typeof item.total === 'number'
@@ -170,6 +170,7 @@ export function useSocketIO({
       console.log('🟢 Socket.IO reconectado después de', attemptNumber, 'intentos');
       requestInitialData(socket);
     });
+
     socket.on('reconnect_attempt', () => {
       console.log('🔄 Intento de reconexión Socket.IO');
     });

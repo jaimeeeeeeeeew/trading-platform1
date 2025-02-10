@@ -17,22 +17,22 @@ interface ProcessedOrderBookData {
 
 export function setupSocketServer(httpServer: HTTPServer) {
   io = new Server(httpServer, {
+    path: '/trading-socket',
     cors: {
       origin: "*",
       methods: ["GET", "POST"]
     },
-    path: '/socket.io',
-    pingTimeout: 60000,
-    pingInterval: 25000,
+    pingTimeout: 30000,
+    pingInterval: 15000,
     transports: ['websocket'],
-    connectTimeout: 45000,
+    connectTimeout: 30000,
     maxHttpBufferSize: 1e6,
-    allowUpgrades: true,
-    upgradeTimeout: 30000
+    allowUpgrades: false,
+    upgradeTimeout: 15000
   });
 
   io.on('connection', (socket) => {
-    console.log('Cliente Socket.IO conectado - ID:', socket.id);
+    console.log('🟢 Cliente Socket.IO conectado - ID:', socket.id);
 
     let lastOrderbookData: any = null;
     let heartbeatTimeout: NodeJS.Timeout | null = null;
@@ -44,7 +44,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
       heartbeatTimeout = setTimeout(() => {
         console.log('⚠️ No se recibió heartbeat del cliente:', socket.id);
         socket.emit('reconnect_needed');
-      }, 45000);
+      }, 30000);
     };
 
     const clearHeartbeatCheck = () => {
@@ -84,7 +84,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('Cliente Socket.IO desconectado - ID:', socket.id, 'Razón:', reason);
+      console.log('🔴 Cliente Socket.IO desconectado - ID:', socket.id, 'Razón:', reason);
       clearHeartbeatCheck();
     });
 
@@ -123,7 +123,6 @@ function processOrderBookForProfile(
   let bidTotal = 0;
   let askTotal = 0;
 
-  // Procesar bids
   bids.forEach((bid) => {
     const price = parseFloat(bid.Price);
     const volume = parseFloat(bid.Quantity);
@@ -138,7 +137,6 @@ function processOrderBookForProfile(
     }
   });
 
-  // Procesar asks
   asks.forEach((ask) => {
     const price = parseFloat(ask.Price);
     const volume = parseFloat(ask.Quantity);
@@ -159,11 +157,9 @@ function processOrderBookForProfile(
 function groupDataByPriceRange(data: ProcessedOrderBookData[], rangeSize: number): ProcessedOrderBookData[] {
   const groupedData = new Map<number, ProcessedOrderBookData>();
 
-  // Encontrar el precio medio actual
   const prices = data.map(item => item.price);
   const currentPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
 
-  // Filtrar datos alrededor del precio actual
   const relevantData = data.filter(item =>
     item.price >= currentPrice * 0.95 &&
     item.price <= currentPrice * 1.05
