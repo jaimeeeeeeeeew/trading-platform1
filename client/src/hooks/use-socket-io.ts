@@ -73,7 +73,7 @@ export function useSocketIO({
 
     const socket = io(window.location.origin, {
       path: '/trading-socket',
-      transports: ['polling', 'websocket'], // Permitir fallback a polling
+      transports: ['polling', 'websocket'], // Permitir ambos transportes
       timeout: 60000,
       reconnection: true,
       reconnectionAttempts: maxReconnectAttempts,
