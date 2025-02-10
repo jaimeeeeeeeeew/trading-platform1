@@ -27,7 +27,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
     allowEIO3: true,
     pingTimeout: 30000,
     pingInterval: 15000,
-    transports: ['polling', 'websocket'], // Enable both transports
+    transports: ['polling'], // Start with polling only
     connectTimeout: 30000,
     maxHttpBufferSize: 1e6,
     allowUpgrades: true,
@@ -114,7 +114,6 @@ export function setupSocketServer(httpServer: HTTPServer) {
 
       clearHeartbeatCheck();
 
-      // Only attempt reconnection for non-intentional disconnects
       if ((reason === 'transport close' || reason === 'ping timeout') && reconnectAttempts < maxReconnectAttempts) {
         const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts), 5000);
         setTimeout(() => {

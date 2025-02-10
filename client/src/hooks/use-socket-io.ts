@@ -71,7 +71,7 @@ export function useSocketIO({
       path: '/trading-socket',
       reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
-      transports: ['polling'], // Start with polling only, upgrade later if possible
+      transports: ['polling'], // Start with polling only
       timeout: 30000,
       forceNew: true,
       autoConnect: true,
