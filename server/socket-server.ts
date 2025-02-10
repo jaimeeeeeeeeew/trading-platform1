@@ -22,21 +22,21 @@ export function setupSocketServer(httpServer: HTTPServer) {
       origin: "*",
       methods: ["GET", "POST", "OPTIONS"],
       credentials: true,
-      allowedHeaders: ["my-custom-header"],
+      allowedHeaders: ["my-custom-header", "Cache-Control", "Pragma"],
     },
     allowEIO3: true,
-    pingTimeout: 120000,
-    pingInterval: 30000,
-    transports: ['websocket', 'polling'],
-    connectTimeout: 60000,
+    pingTimeout: 20000,
+    pingInterval: 10000,
+    transports: ['polling', 'websocket'],
+    connectTimeout: 20000,
     maxHttpBufferSize: 1e6,
     allowUpgrades: true,
-    upgradeTimeout: 45000,
+    upgradeTimeout: 15000,
     cookie: false
   });
 
   io.on('connection', (socket) => {
-    console.log('🟢 Cliente Socket.IO conectado - ID:', socket.id, 'Transport:', socket.conn.transport.name);
+    console.log('🟢 Socket.IO conectado - ID:', socket.id, 'Transport:', socket.conn.transport.name);
 
     let lastOrderbookData: any = null;
     let heartbeatTimeout: NodeJS.Timeout | null = null;
@@ -44,9 +44,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
     const maxReconnectAttempts = 5;
 
     const startHeartbeatCheck = () => {
-      if (heartbeatTimeout) {
-        clearTimeout(heartbeatTimeout);
-      }
+      clearHeartbeatCheck();
       heartbeatTimeout = setTimeout(() => {
         console.log('⚠️ No se recibió heartbeat del cliente:', socket.id);
         if (reconnectAttempts < maxReconnectAttempts) {
@@ -54,7 +52,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
           console.log(`🔄 Intento de reconexión ${reconnectAttempts}/${maxReconnectAttempts}`);
           socket.emit('reconnect_needed');
         }
-      }, 60000);
+      }, 20000);
     };
 
     const clearHeartbeatCheck = () => {
@@ -65,7 +63,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
     };
 
     socket.on('request_orderbook', () => {
-      console.log('📥 Solicitud de orderbook recibida del cliente:', socket.id);
+      console.log('📥 Solicitud de orderbook:', socket.id);
       if (lastOrderbookData) {
         processAndSendOrderbookData(socket, lastOrderbookData);
       }
@@ -73,25 +71,32 @@ export function setupSocketServer(httpServer: HTTPServer) {
 
     socket.on('orderbook_data', (data) => {
       try {
-        console.log('📊 Datos de orderbook recibidos - Cliente:', socket.id, {
+        console.log('📊 Datos recibidos:', {
           timestamp: new Date().toISOString(),
+          clientId: socket.id,
+          transport: socket.conn.transport.name,
           dataType: typeof data,
           hasData: !!data,
-          transportType: socket.conn.transport.name
+          dataSize: JSON.stringify(data).length
         });
+
         lastOrderbookData = data;
         processAndSendOrderbookData(socket, data);
       } catch (error) {
-        console.error('❌ Error procesando datos del orderbook:', error);
-        socket.emit('error', { message: 'Error procesando datos del orderbook' });
+        console.error('❌ Error procesando datos:', error);
+        socket.emit('error', { message: 'Error procesando datos' });
       }
     });
 
     socket.on('heartbeat', () => {
       socket.emit('heartbeat_ack');
-      console.log('💓 Heartbeat respondido para cliente:', socket.id);
+      console.log('💓 Heartbeat recibido:', socket.id);
       startHeartbeatCheck();
-      reconnectAttempts = 0; // Reset reconnect attempts on successful heartbeat
+      reconnectAttempts = 0;
+    });
+
+    socket.conn.on('upgrade', (transport) => {
+      console.log('🔄 Transport actualizado:', socket.id, transport.name);
     });
 
     socket.on('error', (error) => {
@@ -99,20 +104,23 @@ export function setupSocketServer(httpServer: HTTPServer) {
       clearHeartbeatCheck();
     });
 
-    socket.conn.on('upgrade', (transport) => {
-      console.log('🔄 Transport upgraded for client:', socket.id, 'New transport:', transport.name);
-    });
-
     socket.on('disconnect', (reason) => {
-      console.log('🔴 Cliente Socket.IO desconectado - ID:', socket.id, 'Razón:', reason, 'Transport:', socket.conn.transport.name);
+      console.log('🔴 Socket desconectado:', {
+        id: socket.id,
+        reason,
+        transport: socket.conn.transport.name,
+        attempts: reconnectAttempts
+      });
+
       clearHeartbeatCheck();
 
       if ((reason === 'transport close' || reason === 'ping timeout') && reconnectAttempts < maxReconnectAttempts) {
+        const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts), 5000);
         setTimeout(() => {
-          console.log('🔄 Enviando señal de reconexión al cliente:', socket.id);
+          console.log('🔄 Enviando señal de reconexión:', socket.id);
           socket.emit('reconnect_needed');
           reconnectAttempts++;
-        }, 5000 * Math.pow(2, reconnectAttempts)); // Exponential backoff
+        }, backoffTime);
       }
     });
 
@@ -124,12 +132,12 @@ export function setupSocketServer(httpServer: HTTPServer) {
 
 function processAndSendOrderbookData(socket: any, data: any) {
   if (!data || !data.bids || !data.asks) {
-    console.warn('⚠️ Datos de orderbook inválidos:', {
+    console.warn('⚠️ Datos inválidos:', {
       timestamp: new Date().toISOString(),
+      clientId: socket.id,
       tieneData: !!data,
       tieneBids: data?.bids?.length,
       tieneAsks: data?.asks?.length,
-      socketId: socket.id,
       transport: socket.conn.transport.name
     });
     return;
@@ -140,13 +148,14 @@ function processAndSendOrderbookData(socket: any, data: any) {
     const groupedData = groupDataByPriceRange(processedData, 10);
 
     socket.emit('profile_data', groupedData);
-    console.log('📤 Datos de perfil enviados al cliente:', socket.id, {
+    console.log('📤 Datos enviados:', {
       timestamp: new Date().toISOString(),
+      clientId: socket.id,
       datosEnviados: groupedData.length,
       transport: socket.conn.transport.name
     });
   } catch (error) {
-    console.error('❌ Error en el procesamiento de datos:', error);
+    console.error('❌ Error procesando:', error);
     socket.emit('error', { message: 'Error procesando datos' });
   }
 }
