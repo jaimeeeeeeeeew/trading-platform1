@@ -4,10 +4,23 @@ import { io, Socket } from 'socket.io-client';
 interface UseSocketOptions {
   enabled?: boolean;
   onData?: (data: any) => void;
+  onProfileData?: (data: ProfileData[]) => void;
   onError?: (error: any) => void;
 }
 
-export function useSocketIO({ enabled = true, onData, onError }: UseSocketOptions = {}) {
+interface ProfileData {
+  price: number;
+  volume: number;
+  side: 'bid' | 'ask';
+  total: number;
+}
+
+export function useSocketIO({ 
+  enabled = true, 
+  onData, 
+  onProfileData,
+  onError 
+}: UseSocketOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
@@ -34,6 +47,13 @@ export function useSocketIO({ enabled = true, onData, onError }: UseSocketOption
       onData?.(data);
     });
 
+    socket.on('profile_data', (data: ProfileData[]) => {
+      console.log('📊 Datos de perfil recibidos:');
+      console.log('- Número de niveles:', data.length);
+      console.log('- Muestra:', data.slice(0, 3));
+      onProfileData?.(data);
+    });
+
     socket.on('connect_error', (error) => {
       console.error('❌ Error de conexión Socket.IO:', error);
       onError?.(error);
@@ -49,7 +69,7 @@ export function useSocketIO({ enabled = true, onData, onError }: UseSocketOption
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [enabled, onData, onError]);
+  }, [enabled, onData, onProfileData, onError]);
 
   const sendData = (data: any) => {
     if (socketRef.current?.connected) {
