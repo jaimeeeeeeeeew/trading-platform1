@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { VolumeProfile } from './VolumeProfile';
 import { tradingViewService } from '@/lib/tradingview-service';
 import { useSocketIO } from '@/hooks/use-socket-io';
+import { useMarketData } from '@/hooks/use-market-data'; // Import useMarketData hook
 import {
   Select,
   SelectContent,
@@ -86,6 +87,7 @@ export default function Chart() {
   const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
 
   // Custom hooks después de los estados
+  const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData(); // Get data from useMarketData
   const { socket } = useSocketIO({
     onProfileData: (data) => {
       if (!data || data.length === 0) return;
@@ -524,6 +526,20 @@ export default function Chart() {
   useEffect(() => {
     handleResize();
   }, [activeIndicator]);
+
+  useEffect(() => {
+    if (!orderbookVolumeProfile.length) return;
+
+    const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
+    const normalizedData = orderbookVolumeProfile.map(data => ({
+      price: data.price,
+      volume: data.volume,
+      normalizedVolume: data.volume / maxVolume
+    }));
+
+    setVolumeProfileData(normalizedData);
+  }, [orderbookVolumeProfile]); // Update volumeProfileData when orderbookVolumeProfile changes
+
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
