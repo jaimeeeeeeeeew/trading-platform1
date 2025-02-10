@@ -39,6 +39,7 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0 || !priceCoordinates || !visibleLogicalRange) {
+      console.log('No hay datos suficientes para renderizar el perfil de volumen');
       return;
     }
 
@@ -47,12 +48,6 @@ export const VolumeProfile = ({
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
       svg.attr('width', width).attr('height', height);
-
-      // Calcular el nivel de zoom basado en el rango visible
-      const zoomLevel = Math.abs(visibleLogicalRange.to - visibleLogicalRange.from);
-
-      // Determinar el tamaño de agrupación basado en el zoom
-      let bucketSize = 10; // Mantener barras de 10$ para consistencia con el backend
 
       // Filtrar datos relevantes basados en el precio actual
       const relevantData = data.filter(item => 
@@ -64,6 +59,15 @@ export const VolumeProfile = ({
         console.log('No hay datos relevantes para mostrar en el rango de precios actual');
         return;
       }
+
+      console.log('Renderizando perfil de volumen con datos:', {
+        totalDatos: data.length,
+        datosRelevantes: relevantData.length,
+        rango: {
+          min: currentPrice * 0.95,
+          max: currentPrice * 1.05
+        }
+      });
 
       // Calcular el volumen máximo para normalización
       const maxVolume = Math.max(...relevantData.map(d => d.volume));
@@ -82,9 +86,7 @@ export const VolumeProfile = ({
         .range([priceCoordinates.minY, priceCoordinates.maxY]);
 
       // Calcular altura de las barras
-      const visiblePriceSpan = Math.abs(priceCoordinates.maxPrice - priceCoordinates.minPrice);
-      const pixelsPerPrice = Math.abs(priceCoordinates.maxY - priceCoordinates.minY) / visiblePriceSpan;
-      const barHeight = Math.max(1, pixelsPerPrice * bucketSize * 0.9);
+      const barHeight = Math.max(1, 20);
 
       // Función para color de barras
       const getBarColor = (price: number, normalizedVolume: number) => {
@@ -107,7 +109,6 @@ export const VolumeProfile = ({
         .attr('opacity', 0.8);
 
       // Mostrar etiquetas si hay espacio suficiente
-      const fontSize = Math.min(12, Math.max(8, barHeight * 0.7));
       if (barHeight >= 8) {
         svg.selectAll('text')
           .data(normalizedBars)
@@ -116,8 +117,8 @@ export const VolumeProfile = ({
           .attr('y', d => priceScale(d.price) + barHeight / 2)
           .attr('dy', '0.32em')
           .attr('fill', '#ffffff')
-          .attr('font-size', `${fontSize}px`)
-          .attr('opacity', barHeight < 12 ? 0.8 : 1)
+          .attr('font-size', '10px')
+          .attr('opacity', 0.8)
           .text(d => `${d.price.toFixed(0)} (${d.volume.toFixed(2)})`);
       }
 

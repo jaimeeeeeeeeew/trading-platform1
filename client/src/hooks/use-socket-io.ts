@@ -36,7 +36,7 @@ export function useSocketIO({
       if (socket.connected) {
         socket.emit('heartbeat');
       }
-    }, 30000); // Heartbeat cada 30 segundos
+    }, 30000);
   };
 
   const stopHeartbeat = () => {
@@ -56,22 +56,6 @@ export function useSocketIO({
   const requestInitialData = (socket: Socket) => {
     console.log('📡 Solicitando datos iniciales del orderbook...');
     socket.emit('request_orderbook');
-  };
-
-  const attemptReconnect = (socket: Socket, reason: string) => {
-    if (!socket || reconnectAttempts.current >= maxReconnectAttempts) return;
-
-    const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
-    console.log(`🔄 Programando reconexión en ${backoffTime}ms (intento ${reconnectAttempts.current + 1})`);
-
-    clearReconnectTimeout();
-    reconnectTimeout.current = setTimeout(() => {
-      if (!socket.connected && reconnectAttempts.current < maxReconnectAttempts) {
-        console.log('🔄 Intentando reconexión...');
-        socket.connect();
-        reconnectAttempts.current += 1;
-      }
-    }, backoffTime);
   };
 
   useEffect(() => {
@@ -98,6 +82,48 @@ export function useSocketIO({
       requestInitialData(socket);
     });
 
+    socket.on('profile_data', (data: ProfileData[]) => {
+      console.log('📊 Datos de perfil recibidos:', {
+        timestamp: new Date().toISOString(),
+        niveles: data.length,
+        muestra: data.slice(0, 3)
+      });
+
+      // Validar y procesar los datos antes de pasarlos al callback
+      if (Array.isArray(data) && data.length > 0) {
+        const validData = data.every(item => 
+          typeof item.price === 'number' && 
+          typeof item.volume === 'number' &&
+          (item.side === 'bid' || item.side === 'ask') &&
+          typeof item.total === 'number'
+        );
+
+        if (validData) {
+          onProfileData?.(data);
+        } else {
+          console.error('❌ Datos de perfil inválidos:', data);
+          onError?.({ message: 'Datos de perfil inválidos' });
+        }
+      } else {
+        console.warn('⚠️ No hay datos de perfil para procesar');
+      }
+    });
+
+    socket.on('heartbeat', () => {
+      console.log('💓 Heartbeat recibido');
+    });
+
+    socket.on('error', (error) => {
+      console.error('❌ Error en Socket.IO:', error);
+      onError?.(error);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('🔴 Socket.IO desconectado - Razón:', reason);
+      setIsConnected(false);
+      stopHeartbeat();
+    });
+
     socket.on('connect_error', (error) => {
       console.error('❌ Error de conexión Socket.IO:', error);
       onError?.(error);
@@ -110,7 +136,7 @@ export function useSocketIO({
       attemptReconnect(socket, 'connect_error');
     });
 
-    socket.on('disconnect', (reason) => {
+        socket.on('disconnect', (reason) => {
       console.log('🔴 Socket.IO desconectado - Razón:', reason);
       setIsConnected(false);
       stopHeartbeat();
@@ -123,26 +149,13 @@ export function useSocketIO({
         attemptReconnect(socket, reason);
       }
     });
-
+    
     socket.on('marketData', (data) => {
       console.log('📊 Datos de mercado recibidos:', {
         timestamp: new Date().toISOString(),
         data: data
       });
       onData?.(data);
-    });
-
-    socket.on('profile_data', (data: ProfileData[]) => {
-      console.log('📊 Datos de perfil recibidos:', {
-        timestamp: new Date().toISOString(),
-        niveles: data.length,
-        muestra: data.slice(0, 3)
-      });
-      onProfileData?.(data);
-    });
-
-    socket.on('heartbeat', () => {
-      console.log('💓 Heartbeat recibido');
     });
 
     socket.on('reconnect_attempt', (attempt) => {
@@ -154,10 +167,6 @@ export function useSocketIO({
       requestInitialData(socket);
     });
 
-    socket.on('error', (error) => {
-      console.error('🔴 Error en Socket.IO:', error);
-      onError?.(error);
-    });
 
     return () => {
       console.log('🧹 Limpiando conexión Socket.IO');
@@ -174,12 +183,23 @@ export function useSocketIO({
       socketRef.current.emit('orderbook_data', data);
     } else {
       console.warn('⚠️ Socket.IO no está conectado, no se pueden enviar datos');
-
-      if (socketRef.current && reconnectAttempts.current < maxReconnectAttempts) {
-        console.log('🔄 Intentando reconexión antes de enviar datos...');
-        attemptReconnect(socketRef.current, 'send_data_attempt');
-      }
     }
+  };
+
+  const attemptReconnect = (socket: Socket, reason: string) => {
+    if (!socket || reconnectAttempts.current >= maxReconnectAttempts) return;
+
+    const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
+    console.log(`🔄 Programando reconexión en ${backoffTime}ms (intento ${reconnectAttempts.current + 1})`);
+
+    clearReconnectTimeout();
+    reconnectTimeout.current = setTimeout(() => {
+      if (!socket.connected && reconnectAttempts.current < maxReconnectAttempts) {
+        console.log('🔄 Intentando reconexión...');
+        socket.connect();
+        reconnectAttempts.current += 1;
+      }
+    }, backoffTime);
   };
 
   return {
