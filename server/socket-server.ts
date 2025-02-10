@@ -12,10 +12,12 @@ export function setupSocketServer(httpServer: HTTPServer) {
       credentials: true,
       allowedHeaders: ["*"]
     },
+    allowEIO3: true,
     pingTimeout: 60000,
     pingInterval: 10000,
-    transports: ['websocket', 'polling'],
-    connectTimeout: 60000
+    transports: ['websocket'],
+    connectTimeout: 60000,
+    maxHttpBufferSize: 1e8  // Aumentar el tamaño del buffer para datos grandes
   });
 
   console.log('🎧 Socket.IO server initialized and listening...');
