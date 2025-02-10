@@ -24,17 +24,29 @@ export function setupSocketServer(httpServer: HTTPServer) {
     path: '/socket.io',
     pingTimeout: 10000,
     pingInterval: 5000,
-    transports: ['websocket']
+    transports: ['websocket', 'polling'],
+    connectTimeout: 10000,
+    maxHttpBufferSize: 1e6
   });
 
   io.on('connection', (socket) => {
     console.log('Cliente Socket.IO conectado - ID:', socket.id);
 
     let lastOrderbookData: any = null;
+    let heartbeatTimeout: NodeJS.Timeout | null = null;
+
+    const startHeartbeatCheck = () => {
+      if (heartbeatTimeout) {
+        clearTimeout(heartbeatTimeout);
+      }
+      heartbeatTimeout = setTimeout(() => {
+        console.log('⚠️ No se recibió heartbeat del cliente:', socket.id);
+        socket.disconnect(true);
+      }, 45000); // 45 segundos sin heartbeat = desconexión
+    };
 
     socket.on('request_orderbook', () => {
       console.log('📥 Solicitud de orderbook recibida del cliente:', socket.id);
-      // Si tenemos datos del último orderbook, los enviamos inmediatamente
       if (lastOrderbookData) {
         processAndSendOrderbookData(socket, lastOrderbookData);
       }
@@ -47,17 +59,29 @@ export function setupSocketServer(httpServer: HTTPServer) {
         processAndSendOrderbookData(socket, data);
       } catch (error) {
         console.error('❌ Error procesando datos del orderbook:', error);
+        socket.emit('error', { message: 'Error procesando datos del orderbook' });
       }
     });
 
     socket.on('heartbeat', () => {
       socket.emit('heartbeat');
       console.log('💓 Heartbeat respondido para cliente:', socket.id);
+      startHeartbeatCheck();
+    });
+
+    socket.on('error', (error) => {
+      console.error('❌ Error en socket:', socket.id, error);
     });
 
     socket.on('disconnect', (reason) => {
       console.log('Cliente Socket.IO desconectado - ID:', socket.id, 'Razón:', reason);
+      if (heartbeatTimeout) {
+        clearTimeout(heartbeatTimeout);
+      }
     });
+
+    // Iniciar verificación de heartbeat
+    startHeartbeatCheck();
   });
 
   return io;
@@ -77,23 +101,25 @@ function processAndSendOrderbookData(socket: any, data: any) {
     firstAsk: data.asks[0]
   });
 
-  // Procesar datos para el perfil de volumen
-  const processedData = processOrderBookForProfile(data.bids, data.asks);
-  console.log('🔄 Datos procesados:', {
-    totalNiveles: processedData.length,
-    muestra: processedData.slice(0, 2)
-  });
+  try {
+    const processedData = processOrderBookForProfile(data.bids, data.asks);
+    console.log('🔄 Datos procesados:', {
+      totalNiveles: processedData.length,
+      muestra: processedData.slice(0, 2)
+    });
 
-  // Agrupar los datos en rangos de $10
-  const groupedData = groupDataByPriceRange(processedData, 10);
-  console.log('📊 Datos agrupados:', {
-    totalGrupos: groupedData.length,
-    muestra: groupedData.slice(0, 2)
-  });
+    const groupedData = groupDataByPriceRange(processedData, 10);
+    console.log('📊 Datos agrupados:', {
+      totalGrupos: groupedData.length,
+      muestra: groupedData.slice(0, 2)
+    });
 
-  // Enviar datos procesados al cliente
-  socket.emit('profile_data', groupedData);
-  console.log('📤 Datos de perfil enviados al cliente:', socket.id);
+    socket.emit('profile_data', groupedData);
+    console.log('📤 Datos de perfil enviados al cliente:', socket.id);
+  } catch (error) {
+    console.error('❌ Error en el procesamiento de datos:', error);
+    socket.emit('error', { message: 'Error procesando datos' });
+  }
 }
 
 function processOrderBookForProfile(
