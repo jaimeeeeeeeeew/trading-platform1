@@ -25,10 +25,10 @@ export function setupSocketServer(httpServer: HTTPServer) {
       allowedHeaders: ["my-custom-header", "Cache-Control", "Pragma"],
     },
     allowEIO3: true,
-    pingTimeout: 20000,
-    pingInterval: 10000,
-    transports: ['polling', 'websocket'],
-    connectTimeout: 20000,
+    pingTimeout: 30000,
+    pingInterval: 15000,
+    transports: ['polling', 'websocket'], // Enable both transports
+    connectTimeout: 30000,
     maxHttpBufferSize: 1e6,
     allowUpgrades: true,
     upgradeTimeout: 15000,
@@ -41,7 +41,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
     let lastOrderbookData: any = null;
     let heartbeatTimeout: NodeJS.Timeout | null = null;
     let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
+    const maxReconnectAttempts = 10;
 
     const startHeartbeatCheck = () => {
       clearHeartbeatCheck();
@@ -52,7 +52,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
           console.log(`🔄 Intento de reconexión ${reconnectAttempts}/${maxReconnectAttempts}`);
           socket.emit('reconnect_needed');
         }
-      }, 20000);
+      }, 30000);
     };
 
     const clearHeartbeatCheck = () => {
@@ -114,6 +114,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
 
       clearHeartbeatCheck();
 
+      // Only attempt reconnection for non-intentional disconnects
       if ((reason === 'transport close' || reason === 'ping timeout') && reconnectAttempts < maxReconnectAttempts) {
         const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts), 5000);
         setTimeout(() => {

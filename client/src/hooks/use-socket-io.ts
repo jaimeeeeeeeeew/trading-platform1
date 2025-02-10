@@ -26,7 +26,7 @@ export function useSocketIO({
   const reconnectAttempts = useRef(0);
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
-  const maxReconnectAttempts = 5;
+  const maxReconnectAttempts = 10; // Increased from 5 to 10
 
   const startHeartbeat = (socket: Socket) => {
     stopHeartbeat();
@@ -36,9 +36,11 @@ export function useSocketIO({
         socket.emit('heartbeat');
       } else {
         console.log('❌ No se puede enviar heartbeat - Socket desconectado');
-        socket.connect();
+        if (reconnectAttempts.current < maxReconnectAttempts) {
+          socket.connect();
+        }
       }
-    }, 10000); // Reduced to 10 seconds for more aggressive health check
+    }, 15000); // Increased from 10000 to 15000 to reduce frequency
   };
 
   const stopHeartbeat = () => {
@@ -69,8 +71,8 @@ export function useSocketIO({
       path: '/trading-socket',
       reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
-      transports: ['polling', 'websocket'], // Start with both transports
-      timeout: 20000, // Reduced timeout
+      transports: ['polling'], // Start with polling only, upgrade later if possible
+      timeout: 30000,
       forceNew: true,
       autoConnect: true,
       reconnection: true,
@@ -92,6 +94,14 @@ export function useSocketIO({
       clearReconnectTimeout();
       startHeartbeat(socket);
       requestInitialData(socket);
+
+      // Try to upgrade to websocket after successful polling connection
+      setTimeout(() => {
+        if (socket.connected) {
+          socket.io.engine.transport.name === 'polling' && 
+          socket.io.opts.transports.push('websocket');
+        }
+      }, 5000);
     });
 
     socket.io.engine.on('upgrade', () => {
@@ -100,13 +110,13 @@ export function useSocketIO({
     });
 
     socket.on('profile_data', (data: ProfileData[]) => {
-      console.log('📊 Datos recibidos:', {
-        timestamp: new Date().toISOString(),
-        niveles: data.length,
-        transport: socket.io.engine.transport.name
-      });
-
       if (Array.isArray(data) && data.length > 0) {
+        console.log('📊 Datos recibidos:', {
+          timestamp: new Date().toISOString(),
+          niveles: data.length,
+          transport: socket.io.engine.transport.name
+        });
+
         const validData = data.every(item =>
           typeof item.price === 'number' &&
           typeof item.volume === 'number' &&
@@ -139,6 +149,8 @@ export function useSocketIO({
         reconnectTimeout.current = setTimeout(() => {
           reconnectAttempts.current++;
           if (!socket.connected) {
+            // Ensure we're using polling for reconnection attempts
+            socket.io.opts.transports = ['polling'];
             socket.connect();
           }
         }, backoffTime);
@@ -159,8 +171,9 @@ export function useSocketIO({
           clearReconnectTimeout();
           reconnectTimeout.current = setTimeout(() => {
             if (!socket.connected) {
-              reconnectAttempts.current++;
+              socket.io.opts.transports = ['polling'];
               socket.connect();
+              reconnectAttempts.current++;
             }
           }, backoffTime);
         }
@@ -189,6 +202,7 @@ export function useSocketIO({
     } else {
       console.warn('⚠️ No se pueden enviar datos - Socket desconectado');
       if (socket && !socket.connected && reconnectAttempts.current < maxReconnectAttempts) {
+        socket.io.opts.transports = ['polling'];
         socket.connect();
       }
     }
