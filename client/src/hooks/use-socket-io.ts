@@ -36,7 +36,7 @@ export function useSocketIO({
       if (socket.connected) {
         socket.emit('heartbeat');
       }
-    }, 25000); // Reducido a 25 segundos
+    }, 25000);
   };
 
   const stopHeartbeat = () => {
@@ -67,12 +67,12 @@ export function useSocketIO({
       path: '/socket.io',
       reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
       timeout: 45000,
-      forceNew: false,
+      forceNew: true,
       autoConnect: true,
       reconnection: true,
-      reconnectionDelayMax: 10000,
+      reconnectionDelayMax: 5000,
       randomizationFactor: 0.5
     });
 
@@ -117,6 +117,11 @@ export function useSocketIO({
       console.log('💓 Heartbeat confirmado');
     });
 
+    socket.on('reconnect_needed', () => {
+      console.log('⚠️ Reconexión necesaria, intentando reconectar...');
+      socket.connect();
+    });
+
     socket.on('error', (error) => {
       console.error('❌ Error en Socket.IO:', error);
       onError?.(error);
@@ -126,9 +131,17 @@ export function useSocketIO({
       console.error('❌ Error de conexión Socket.IO:', error);
       onError?.(error);
 
-      if (error.message.includes('websocket')) {
-        console.log('⚠️ Error en WebSocket, cambiando a polling...');
-        socket.io.opts.transports = ['polling', 'websocket'];
+      if (reconnectAttempts.current < maxReconnectAttempts) {
+        const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 5000);
+        console.log(`🔄 Reintentando conexión en ${backoffTime}ms...`);
+
+        clearReconnectTimeout();
+        reconnectTimeout.current = setTimeout(() => {
+          if (!socket.connected) {
+            socket.connect();
+            reconnectAttempts.current += 1;
+          }
+        }, backoffTime);
       }
     });
 
@@ -137,17 +150,19 @@ export function useSocketIO({
       setIsConnected(false);
       stopHeartbeat();
 
-      if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'transport error') {
-        const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
-        console.log(`🔄 Reintentando conexión en ${backoffTime}ms...`);
+      if (reason === 'io server disconnect' || reason === 'transport close') {
+        if (reconnectAttempts.current < maxReconnectAttempts) {
+          const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 5000);
+          console.log(`🔄 Reintentando conexión en ${backoffTime}ms...`);
 
-        clearReconnectTimeout();
-        reconnectTimeout.current = setTimeout(() => {
-          if (!socket.connected && reconnectAttempts.current < maxReconnectAttempts) {
-            socket.connect();
-            reconnectAttempts.current += 1;
-          }
-        }, backoffTime);
+          clearReconnectTimeout();
+          reconnectTimeout.current = setTimeout(() => {
+            if (!socket.connected) {
+              socket.connect();
+              reconnectAttempts.current += 1;
+            }
+          }, backoffTime);
+        }
       }
     });
 
@@ -155,12 +170,8 @@ export function useSocketIO({
       console.log('🟢 Socket.IO reconectado después de', attemptNumber, 'intentos');
       requestInitialData(socket);
     });
-
     socket.on('reconnect_attempt', () => {
       console.log('🔄 Intento de reconexión Socket.IO');
-      if (socket.io.opts.transports!.includes('polling')) {
-        socket.io.opts.transports = ['websocket', 'polling'];
-      }
     });
 
     return () => {

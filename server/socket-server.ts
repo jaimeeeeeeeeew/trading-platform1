@@ -22,18 +22,13 @@ export function setupSocketServer(httpServer: HTTPServer) {
       methods: ["GET", "POST"]
     },
     path: '/socket.io',
-    pingTimeout: 60000, // Aumentado a 60 segundos
-    pingInterval: 25000, // Aumentado a 25 segundos
-    transports: ['websocket', 'polling'],
-    connectTimeout: 45000, // Aumentado a 45 segundos
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket'],
+    connectTimeout: 45000,
     maxHttpBufferSize: 1e6,
     allowUpgrades: true,
-    upgradeTimeout: 30000,
-    cookie: {
-      name: 'socket.io',
-      httpOnly: true,
-      path: '/'
-    }
+    upgradeTimeout: 30000
   });
 
   io.on('connection', (socket) => {
@@ -48,7 +43,6 @@ export function setupSocketServer(httpServer: HTTPServer) {
       }
       heartbeatTimeout = setTimeout(() => {
         console.log('⚠️ No se recibió heartbeat del cliente:', socket.id);
-        // En lugar de intentar reconectar, notificamos al cliente
         socket.emit('reconnect_needed');
       }, 45000);
     };
@@ -94,7 +88,6 @@ export function setupSocketServer(httpServer: HTTPServer) {
       clearHeartbeatCheck();
     });
 
-    // Iniciar verificación de heartbeat
     startHeartbeatCheck();
   });
 
@@ -123,7 +116,7 @@ function processAndSendOrderbookData(socket: any, data: any) {
 }
 
 function processOrderBookForProfile(
-  bids: OrderBookLevel[], 
+  bids: OrderBookLevel[],
   asks: OrderBookLevel[]
 ): ProcessedOrderBookData[] {
   const processedData: ProcessedOrderBookData[] = [];
@@ -171,8 +164,8 @@ function groupDataByPriceRange(data: ProcessedOrderBookData[], rangeSize: number
   const currentPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
 
   // Filtrar datos alrededor del precio actual
-  const relevantData = data.filter(item => 
-    item.price >= currentPrice * 0.95 && 
+  const relevantData = data.filter(item =>
+    item.price >= currentPrice * 0.95 &&
     item.price <= currentPrice * 1.05
   );
 
@@ -182,8 +175,8 @@ function groupDataByPriceRange(data: ProcessedOrderBookData[], rangeSize: number
 
     if (existing) {
       existing.volume += item.volume;
-      existing.total = item.side === 'bid' ? 
-        Math.max(existing.total, item.total) : 
+      existing.total = item.side === 'bid' ?
+        Math.max(existing.total, item.total) :
         Math.max(existing.total, item.total);
     } else {
       groupedData.set(bucketPrice, {
