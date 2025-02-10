@@ -48,7 +48,8 @@ export function setupSocketServer(httpServer: HTTPServer) {
       }
       heartbeatTimeout = setTimeout(() => {
         console.log('⚠️ No se recibió heartbeat del cliente:', socket.id);
-        socket.emit('reconnect_attempt');
+        // En lugar de intentar reconectar, notificamos al cliente
+        socket.emit('reconnect_needed');
       }, 45000);
     };
 
@@ -91,12 +92,6 @@ export function setupSocketServer(httpServer: HTTPServer) {
     socket.on('disconnect', (reason) => {
       console.log('Cliente Socket.IO desconectado - ID:', socket.id, 'Razón:', reason);
       clearHeartbeatCheck();
-
-      // Intenta reconexión si la desconexión no fue intencional
-      if (reason === 'transport close' || reason === 'ping timeout') {
-        console.log('🔄 Intentando reconexión automática para:', socket.id);
-        socket.connect();
-      }
     });
 
     // Iniciar verificación de heartbeat
