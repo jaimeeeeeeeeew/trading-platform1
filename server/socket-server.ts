@@ -22,16 +22,15 @@ export function setupSocketServer(httpServer: HTTPServer) {
       origin: "*",
       methods: ["GET", "POST", "OPTIONS"],
       credentials: true,
-      allowedHeaders: ["my-custom-header", "Cache-Control", "Pragma"],
+      allowedHeaders: ["my-custom-header"],
     },
-    allowEIO3: true,
-    pingTimeout: 60000,
+    pingTimeout: 120000,
     pingInterval: 25000,
-    transports: ['polling'],
-    connectTimeout: 60000,
+    transports: ['websocket', 'polling'],
+    connectTimeout: 120000,
     maxHttpBufferSize: 1e6,
     allowUpgrades: true,
-    upgradeTimeout: 15000,
+    upgradeTimeout: 30000,
     cookie: false
   });
 
@@ -43,6 +42,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
     let lastOrderbookData: any = null;
     let heartbeatTimeout: NodeJS.Timeout | null = null;
     let clientState = 'connected';
+    let consecutiveFailures = 0;
 
     const clearHeartbeatCheck = () => {
       if (heartbeatTimeout) {
@@ -51,9 +51,27 @@ export function setupSocketServer(httpServer: HTTPServer) {
       }
     };
 
+    const setupHeartbeatCheck = () => {
+      clearHeartbeatCheck();
+      heartbeatTimeout = setTimeout(() => {
+        if (clientState === 'connected') {
+          console.log('⚠️ No se recibió heartbeat del cliente:', socket.id);
+          consecutiveFailures++;
+          if (consecutiveFailures > 3) {
+            console.log('❌ Demasiados fallos consecutivos, desconectando cliente:', socket.id);
+            socket.disconnect(true);
+          } else {
+            setupHeartbeatCheck();
+          }
+        }
+      }, 60000); // 60 segundos para el heartbeat
+    };
+
     socket.on('heartbeat', () => {
       socket.emit('heartbeat_ack');
+      consecutiveFailures = 0;
       console.log('💓 Heartbeat recibido del cliente:', socket.id);
+      setupHeartbeatCheck();
     });
 
     socket.on('request_orderbook', () => {
@@ -93,10 +111,14 @@ export function setupSocketServer(httpServer: HTTPServer) {
       console.log('🔴 Cliente desconectado:', {
         id: socket.id,
         reason,
-        previousState: clientState
+        previousState: clientState,
+        consecutiveFailures
       });
       clearHeartbeatCheck();
     });
+
+    // Iniciar el primer heartbeat check
+    setupHeartbeatCheck();
   });
 
   return io;

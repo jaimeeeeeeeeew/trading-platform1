@@ -26,6 +26,8 @@ export function useSocketIO({
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const socketRef = useRef<Socket | null>(null);
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttempts = useRef<number>(0);
+  const maxReconnectAttempts = 5;
 
   const startHeartbeat = (socket: Socket) => {
     if (heartbeatInterval.current) {
@@ -35,7 +37,7 @@ export function useSocketIO({
       if (socket.connected) {
         socket.emit('heartbeat');
       }
-    }, 20000);
+    }, 30000); // Enviar heartbeat cada 30 segundos
   };
 
   const stopHeartbeat = () => {
@@ -60,14 +62,15 @@ export function useSocketIO({
 
     const socket = io(window.location.origin, {
       path: '/trading-socket',
-      transports: ['polling'],
+      transports: ['websocket', 'polling'],
       timeout: 60000,
-      forceNew: true,
-      autoConnect: true,
       reconnection: true,
+      reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      reconnectionAttempts: 5
+      reconnectionDelayMax: 10000,
+      randomizationFactor: 0.5,
+      autoConnect: true,
+      forceNew: true
     });
 
     socketRef.current = socket;
@@ -75,6 +78,7 @@ export function useSocketIO({
     socket.on('connect', () => {
       console.log('🟢 Conectado al servidor');
       setConnectionState('connected');
+      reconnectAttempts.current = 0;
       startHeartbeat(socket);
       requestInitialData(socket);
     });
@@ -83,6 +87,16 @@ export function useSocketIO({
       console.log('🔴 Desconectado del servidor:', reason);
       setConnectionState('disconnected');
       stopHeartbeat();
+
+      if (reason === 'io server disconnect') {
+        // El servidor cerró la conexión, intentar reconectar manualmente
+        setTimeout(() => {
+          if (reconnectAttempts.current < maxReconnectAttempts) {
+            reconnectAttempts.current++;
+            socket.connect();
+          }
+        }, 1000);
+      }
     });
 
     socket.on('profile_data', (data: ProfileData[]) => {
@@ -98,9 +112,18 @@ export function useSocketIO({
       setConnectionState('disconnected');
     });
 
-    socket.on('connect_error', () => {
-      console.log('⚠️ Error de conexión - Volviendo a estado de escucha');
+    socket.on('connect_error', (error) => {
+      console.log('⚠️ Error de conexión:', error.message);
       setConnectionState('listening');
+
+      if (reconnectAttempts.current >= maxReconnectAttempts) {
+        console.log('🔴 Máximo de intentos de reconexión alcanzado');
+        socket.disconnect();
+      }
+    });
+
+    socket.on('heartbeat_ack', () => {
+      console.log('💓 Heartbeat confirmado por el servidor');
     });
 
     return () => {
