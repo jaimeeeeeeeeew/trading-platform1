@@ -25,8 +25,18 @@ export function setupSocketServer(httpServer: HTTPServer) {
   io.on('connection', (socket) => {
     console.log('🟢 New client connected - ID:', socket.id);
 
+    socket.on('orderbook_data', (data) => {
+      console.log('📊 Received orderbook data:', {
+        timestamp: data.timestamp,
+        bids_count: data.bids?.length || 0,
+        asks_count: data.asks?.length || 0
+      });
+      // Broadcast the data to all connected clients except sender
+      socket.broadcast.emit('orderbook_update', data);
+    });
+
     socket.on('market_data', (data) => {
-      console.log('📊 Received market data:', data);
+      console.log('📈 Received market data:', data);
       // Broadcast the data to all connected clients except sender
       socket.broadcast.emit('market_update', data);
     });
