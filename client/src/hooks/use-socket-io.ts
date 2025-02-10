@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
+type ConnectionState = 'listening' | 'connected' | 'disconnected';
+
 interface UseSocketOptions {
   enabled?: boolean;
   onData?: (data: any) => void;
@@ -21,7 +23,7 @@ export function useSocketIO({
   onProfileData,
   onError
 }: UseSocketOptions = {}) {
-  const [isConnected, setIsConnected] = useState(false);
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const socketRef = useRef<Socket | null>(null);
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -53,6 +55,9 @@ export function useSocketIO({
   useEffect(() => {
     if (!enabled) return;
 
+    setConnectionState('listening');
+    console.log('🎧 Iniciando escucha de conexiones...');
+
     const socket = io(window.location.origin, {
       path: '/trading-socket',
       transports: ['polling'],
@@ -69,14 +74,14 @@ export function useSocketIO({
 
     socket.on('connect', () => {
       console.log('🟢 Conectado al servidor');
-      setIsConnected(true);
+      setConnectionState('connected');
       startHeartbeat(socket);
       requestInitialData(socket);
     });
 
     socket.on('disconnect', (reason) => {
       console.log('🔴 Desconectado del servidor:', reason);
-      setIsConnected(false);
+      setConnectionState('disconnected');
       stopHeartbeat();
     });
 
@@ -90,6 +95,12 @@ export function useSocketIO({
     socket.on('error', (error) => {
       console.error('❌ Error:', error);
       onError?.(error);
+      setConnectionState('disconnected');
+    });
+
+    socket.on('connect_error', () => {
+      console.log('⚠️ Error de conexión - Volviendo a estado de escucha');
+      setConnectionState('listening');
     });
 
     return () => {
@@ -97,21 +108,22 @@ export function useSocketIO({
       stopHeartbeat();
       socket.disconnect();
       socketRef.current = null;
+      setConnectionState('disconnected');
     };
   }, [enabled, onData, onProfileData, onError]);
 
   const sendData = (data: any) => {
     const socket = socketRef.current;
-    if (socket?.connected) {
+    if (socket?.connected && connectionState === 'connected') {
       console.log('📤 Enviando datos al servidor');
       socket.emit('orderbook_data', data);
     } else {
-      console.warn('⚠️ No se pueden enviar datos - Socket desconectado');
+      console.warn(`⚠️ No se pueden enviar datos - Estado actual: ${connectionState}`);
     }
   };
 
   return {
-    isConnected,
+    connectionState,
     sendData,
     socket: socketRef.current
   };

@@ -25,21 +25,24 @@ export function setupSocketServer(httpServer: HTTPServer) {
       allowedHeaders: ["my-custom-header", "Cache-Control", "Pragma"],
     },
     allowEIO3: true,
-    pingTimeout: 60000, // Increased timeout
-    pingInterval: 25000, // Increased interval
-    transports: ['polling'], // Start with polling only
-    connectTimeout: 60000, // Increased timeout
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['polling'],
+    connectTimeout: 60000,
     maxHttpBufferSize: 1e6,
     allowUpgrades: true,
     upgradeTimeout: 15000,
     cookie: false
   });
 
+  console.log('🎧 Servidor Socket.IO iniciado y escuchando conexiones...');
+
   io.on('connection', (socket) => {
-    console.log('🟢 Cliente conectado - ID:', socket.id);
+    console.log('🟢 Nuevo cliente conectado - ID:', socket.id);
 
     let lastOrderbookData: any = null;
     let heartbeatTimeout: NodeJS.Timeout | null = null;
+    let clientState = 'connected';
 
     const clearHeartbeatCheck = () => {
       if (heartbeatTimeout) {
@@ -48,38 +51,49 @@ export function setupSocketServer(httpServer: HTTPServer) {
       }
     };
 
-    // Solo mantener el heartbeat básico
     socket.on('heartbeat', () => {
       socket.emit('heartbeat_ack');
-      console.log('💓 Heartbeat de cliente:', socket.id);
+      console.log('💓 Heartbeat recibido del cliente:', socket.id);
     });
 
     socket.on('request_orderbook', () => {
-      console.log('📥 Solicitud de orderbook del cliente:', socket.id);
+      if (clientState !== 'connected') {
+        console.log('⚠️ Cliente solicitó datos pero no está conectado. Estado:', clientState);
+        return;
+      }
+      console.log('📥 Solicitud de datos del cliente:', socket.id);
       if (lastOrderbookData) {
         processAndSendOrderbookData(socket, lastOrderbookData);
       }
     });
 
     socket.on('orderbook_data', (data) => {
+      if (clientState !== 'connected') {
+        console.log('⚠️ Datos recibidos pero el cliente no está conectado. Estado:', clientState);
+        return;
+      }
       try {
-        console.log('📊 Datos recibidos del cliente:', socket.id);
+        console.log('📊 Procesando datos del cliente:', socket.id);
         lastOrderbookData = data;
         processAndSendOrderbookData(socket, data);
       } catch (error) {
         console.error('❌ Error procesando datos:', error);
+        clientState = 'error';
       }
     });
 
     socket.on('error', (error) => {
       console.error('❌ Error en socket:', socket.id, error);
+      clientState = 'error';
       clearHeartbeatCheck();
     });
 
     socket.on('disconnect', (reason) => {
+      clientState = 'disconnected';
       console.log('🔴 Cliente desconectado:', {
         id: socket.id,
         reason,
+        previousState: clientState
       });
       clearHeartbeatCheck();
     });
@@ -90,7 +104,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
 
 function processAndSendOrderbookData(socket: any, data: any) {
   if (!data || !data.bids || !data.asks) {
-    console.warn('⚠️ Datos inválidos del cliente:', socket.id);
+    console.warn('⚠️ Datos inválidos recibidos del cliente:', socket.id);
     return;
   }
 
