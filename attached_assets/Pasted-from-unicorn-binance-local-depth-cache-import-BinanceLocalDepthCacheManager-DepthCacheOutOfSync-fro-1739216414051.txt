@@ -1,0 +1,753 @@
+from unicorn_binance_local_depth_cache import BinanceLocalDepthCacheManager, DepthCacheOutOfSync
+from typing import Optional
+import asyncio
+import logging
+import os
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import asyncio
+import socketio
+import json
+from itertools import groupby
+import mplfinance as mpf
+import matplotlib.image as mpimg  # para cargar imágenes
+from matplotlib.animation import FuncAnimation
+from datetime import datetime, timedelta
+import ccxt
+from binance.client import Client
+from binance.enums import HistoricalKlinesType, FuturesType, ContractType
+from unicorn_binance_local_depth_cache import BinanceLocalDepthCacheManager, DepthCacheOutOfSync
+from lucit_licensing_python.exceptions import NoValidatedLucitLicense
+from datetime import datetime
+from threading import Timer
+import requests
+import logging
+import os
+import sys
+import time 
+import threading
+from matplotlib.table import Table
+from matplotlib.ticker import FixedLocator, FixedFormatter
+from matplotlib.ticker import MaxNLocator
+from matplotlib.lines import Line2D
+import matplotlib.dates as mdates
+from matplotlib.patches import Rectangle
+from matplotlib import font_manager
+import mpld3
+import hmac
+import hashlib
+import matplotlib.patches as patches
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from PIL import Image
+
+BASE_URL_BITMART = 'https://api-cloud-v2.bitmart.com'
+API_KEY_BITMART_ = '85e0944d4a6bee88ead267f9c48129eb992bb337'
+SECRET_KEY_BITMART_ = 'df02462696edb4001d4edcd2b56d8197b3681dd9073b63870bf41794017ed521'
+MEMO_BITMART_ = 'nueva'
+API_KEY_BITMART = '0cc891a42ea056227a8e99418f9d47f2e850f196'
+SECRET_KEY_BITMART = '1d9d9ada8bfdfc8b3562388b57c780491dc2e7b813cd2b1f95546ec284b62982'
+MEMO_BITMART = 'JAIME'
+
+
+amount_test_caches: int = None
+exchange_spot: str = "binance.com"
+exchange: str = "binance.com-futures"
+limit_count: int = None
+update_interval_ms: Optional[int] = None
+desired_symbols = ["BTCUSDT"] #, "ETHUSDT"] #, "SHIBAUSDT", "DOGEUSDT", "DOTUSDT", "SOLUSDT", "ADAUSDT", "XRPUSDT"]
+# Configuración del logger
+top_asks = None
+top_bids = None
+top_bids_spot = None
+top_asks_spot = None
+order_flow_bids_500 = 1
+order_flow_asks_500 = 1
+zonas_liquidacion_sell = pd.DataFrame(columns=['Price', 'Quantity'])
+zonas_liquidacion_buy = pd.DataFrame(columns=['Price', 'Quantity'])
+prueba = False
+max_ask_liq = 0
+max_bid_liq = 0
+# Parámetros del mercado
+market = 'BTCUSDT'
+symbol = 'BTCUSDT'
+symboloo = 'btcusdt'
+bucket_size = 10 # Tamaño de agrupación en los niveles de precios (100 USD)
+bucket_size_10 = 10
+# Variables globales
+cvd_spot = 0
+cvd_futures = 0
+vwap = 0
+cvd_futures_color = '#089981'
+previous_table_data = []
+max_asks = pd.DataFrame()
+max_bids = pd.DataFrame()
+df_asks = pd.DataFrame()
+df_bids = pd.DataFrame()
+current_time_last = time.time()
+green_cells1 = 0
+green_cells = 0
+green_cells2 = 0
+sum_ventas_spot= 0
+sum_compras_spot= 0
+sum_compras= 0
+sum_ventas = 0
+tiempo_transcurrido =  time.time()  # Marca el tiempo del último cambio de sesgo
+accumulated_volume_b_25 = 0
+accumulated_volume_25 = 0
+total_volume_a = 0
+total_volume_b = 0
+accumulated_volume_b = 0
+accumulated_volume_a = 0
+foto_png = False
+diferencia_numero_spot = 0
+diferencia_numero_fut = 0
+last_print_time = time.time() 
+last_print_time_sesgo = time.time() 
+primera_vez_sesgo = False
+last_print_time1 = time.time()
+last_print_time2 = time.time() # Tiempo inicial
+primera_vez = False
+sesgo_bajista = False
+sesgo_alcista = False
+sesgo_medio = False
+ultimo_cambio_sesgo = time.time()
+tipo_sesgo_anterior = "ninguno"
+accumulated_volume_b_25 = 0
+accumulated_volume_25 = 0
+total_volume_a = 0
+total_volume_b = 0
+accumulated_volume_b = 0
+accumulated_volume_a = 0        
+                        
+
+
+
+# Configuración del cliente Socket.IO
+sio = socketio.AsyncClient()
+
+async def connect_to_socketio():
+    """Conectar al servidor Socket.IO."""
+    uri = "https://9d5eb702-2069-4a18-86c0-f979da1b873f-00-1r2wl6jp9d8e1.picard.replit.dev/"
+    max_retries = 5
+    retry_count = 0
+
+    while retry_count < max_retries:
+        try:
+            print(f"🔄 Intento de conexión {retry_count + 1} a {uri}")
+            await sio.connect(uri)
+            print(f"✅ Conexión establecida con {uri}")
+            return True
+        except Exception as e:
+            print(f"❌ Error de conexión: {type(e).__name__}: {str(e)}")
+            retry_count += 1
+            if retry_count < max_retries:
+                wait_time = min(2 ** retry_count, 30)
+                print(f"⏳ Esperando {wait_time} segundos antes de reintentar...")
+                await asyncio.sleep(wait_time)
+            else:
+                print("🚫 Máximo número de intentos alcanzado")
+                return False
+
+@sio.event
+async def connect():
+    print("✅ Conectado al servidor Socket.IO")
+
+@sio.event
+async def disconnect():
+    print("❌ Desconectado del servidor Socket.IO")
+
+@sio.event
+async def connect_error(data):
+    print(f"❌ Error de conexión Socket.IO: {data}")
+
+def clean_dataframe(df):
+    # Convertir columnas a string y limpiar valores
+    df = df.copy()
+    df['Price'] = df['Price'].astype(str).apply(lambda x: str(float(x)))
+    df['Quantity'] = df['Quantity'].astype(str).apply(lambda x: str(float(x)))
+    return df.to_dict(orient='records')
+
+def clean_dataframe(df):
+    # Convertir columnas a string y limpiar valores
+    df = df.copy()
+    df['Price'] = df['Price'].astype(str).apply(lambda x: str(float(x)))
+    df['Quantity'] = df['Quantity'].astype(str).apply(lambda x: str(float(x)))
+    return df.to_dict(orient='records')
+
+async def send_data(df_bids, df_asks):
+    if not sio.connected:
+        print("⚠️ No hay conexión Socket.IO activa, intentando reconectar...")
+        if not await connect_to_socketio():
+            print("❌ No se pudo establecer la conexión")
+            return False
+
+    try:
+        # Verificar que los DataFrames no estén vacíos y son válidos
+        if df_bids.empty or df_asks.empty:
+            print("❌ DataFrames vacíos, no se enviarán datos")
+            return False
+
+        data = {
+            'bids': clean_dataframe(df_bids),
+            'asks': clean_dataframe(df_asks),
+            'timestamp': str(int(time.time() * 1000))
+        }
+
+        # Verificar que los datos sean JSON válidos antes de enviar
+        try:
+            json.dumps(data)  # Validar que sea JSON válido
+        except Exception as json_error:
+            print(f"❌ Error en formato JSON: {json_error}")
+            return False
+
+        print(f"📦 Preparando datos para enviar: {len(data['bids'])} bids, {len(data['asks'])} asks")
+        await sio.emit('orderbook_data', data)
+        print("📤 Datos enviados al servidor Socket.IO")
+        return True
+    except Exception as e:
+        print(f"❌ Error enviando datos: {str(e)}")
+        print(f"Detalles del error: {type(e).__name__}")
+        return False
+
+# Definir la función para calcular VWAP y el volumen acumulado hasta el precio VWAP
+def calculate_vwap_a(order_book_side):
+    # Asegúrate de que el DataFrame tenga las columnas 'Price' y 'Quantity'
+    if 'Price' not in order_book_side or 'Quantity' not in order_book_side:
+        raise ValueError("El DataFrame debe contener las columnas 'Price' y 'Quantity'.")
+
+    total_volume = 0
+    total_value = 0
+
+    # Iterar sobre las filas del DataFrame para calcular VWAP
+    for index, row in order_book_side.iterrows():
+        price = float(row['Price'])
+        quantity = float(row['Quantity'])
+        total_volume += quantity
+        total_value += price * quantity
+
+    # Calcular el VWAP
+    vwap = total_value / total_volume if total_volume != 0 else 0
+ 
+    upper_bound = current_price * 1.025  # 2.5% por encima
+
+    accumulated_volume_25 = 0
+    for index, row in order_book_side.iterrows():
+        price = float(row['Price'])
+        quantity = float(row['Quantity'])
+        if price <= upper_bound:
+            accumulated_volume_25 += quantity
+        
+      
+
+    # Calcular el volumen acumulado hasta el precio VWAP
+    accumulated_volume = 0
+    for index, row in order_book_side.iterrows():
+        price = float(row['Price'])
+        quantity = float(row['Quantity'])
+        accumulated_volume += quantity
+        if price >= vwap:
+            break
+
+    return vwap, accumulated_volume,total_volume,accumulated_volume_25
+def calculate_vwap_b(order_book_side):
+    
+    # Asegúrate de que el DataFrame tenga las columnas 'Price' y 'Quantity'
+    if 'Price' not in order_book_side or 'Quantity' not in order_book_side:
+        raise ValueError("El DataFrame debe contener las columnas 'Price' y 'Quantity'.")
+
+    total_volume = 0
+    total_value = 0
+    
+    accumulated_volume_b_25 = 0
+
+    # Iterar sobre las filas del DataFrame para calcular VWAP
+    for index, row in order_book_side.iterrows():
+        price = float(row['Price'])
+        quantity = float(row['Quantity'])
+        total_volume += quantity
+        total_value += price * quantity
+
+    # Calcular el VWAP
+    vwap = total_value / total_volume if total_volume != 0 else 0
+    lower_bound = current_price * 0.975  # 2.5% por debajo
+    
+    for index, row in order_book_side.iterrows():
+        price = float(row['Price'])
+        quantity = float(row['Quantity'])
+        if price >= lower_bound:
+            accumulated_volume_b_25 += quantity
+        if price <= lower_bound:
+            break
+
+    # Calcular el volumen acumulado hasta el precio VWAP
+    accumulated_volume = 0
+    for index, row in order_book_side.iterrows():
+        price = float(row['Price'])
+        quantity = float(row['Quantity'])
+        accumulated_volume += quantity
+        if price <= vwap:
+            break
+
+    return vwap, accumulated_volume,total_volume,accumulated_volume_b_25
+
+# Función para agrupar el libro de órdenes por niveles de precios de $100
+def es_numero(valor):
+    """Verifica si el valor es convertible a float."""
+    return isinstance(valor, (int, float)) or (isinstance(valor, str) and valor.replace('.', '', 1).isdigit())
+
+def group_by_price_level_a(order_book, bucket_size):
+    grouped_orders_a = {}
+    for order in order_book:
+        price = float(order[0])  # Obtener el precio de la lista
+        quantity = float(order[1])  # Obtener la cantidad de la lista
+        # Determinar el bucket (nivel de precio), redondeando hacia arriba para el lado ask
+        bucket = (int((price + bucket_size - 1) // bucket_size * bucket_size))
+        # Sumar la cantidad al bucket correspondiente
+        if bucket not in grouped_orders_a:
+            grouped_orders_a[bucket] = 0
+        grouped_orders_a[bucket] += quantity
+    return grouped_orders_a
+# Función para agrupar el libro de órdenes por niveles de precios de $100
+def group_by_price_level_b(order_book, bucket_size):
+    grouped_orders_b = {}
+    for order in order_book:
+        price = float(order[0])  # Obtener el precio de la lista
+        quantity = float(order[1])  # Obtener la cantidad de la lista
+        # Determinar el bucket (nivel de precio)
+        bucket = (int(price // bucket_size * bucket_size))
+        # Sumar la cantidad al bucket correspondiente
+        if bucket not in grouped_orders_b:
+            grouped_orders_b[bucket] = 0
+        grouped_orders_b[bucket] += quantity
+    return grouped_orders_b
+# Función para convertir el libro agrupado a un DataFrame
+
+# Función para convertir el libro agrupado a un DataFrame
+def order_book_to_dataframe(grouped_orders, side):
+    df = pd.DataFrame(grouped_orders.items(), columns=['Price', 'Quantity'])
+    df = df.sort_values(by='Price', ascending=(side == 'bids'))  # Ordenar según el lado (bids ascendente)
+    return df
+
+def sign_message(timestamp, memo, query_string, secret_key):
+    message = f"{timestamp}#{memo}#{query_string}"
+   # print(f"Message to sign: {message}")
+    return hmac.new(secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+def get_headers(path, body, api_key, secret_key, memo):
+    timestamp = str(int(time.time() * 1000))
+    body_str = json.dumps(body, separators=(',', ':')) if body else ""
+    sign = sign_message(timestamp, memo, body_str, secret_key)
+    headers = {
+        'X-BM-KEY': api_key,
+        'X-BM-TIMESTAMP': timestamp,
+        'X-BM-SIGN': sign,  # Añadir el UID a las cabeceras
+        'Content-Type': 'application/json'
+    }
+   # print(f"Headers: {headers}")
+    return headers
+
+def get_symbol_details(symbol):
+    global current_price
+    url = f"{BASE_URL_BITMART}//contract/public/details?symbol={symbol}"
+    
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        data = response.json().get('data', [])
+        #print("data",data)
+        # Extraer la precisión de precio y el tamaño del contrato
+        symbol_data = data['symbols'][0]  # Accedemos al primer (y único) elemento de la lista
+        price_precision = symbol_data['price_precision']
+
+        price_precision = num_decimales = len(str(price_precision).split('.')[1])
+
+
+        contract_size_minimo = symbol_data['contract_size']
+        current_price = symbol_data['last_price']
+        
+        return current_price
+    else:
+        print("Error:", response.status_code, response.text)
+        return None, None
+
+
+
+
+order_flow_500 = 0
+order_flow_2000 = 0
+current_price = get_symbol_details(symbol)
+current_price = round(float(current_price))
+current_price = int(current_price)
+
+
+
+# Función de actualización
+def actualizar_grafico():
+    global df_1m,current_price,max_bids,max_asks,df_asks_10,df_bids_10,df_asks,df_bids,trades_data,vwap,cvd_futures,hh_values_1m, ll_values_1m,order_flow_500,order_flow_2000,cvd_futures_color,previous_table_data,previous_max_bids,previous_max_asks,order_flow_bids_500,order_flow_asks_500,sum_ventas,sum_compras,sum_ventas_spot,sum_compras_spot,last_text,current_time_last,green_cells1,green_cells,green_cells2,sum_compras,sum_compras_spot,sum_ventas,sum_ventas_spot,max_ask_liq,max_bid_liq,tipo_sesgo_anterior,tiempo_transcurrido,sesgo_alcista,sesgo_bajista,sesgo_medio,foto_png,diferencia_numero_fut,diferencia_numero_spot,ultimo_cambio_sesgo
+    # Cargar la fecha guardada
+    
+    
+    #print(trades_data)
+    
+    #input("ojghhj")
+    #current_price = round(get_current_price('BTCUSDT'), 2)
+    
+
+    
+   #  Calcular el rango del eje Y para centrar el precio actual
+    rango_y = 0.05* current_price  # Margen del 2% del precio actual
+    y_min = current_price - rango_y
+    y_max = current_price + rango_y
+    numero_barras = 80
+    rango_total = y_max - y_min
+    grosor_barras = rango_total / numero_barras
+    # Ajustar los límites del eje Y
+    
+    precio_inicial = (y_min // 200) * 200  # Redondear hacia abajo al múltiplo de 100 más cercano
+ 
+    if not max_bids.empty and not max_asks.empty:
+        df_bids['Price'] = pd.to_numeric(df_bids['Price'], errors='coerce')
+        df_asks['Price'] = pd.to_numeric(df_asks['Price'], errors='coerce')
+
+        
+        y_offset = 100
+
+        
+
+    
+        max_quantity = max(df_bids['Quantity'].max(), df_asks['Quantity'].max())
+       
+        if max_quantity < 500:
+            max_quantity = 500
+        
+# Función para iniciar la animación
+def animar_grafico():
+    global df_1m,current_price,max_bids,max_asks,df_asks_10,df_bids_10,vwap,previous_table_data,last_text,green_cells1,green_cells,green_cells2,sum_compras,sum_compras_spot,sum_ventas,sum_ventas_spot,max_asks,max_bids,top_asks_spot,top_bids_spot,top_asks,top_bids
+    while True:
+        actualizar_grafico()
+
+
+def nodos(market):
+    global primera_vez_sesgo,last_print_time_sesgo,top_asks,top_bids,df_1m,current_price,max_bids,max_asks,df_asks,df_bids,df_asks,df_bids,vwap,cvd_futures,order_flow_500,order_flow_2000,previous_max_bids,previous_max_asks,order_flow_bids_500,order_flow_asks_500,zonas_liquidacion_sell,zonas_liquidacion_buy,max_ask_liq,max_bid_liq,cantidad_en_tp_short_1,cantidad_en_tp_short_2,cantidad_en_tp_long_1,cantidad_en_tp_long_2,tipo_sesgo_anterior,tiempo_transcurrido,accumulated_volume_b_25,accumulated_volume_25,accumulated_volume_b,accumulated_volume_a,total_volume_a,total_volume_b,sesgo_alcista,sesgo_bajista,sesgo_medio,foto_png,ultimo_cambio_sesgo,top_bids_spot,top_asks_spot
+    if top_asks and top_bids and top_bids_spot and top_asks_spot:
+        
+
+      
+       
+
+        # Filtrar los bids por debajo del precio actual
+        try:
+            url = f"{BASE_URL_BITMART}//contract/public/details?symbol={market}"
+            
+            response = requests.get(url)
+            
+            if response.status_code == 200:
+                data = response.json().get('data', [])
+                #print("data",data)
+                # Extraer la precisión de precio y el tamaño del contrato
+                symbol_data = data['symbols'][0]  # Accedemos al primer (y único) elemento de la lista
+                
+
+                current_price = float(symbol_data['last_price'])
+                print("preciooooooooooooo",current_price)
+              
+
+        except Exception as e:
+            print("dssssd",e) 
+        try:
+
+            filtered_bids = [order for order in top_bids if float(order[0]) < current_price  ]
+            filtered_bids_spot = [order for order in top_bids_spot if float(order[0]) < current_price  ]
+
+            # Filtrar los asks por encima del precio actual
+            filtered_asks = [order for order in top_asks if float(order[0]) > current_price]
+            filtered_asks_spot = [order for order in top_asks_spot if float(order[0]) > current_price ]
+        except Exception as e:
+            print("ddddd",e)
+                        # Agrupar órdenes por niveles de $100
+        try:
+            grouped_bids = group_by_price_level_b(filtered_bids, bucket_size)
+            grouped_asks = group_by_price_level_a(filtered_asks, bucket_size)
+            grouped_bids_spot = group_by_price_level_b(filtered_bids_spot, bucket_size)
+            grouped_asks_spot = group_by_price_level_a(filtered_asks_spot, bucket_size)
+#                   
+
+            df_bids = order_book_to_dataframe(grouped_bids, side='bids')
+            df_asks = order_book_to_dataframe(grouped_asks, side='asks')
+            df_bids_spot = order_book_to_dataframe(grouped_bids_spot, side='bids')
+            df_asks_spot = order_book_to_dataframe(grouped_asks_spot, side='asks')
+            
+                
+        except Exception as e:
+            print("4",e)
+
+        try:
+        # Ordenar Bids por precio en orden descendente
+            df_bids = df_bids.sort_values(by='Price', ascending=False)
+
+            # Ordenar Asks por precio en orden ascendente
+            df_asks = df_asks.sort_values(by='Price', ascending=True)
+            df_bids_spot = df_bids_spot.sort_values(by='Price', ascending=False)
+
+            # Ordenar Asks por precio en orden ascendente
+            df_asks_spot = df_asks_spot.sort_values(by='Price', ascending=True)
+            
+            
+            
+            # Calcular el umbral mínimo (0.3%)
+            threshold = current_price * 0.003  # 0.3% del precio actual
+
+                            
+            df_bids['Quantity'] = pd.to_numeric(df_bids['Quantity'], errors='coerce')
+            # Asegúrate de que los datos sean numéricos, convirtiendo la columna 'Quantity'
+            df_asks['Quantity'] = pd.to_numeric(df_asks['Quantity'], errors='coerce')
+
+            # Filtrar bids y asks que están a más del 0.3% de distancia del precio actual
+            df_bidss = df_bids[df_bids['Price'] <= (current_price - threshold)]
+            df_askss = df_asks[df_asks['Price'] >= (current_price + threshold)]
+            
+            df_bidss = pd.concat([df_bidss, df_bids_spot], ignore_index=True)
+            df_askss = pd.concat([df_askss, df_asks_spot], ignore_index=True)
+
+            df_bids = pd.concat([df_bids, df_bids_spot], ignore_index=True)
+            df_asks = pd.concat([df_asks, df_asks_spot], ignore_index=True)
+
+            df_bids['Quantity'] = pd.to_numeric(df_bids['Quantity'], errors='coerce')
+            # Asegúrate de que los datos sean numéricos, convirtiendo la columna 'Quantity'
+            df_asks['Quantity'] = pd.to_numeric(df_asks['Quantity'], errors='coerce')
+
+            max_bids = df_bids.nlargest(6, 'Quantity')
+            max_bids = max_bids.sort_values(by='Price', ascending=False)
+            max_asks = df_asks.nlargest(6, 'Quantity')
+            max_asks = max_asks.sort_values(by='Price', ascending=True)
+
+            try:
+            # After processing the data and creating df_bids and df_asks
+            # Send the data through Socket.IO
+                asyncio.create_task(send_data(df_bids, df_asks))
+            except Exception as e:
+                print(f"Error enviando datos via Socket.IO: {e}")
+
+
+            
+        except Exception as e:
+            print("ddddd",e)
+        
+    return df_asks,df_bids
+
+async def main_monitor(ubldc):
+    global current_time_last,green_cells1,green_cells,green_cells2,sum_compras,sum_compras_spot,sum_ventas,sum_ventas_spot,max_asks,max_bids,ultimo_cambio_sesgo,top_asks,top_bids,df_asks,df_bids
+        
+    print("Iniciando la función main()")
+    print("Obteniendo el gestor UBRA desde ubldc")
+    ubra = ubldc.get_ubra_manager()
+    
+    print("Obteniendo información de intercambio de futuros")
+    try:
+        exchange_info = ubra.futures_exchange_info()
+    except Exception as e:
+        print("dd",e)
+    markets = []
+    print("Filtrando mercados que terminan con 'USDT' y están en estado 'TRADING'")
+    try:
+        for item in exchange_info['symbols']:
+            if item['symbol'] in desired_symbols and item['status'] == "TRADING":
+                markets.append(item['symbol'])
+    except Exception as e:
+        print("dd",e)
+    try:
+
+        markets = markets[:amount_test_caches]
+        print(f"Mercados seleccionados ({len(markets)}): {markets}")
+
+        print(f"Creando DepthCaches para el intercambio: {exchange}")
+        ubldc.create_depth_cache(markets=markets)
+        print("DepthCaches creados exitosamente")
+
+        print("Entrando al bucle principal para actualizar DepthCaches")
+    except Exception as e:
+        print("ddd",e)
+
+    while not ubldc.is_stop_request():
+        print("Actualizando resumen de DepthCaches")
+        add_string = (f"binance_api_status={ubra.get_used_weight(cached=True)}\r\n"
+                      f"---------------------------------------------------------------------------------------------")
+        
+        for market in markets:
+            print(f"Procesando mercado: {market}")
+            try:
+                print(f"Obteniendo top asks para {market}")
+                try:
+                
+                    top_asks = ubldc.get_asks(market=market)
+                    #print(f"Top Asks para {market}: {top_asks}")
+                    print(f"Obteniendo top bids para {market}")
+                    top_bids = ubldc.get_bids(market=market)
+                    #print(f"Top Bids para {market}: {top_bids}")
+                   # if market== "BTCUSDT":
+                    df_asks,df_bids = nodos(market)
+                except Exception as e:
+                    print("dsd",e)
+
+                #print(max_bids,max_asks)
+            except DepthCacheOutOfSync:
+                print(f"DepthCache fuera de sincronización para {market}")
+                top_asks = "Out of sync!"
+                top_bids = "Out of sync!"
+            
+            depth = (f"depth_cache '{market}' está sincronizado: {ubldc.is_depth_cache_synchronized(market=market)}\r\n",
+                     f" - top  asks: {df_asks}\r\n",
+                     f" - top  bids: {df_bids}")
+            add_string = f"{add_string}\r\n {depth}"
+            print(f"Resumen parcial para {market}:\n{depth}")
+            
+                
+               # animar_grafico()
+
+
+        print("Enviando resumen completo de DepthCaches")
+        ubldc.print_summary(add_string=add_string)
+        print("Resumen enviado. Esperando 1 segundo antes de la siguiente actualización.")
+        await asyncio.sleep(1)
+
+async def main_monitor_spot(ubldc_spot):
+    global current_time_last,green_cells1,green_cells,green_cells2,sum_compras,sum_compras_spot,sum_ventas,sum_ventas_spot,max_asks,max_bids,ultimo_cambio_sesgo,top_asks,top_bids,df_asks,df_bids,top_asks_spot,top_bids_spot
+        
+    print("Iniciando la función main()")
+    print("Obteniendo el gestor UBRA desde ubldc")
+    try:
+        ubra = ubldc_spot.get_ubra_manager()
+        
+        print("Obteniendo información de intercambio de futuros")
+        exchange_info = ubra.futures_exchange_info()
+    except Exception as e:
+        print("dssd",e)
+    markets = []
+    print("Filtrando mercados que terminan con 'USDT' y están en estado 'TRADING'")
+    for item in exchange_info['symbols']:
+        if item['symbol'] in desired_symbols and item['status'] == "TRADING":
+            markets.append(item['symbol'])
+    
+   # markets = markets[:amount_test_caches]
+    markets = desired_symbols
+
+    print(f"Mercados seleccionados ({len(markets)}): {markets}")
+
+    print(f"Creando DepthCaches para el intercambio: {exchange}")
+    ubldc_spot.create_depth_cache(markets=markets)
+    print("DepthCaches creados exitosamente")
+
+    print("Entrando al bucle principal para actualizar DepthCaches")
+    while not ubldc_spot.is_stop_request():
+        print("Actualizando resumen de DepthCaches")
+        add_string = (f"binance_api_status={ubra.get_used_weight(cached=True)}\r\n"
+                      f"---------------------------------------------------------------------------------------------")
+        
+        for market in markets:
+            print(f"Procesando mercado: {market}")
+            try:
+
+                print(f"Obteniendo top asks para {market}")
+                try:
+                    top_asks_spot = ubldc_spot.get_asks(market=market)
+                    #print(f"Top Asks para {market}: {top_asks}")
+                    print(f"Obteniendo top bids para {market}")
+                    top_bids_spot = ubldc_spot.get_bids(market=market)
+                    #print(f"Top Bids para {market}: {top_bids}")
+                    df_asks,df_bids = nodos(market)
+                except Exception as e:
+                    print("ddddd",e)
+
+                #print(max_bids_spot,max_asks_spot)
+            except DepthCacheOutOfSync:
+                print(f"DepthCache fuera de sincronización para {market}")
+                top_asks_spot = "Out of sync!"
+                top_bids_spot = "Out of sync!"
+            
+            depth = (f"depth_cache '{market}' está sincronizado: {ubldc_spot.is_depth_cache_synchronized(market=market)}\r\n",
+                     f" - top  asks SPOT: {df_asks}\r\n",
+                     f" - top  bids SPOT: {df_bids}")
+            add_string = f"{add_string}\r\n {depth}"
+            print(f"Resumen parcial para {market}:\n{depth}")
+            
+                
+               # animar_grafico()
+
+
+        print("Enviando resumen completo de DepthCaches")
+        ubldc_spot.print_summary(add_string=add_string)
+        print("Resumen enviado. Esperando 1 segundo antes de la siguiente actualización.")
+        await asyncio.sleep(1)
+
+
+def monitor_spot():
+    print("Configurando BinanceLocalDepthCacheManager")
+    with BinanceLocalDepthCacheManager(
+        exchange=exchange_spot,
+        init_time_window=5,
+        websocket_ping_interval=10,
+        websocket_ping_timeout=15,
+        depth_cache_update_interval=update_interval_ms
+    ) as ubldc_spot:
+        print("BinanceLocalDepthCacheManager configurado correctamente")
+        try:
+            print("Iniciando el bucle de eventos asyncio")
+            asyncio.run(main_monitor_spot(ubldc_spot))
+        except KeyboardInterrupt:
+            print("\nInterrupción del teclado recibida. Deteniendo el programa de manera segura...")
+        except Exception as e:
+            print(f"\nERROR: {e}")
+            print("Deteniendo el programa de manera segura debido a un error.")
+  
+def monitor():
+    print("Configurando BinanceLocalDepthCacheManager")
+    with BinanceLocalDepthCacheManager(
+        exchange=exchange,
+        init_time_window=5,
+        websocket_ping_interval=10,
+        websocket_ping_timeout=15,
+        depth_cache_update_interval=update_interval_ms
+    ) as ubldc:
+        print("BinanceLocalDepthCacheManager configurado correctamente")
+        try:
+            print("Iniciando el bucle de eventos asyncio")
+            asyncio.run(main_monitor(ubldc))
+        except KeyboardInterrupt:
+            print("\nInterrupción del teclado recibida. Deteniendo el programa de manera segura...")
+        except Exception as e:
+            print(f"\nERROR: {e}")
+            print("Deteniendo el programa de manera segura debido a un error.")
+
+def run_program():
+    global df_bids,df_asks,max_asks,max_bids,current_price,top_asks_spot,top_bids_spot,top_asks,top_bids
+    print("Iniciando el programa")
+    # Create event loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    # Conectar al servidor Socket.IO
+    loop.run_until_complete(connect_to_socketio())
+
+    monitor_thread = threading.Thread(target=monitor, daemon=True)
+    monitor_thread.start()
+    monitor_thread = threading.Thread(target=monitor_spot, daemon=True)
+    monitor_thread.start()
+    monitor_thread = threading.Thread(target=animar_grafico, daemon=True)
+    monitor_thread.start()
+
+   # print("Iniciando el gráfico en el hilo principal")
+   # animar_grafico()
+
+    try:
+        # Run the event loop
+        loop.run_forever()
+    except KeyboardInterrupt:
+        # Clean shutdown
+        if sio.connected:
+            loop.run_until_complete(sio.disconnect())
+    finally:
+        loop.close()
+
+
+if __name__ == "__main__":
+    run_program()
