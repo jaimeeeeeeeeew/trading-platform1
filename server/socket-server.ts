@@ -93,7 +93,7 @@ function processOrderBookForProfile(
   bids.forEach((bid) => {
     const price = parseFloat(bid.Price);
     const volume = parseFloat(bid.Quantity);
-    if (!isNaN(price) && !isNaN(volume)) {
+    if (!isNaN(price) && !isNaN(volume) && price > 0) {
       bidTotal += volume;
       processedData.push({
         price,
@@ -108,7 +108,7 @@ function processOrderBookForProfile(
   asks.forEach((ask) => {
     const price = parseFloat(ask.Price);
     const volume = parseFloat(ask.Quantity);
-    if (!isNaN(price) && !isNaN(volume)) {
+    if (!isNaN(price) && !isNaN(volume) && price > 0) {
       askTotal += volume;
       processedData.push({
         price,
@@ -125,7 +125,17 @@ function processOrderBookForProfile(
 function groupDataByPriceRange(data: ProcessedOrderBookData[], rangeSize: number): ProcessedOrderBookData[] {
   const groupedData = new Map<number, ProcessedOrderBookData>();
 
-  data.forEach(item => {
+  // Encontrar el precio medio actual
+  const prices = data.map(item => item.price);
+  const currentPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+
+  // Filtrar datos alrededor del precio actual
+  const relevantData = data.filter(item => 
+    item.price >= currentPrice * 0.95 && 
+    item.price <= currentPrice * 1.05
+  );
+
+  relevantData.forEach(item => {
     const bucketPrice = Math.floor(item.price / rangeSize) * rangeSize;
     const existing = groupedData.get(bucketPrice);
 

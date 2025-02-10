@@ -52,49 +52,24 @@ export const VolumeProfile = ({
       const zoomLevel = Math.abs(visibleLogicalRange.to - visibleLogicalRange.from);
 
       // Determinar el tamaño de agrupación basado en el zoom
-      let bucketSize: number;
-      if (zoomLevel <= 50) {
-        bucketSize = 10; // Zoom cercano: barras cada 10 dólares
-      } else if (zoomLevel <= 150) {
-        bucketSize = 50; // Zoom medio: barras cada 50 dólares
-      } else {
-        bucketSize = 100; // Zoom lejano: barras cada 100 dólares
+      let bucketSize = 10; // Mantener barras de 10$ para consistencia con el backend
+
+      // Filtrar datos relevantes basados en el precio actual
+      const relevantData = data.filter(item => 
+        item.price >= currentPrice * 0.95 && 
+        item.price <= currentPrice * 1.05
+      );
+
+      if (relevantData.length === 0) {
+        console.log('No hay datos relevantes para mostrar en el rango de precios actual');
+        return;
       }
 
-      // Agrupar los datos según el bucketSize
-      const groupedData = new Map<number, { volume: number; count: number }>();
-
-      // Agrupar volúmenes
-      data.forEach(item => {
-        const bucketPrice = Math.floor(item.price / bucketSize) * bucketSize;
-        const existing = groupedData.get(bucketPrice);
-
-        if (existing) {
-          existing.volume += item.volume;
-          existing.count += 1;
-        } else {
-          groupedData.set(bucketPrice, {
-            volume: item.volume,
-            count: 1
-          });
-        }
-      });
-
-      // Convertir el Map a array y calcular volúmenes normalizados
-      const bars = Array.from(groupedData.entries())
-        .map(([price, { volume, count }]) => ({
-          price,
-          volume,
-          count,
-          avgVolume: volume / count
-        }))
-        .sort((a, b) => a.price - b.price);
-
       // Calcular el volumen máximo para normalización
-      const maxVolume = Math.max(...bars.map(b => b.avgVolume));
-      const normalizedBars = bars.map(bar => ({
+      const maxVolume = Math.max(...relevantData.map(d => d.volume));
+      const normalizedBars = relevantData.map(bar => ({
         ...bar,
-        normalizedVolume: bar.avgVolume / maxVolume
+        normalizedVolume: bar.volume / maxVolume
       }));
 
       // Configurar escalas
@@ -143,7 +118,7 @@ export const VolumeProfile = ({
           .attr('fill', '#ffffff')
           .attr('font-size', `${fontSize}px`)
           .attr('opacity', barHeight < 12 ? 0.8 : 1)
-          .text(d => `${d.price} (${d.volume.toFixed(2)})`);
+          .text(d => `${d.price.toFixed(0)} (${d.volume.toFixed(2)})`);
       }
 
     } catch (error) {
