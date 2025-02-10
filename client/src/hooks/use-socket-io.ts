@@ -34,9 +34,10 @@ export function useSocketIO({
     }
     heartbeatInterval.current = setInterval(() => {
       if (socket.connected) {
+        console.log('💓 Enviando heartbeat...');
         socket.emit('heartbeat');
       }
-    }, 15000);
+    }, 30000);
   };
 
   const stopHeartbeat = () => {
@@ -68,18 +69,18 @@ export function useSocketIO({
       reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
       transports: ['websocket', 'polling'],
-      timeout: 45000,
+      timeout: 60000,
       forceNew: true,
       autoConnect: true,
       reconnection: true,
-      reconnectionDelayMax: 5000,
+      reconnectionDelayMax: 10000,
       randomizationFactor: 0.5
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('🟢 Socket.IO conectado - ID:', socket.id);
+      console.log('🟢 Socket.IO conectado - ID:', socket.id, 'Transport:', socket.io.engine.transport.name);
       setIsConnected(true);
       reconnectAttempts.current = 0;
       clearReconnectTimeout();
@@ -87,11 +88,16 @@ export function useSocketIO({
       requestInitialData(socket);
     });
 
+    socket.io.engine.on('upgrade', () => {
+      console.log('🔄 Transport upgraded:', socket.io.engine.transport.name);
+    });
+
     socket.on('profile_data', (data: ProfileData[]) => {
       console.log('📊 Datos de perfil recibidos:', {
         timestamp: new Date().toISOString(),
         niveles: data.length,
-        muestra: data.slice(0, 3)
+        muestra: data.slice(0, 3),
+        transport: socket.io.engine.transport.name
       });
 
       if (Array.isArray(data) && data.length > 0) {
@@ -120,7 +126,12 @@ export function useSocketIO({
     socket.on('reconnect_needed', () => {
       console.log('⚠️ Reconexión necesaria, intentando reconectar...');
       if (!socket.connected && reconnectAttempts.current < maxReconnectAttempts) {
-        socket.connect();
+        const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
+        console.log(`🔄 Intentando reconexión en ${backoffTime}ms...`);
+        setTimeout(() => {
+          socket.connect();
+          reconnectAttempts.current++;
+        }, backoffTime);
       }
     });
 
@@ -134,47 +145,38 @@ export function useSocketIO({
       onError?.(error);
 
       if (reconnectAttempts.current < maxReconnectAttempts) {
-        const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 5000);
+        const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
         console.log(`🔄 Reintentando conexión en ${backoffTime}ms...`);
 
         clearReconnectTimeout();
         reconnectTimeout.current = setTimeout(() => {
           if (!socket.connected) {
             socket.connect();
-            reconnectAttempts.current += 1;
+            reconnectAttempts.current++;
           }
         }, backoffTime);
       }
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('🔴 Socket.IO desconectado - Razón:', reason);
+      console.log('🔴 Socket.IO desconectado - Razón:', reason, 'Transport:', socket.io.engine.transport.name);
       setIsConnected(false);
       stopHeartbeat();
 
       if (reason === 'io server disconnect' || reason === 'transport close') {
         if (reconnectAttempts.current < maxReconnectAttempts) {
-          const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 5000);
+          const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
           console.log(`🔄 Reintentando conexión en ${backoffTime}ms...`);
 
           clearReconnectTimeout();
           reconnectTimeout.current = setTimeout(() => {
             if (!socket.connected) {
               socket.connect();
-              reconnectAttempts.current += 1;
+              reconnectAttempts.current++;
             }
           }, backoffTime);
         }
       }
-    });
-
-    socket.on('reconnect', (attemptNumber) => {
-      console.log('🟢 Socket.IO reconectado después de', attemptNumber, 'intentos');
-      requestInitialData(socket);
-    });
-
-    socket.on('reconnect_attempt', () => {
-      console.log('🔄 Intento de reconexión Socket.IO');
     });
 
     return () => {
@@ -188,7 +190,10 @@ export function useSocketIO({
 
   const sendData = (data: any) => {
     if (socketRef.current?.connected) {
-      console.log('📤 Enviando datos via Socket.IO:', data);
+      console.log('📤 Enviando datos via Socket.IO:', {
+        timestamp: new Date().toISOString(),
+        transport: socketRef.current.io.engine.transport.name
+      });
       socketRef.current.emit('orderbook_data', data);
     } else {
       console.warn('⚠️ Socket.IO no está conectado, no se pueden enviar datos');

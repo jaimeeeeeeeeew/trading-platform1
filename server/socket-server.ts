@@ -20,23 +20,28 @@ export function setupSocketServer(httpServer: HTTPServer) {
     path: '/trading-socket',
     cors: {
       origin: "*",
-      methods: ["GET", "POST"],
-      credentials: true
+      methods: ["GET", "POST", "OPTIONS"],
+      credentials: true,
+      allowedHeaders: ["my-custom-header"],
     },
-    pingTimeout: 60000,
-    pingInterval: 25000,
+    allowEIO3: true,
+    pingTimeout: 120000,
+    pingInterval: 30000,
     transports: ['websocket', 'polling'],
-    connectTimeout: 45000,
+    connectTimeout: 60000,
     maxHttpBufferSize: 1e6,
     allowUpgrades: true,
-    upgradeTimeout: 30000
+    upgradeTimeout: 45000,
+    cookie: false
   });
 
   io.on('connection', (socket) => {
-    console.log('🟢 Cliente Socket.IO conectado - ID:', socket.id);
+    console.log('🟢 Cliente Socket.IO conectado - ID:', socket.id, 'Transport:', socket.conn.transport.name);
 
     let lastOrderbookData: any = null;
     let heartbeatTimeout: NodeJS.Timeout | null = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
 
     const startHeartbeatCheck = () => {
       if (heartbeatTimeout) {
@@ -44,8 +49,12 @@ export function setupSocketServer(httpServer: HTTPServer) {
       }
       heartbeatTimeout = setTimeout(() => {
         console.log('⚠️ No se recibió heartbeat del cliente:', socket.id);
-        socket.emit('reconnect_needed');
-      }, 30000);
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          console.log(`🔄 Intento de reconexión ${reconnectAttempts}/${maxReconnectAttempts}`);
+          socket.emit('reconnect_needed');
+        }
+      }, 60000);
     };
 
     const clearHeartbeatCheck = () => {
@@ -67,7 +76,8 @@ export function setupSocketServer(httpServer: HTTPServer) {
         console.log('📊 Datos de orderbook recibidos - Cliente:', socket.id, {
           timestamp: new Date().toISOString(),
           dataType: typeof data,
-          hasData: !!data
+          hasData: !!data,
+          transportType: socket.conn.transport.name
         });
         lastOrderbookData = data;
         processAndSendOrderbookData(socket, data);
@@ -81,6 +91,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
       socket.emit('heartbeat_ack');
       console.log('💓 Heartbeat respondido para cliente:', socket.id);
       startHeartbeatCheck();
+      reconnectAttempts = 0; // Reset reconnect attempts on successful heartbeat
     });
 
     socket.on('error', (error) => {
@@ -88,16 +99,20 @@ export function setupSocketServer(httpServer: HTTPServer) {
       clearHeartbeatCheck();
     });
 
+    socket.conn.on('upgrade', (transport) => {
+      console.log('🔄 Transport upgraded for client:', socket.id, 'New transport:', transport.name);
+    });
+
     socket.on('disconnect', (reason) => {
-      console.log('🔴 Cliente Socket.IO desconectado - ID:', socket.id, 'Razón:', reason);
+      console.log('🔴 Cliente Socket.IO desconectado - ID:', socket.id, 'Razón:', reason, 'Transport:', socket.conn.transport.name);
       clearHeartbeatCheck();
 
-      // Intentar reconexión después de un tiempo si la desconexión no fue intencional
-      if (reason === 'transport close' || reason === 'ping timeout') {
+      if ((reason === 'transport close' || reason === 'ping timeout') && reconnectAttempts < maxReconnectAttempts) {
         setTimeout(() => {
           console.log('🔄 Enviando señal de reconexión al cliente:', socket.id);
-          io.to(socket.id).emit('reconnect_needed');
-        }, 5000);
+          socket.emit('reconnect_needed');
+          reconnectAttempts++;
+        }, 5000 * Math.pow(2, reconnectAttempts)); // Exponential backoff
       }
     });
 
@@ -113,7 +128,9 @@ function processAndSendOrderbookData(socket: any, data: any) {
       timestamp: new Date().toISOString(),
       tieneData: !!data,
       tieneBids: data?.bids?.length,
-      tieneAsks: data?.asks?.length
+      tieneAsks: data?.asks?.length,
+      socketId: socket.id,
+      transport: socket.conn.transport.name
     });
     return;
   }
@@ -125,7 +142,8 @@ function processAndSendOrderbookData(socket: any, data: any) {
     socket.emit('profile_data', groupedData);
     console.log('📤 Datos de perfil enviados al cliente:', socket.id, {
       timestamp: new Date().toISOString(),
-      datosEnviados: groupedData.length
+      datosEnviados: groupedData.length,
+      transport: socket.conn.transport.name
     });
   } catch (error) {
     console.error('❌ Error en el procesamiento de datos:', error);
