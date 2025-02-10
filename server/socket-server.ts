@@ -21,65 +21,60 @@ export function setupSocketServer(httpServer: HTTPServer) {
       origin: "*",
       methods: ["GET", "POST"]
     },
-    path: '/socket.io'
+    path: '/socket.io',
+    pingTimeout: 10000,
+    pingInterval: 5000
   });
 
   io.on('connection', (socket) => {
     console.log('Cliente Socket.IO conectado - ID:', socket.id);
 
-    socket.on('localData', (data) => {
-      console.log('🔵 Datos recibidos por Socket.IO:');
-      console.log('- Tipo de datos:', typeof data);
-      console.log('- Contenido:', JSON.stringify(data, null, 2));
-      io.emit('marketData', data);
+    socket.on('request_orderbook', () => {
+      console.log('📥 Solicitud de orderbook recibida del cliente:', socket.id);
     });
 
-    socket.on('disconnect', () => {
-      console.log('Cliente Socket.IO desconectado - ID:', socket.id);
-    });
+    socket.on('orderbook_data', (data) => {
+      try {
+        console.log('📊 Datos de orderbook recibidos - Cliente:', socket.id);
 
-    socket.onAny((eventName, ...args) => {
-      if (eventName === 'orderbook_data') {
-        const orderBookData = args[0];
-        if (orderBookData && orderBookData.bids && orderBookData.asks) {
-          // Procesar datos para el perfil de volumen
-          const processedData = processOrderBookForProfile(orderBookData.bids, orderBookData.asks);
-
-          // Agrupar los datos en rangos de $10
-          const groupedData = groupDataByPriceRange(processedData, 10);
-
-          // Enviar datos procesados para el perfil
-          socket.emit('profile_data', groupedData);
-
-          console.log('\n📊 Datos procesados para el perfil:');
-          console.log(`- Total niveles de precio: ${groupedData.length}`);
-          console.log('- Muestra de datos:', groupedData.slice(0, 3));
+        if (!data || !data.bids || !data.asks) {
+          console.warn('⚠️ Datos de orderbook inválidos:', data);
+          return;
         }
+
+        console.log('📈 Resumen del orderbook:', {
+          timestamp: new Date().toISOString(),
+          bidsCount: data.bids.length,
+          asksCount: data.asks.length,
+          firstBid: data.bids[0],
+          firstAsk: data.asks[0]
+        });
+
+        // Procesar datos para el perfil de volumen
+        const processedData = processOrderBookForProfile(data.bids, data.asks);
+        console.log('🔄 Datos procesados:', {
+          totalNiveles: processedData.length,
+          muestra: processedData.slice(0, 2)
+        });
+
+        // Agrupar los datos en rangos de $10
+        const groupedData = groupDataByPriceRange(processedData, 10);
+        console.log('📊 Datos agrupados:', {
+          totalGrupos: groupedData.length,
+          muestra: groupedData.slice(0, 2)
+        });
+
+        // Enviar datos procesados al cliente
+        socket.emit('profile_data', groupedData);
+        console.log('📤 Datos de perfil enviados al cliente:', socket.id);
+
+      } catch (error) {
+        console.error('❌ Error procesando datos del orderbook:', error);
       }
+    });
 
-      // Log detallado para debugging
-      console.log(`\n🟣 Evento Socket.IO recibido - ${eventName}:`);
-      args.forEach((arg) => {
-        if (arg && typeof arg === 'object') {
-          if (arg.bids || arg.asks) {
-            console.log('\nOrderbook Data:');
-            if (arg.bids) {
-              console.log('\nBids:');
-              arg.bids.slice(0, 5).forEach((bid: OrderBookLevel) => {
-                console.log(`Precio: ${bid.Price}, Cantidad: ${bid.Quantity}`);
-              });
-              console.log(`... y ${arg.bids.length - 5} más`);
-            }
-            if (arg.asks) {
-              console.log('\nAsks:');
-              arg.asks.slice(0, 5).forEach((ask: OrderBookLevel) => {
-                console.log(`Precio: ${ask.Price}, Cantidad: ${ask.Quantity}`);
-              });
-              console.log(`... y ${arg.asks.length - 5} más`);
-            }
-          }
-        }
-      });
+    socket.on('disconnect', (reason) => {
+      console.log('Cliente Socket.IO desconectado - ID:', socket.id, 'Razón:', reason);
     });
   });
 
@@ -98,26 +93,30 @@ function processOrderBookForProfile(
   bids.forEach((bid) => {
     const price = parseFloat(bid.Price);
     const volume = parseFloat(bid.Quantity);
-    bidTotal += volume;
-    processedData.push({
-      price,
-      volume,
-      side: 'bid',
-      total: bidTotal
-    });
+    if (!isNaN(price) && !isNaN(volume)) {
+      bidTotal += volume;
+      processedData.push({
+        price,
+        volume,
+        side: 'bid',
+        total: bidTotal
+      });
+    }
   });
 
   // Procesar asks
   asks.forEach((ask) => {
     const price = parseFloat(ask.Price);
     const volume = parseFloat(ask.Quantity);
-    askTotal += volume;
-    processedData.push({
-      price,
-      volume,
-      side: 'ask',
-      total: askTotal
-    });
+    if (!isNaN(price) && !isNaN(volume)) {
+      askTotal += volume;
+      processedData.push({
+        price,
+        volume,
+        side: 'ask',
+        total: askTotal
+      });
+    }
   });
 
   return processedData.sort((a, b) => a.price - b.price);
@@ -132,7 +131,9 @@ function groupDataByPriceRange(data: ProcessedOrderBookData[], rangeSize: number
 
     if (existing) {
       existing.volume += item.volume;
-      existing.total = item.side === 'bid' ? Math.max(existing.total, item.total) : Math.max(existing.total, item.total);
+      existing.total = item.side === 'bid' ? 
+        Math.max(existing.total, item.total) : 
+        Math.max(existing.total, item.total);
     } else {
       groupedData.set(bucketPrice, {
         price: bucketPrice,
@@ -143,7 +144,8 @@ function groupDataByPriceRange(data: ProcessedOrderBookData[], rangeSize: number
     }
   });
 
-  return Array.from(groupedData.values()).sort((a, b) => a.price - b.price);
+  return Array.from(groupedData.values())
+    .sort((a, b) => a.price - b.price);
 }
 
 export { io };
