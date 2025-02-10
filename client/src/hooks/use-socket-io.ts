@@ -26,8 +26,16 @@ export function useSocketIO({
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const socketRef = useRef<Socket | null>(null);
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef<number>(0);
   const maxReconnectAttempts = 5;
+
+  const clearReconnectTimeout = () => {
+    if (reconnectTimeout.current) {
+      clearTimeout(reconnectTimeout.current);
+      reconnectTimeout.current = null;
+    }
+  };
 
   const startHeartbeat = (socket: Socket) => {
     if (heartbeatInterval.current) {
@@ -35,9 +43,10 @@ export function useSocketIO({
     }
     heartbeatInterval.current = setInterval(() => {
       if (socket.connected) {
+        console.log('📤 Enviando heartbeat');
         socket.emit('heartbeat');
       }
-    }, 30000); // Enviar heartbeat cada 30 segundos
+    }, 30000);
   };
 
   const stopHeartbeat = () => {
@@ -55,9 +64,11 @@ export function useSocketIO({
   };
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      console.log('WebSocket deshabilitado');
+      return;
+    }
 
-    setConnectionState('listening');
     console.log('🎧 Iniciando escucha de conexiones...');
 
     const socket = io(window.location.origin, {
@@ -70,7 +81,9 @@ export function useSocketIO({
       reconnectionDelayMax: 10000,
       randomizationFactor: 0.5,
       autoConnect: true,
-      forceNew: true
+      forceNew: true,
+      upgrade: true,
+      rememberUpgrade: true
     });
 
     socketRef.current = socket;
@@ -79,6 +92,7 @@ export function useSocketIO({
       console.log('🟢 Conectado al servidor');
       setConnectionState('connected');
       reconnectAttempts.current = 0;
+      clearReconnectTimeout();
       startHeartbeat(socket);
       requestInitialData(socket);
     });
@@ -88,14 +102,18 @@ export function useSocketIO({
       setConnectionState('disconnected');
       stopHeartbeat();
 
-      if (reason === 'io server disconnect') {
-        // El servidor cerró la conexión, intentar reconectar manualmente
-        setTimeout(() => {
+      if (reason === 'io server disconnect' || reason === 'transport close') {
+        clearReconnectTimeout();
+        reconnectTimeout.current = setTimeout(() => {
           if (reconnectAttempts.current < maxReconnectAttempts) {
+            console.log(`🔄 Intento de reconexión ${reconnectAttempts.current + 1}/${maxReconnectAttempts}`);
             reconnectAttempts.current++;
             socket.connect();
+          } else {
+            console.log('❌ Máximo de intentos de reconexión alcanzado');
+            onError?.();
           }
-        }, 1000);
+        }, Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000));
       }
     });
 
@@ -109,16 +127,15 @@ export function useSocketIO({
     socket.on('error', (error) => {
       console.error('❌ Error:', error);
       onError?.(error);
-      setConnectionState('disconnected');
     });
 
     socket.on('connect_error', (error) => {
       console.log('⚠️ Error de conexión:', error.message);
-      setConnectionState('listening');
 
       if (reconnectAttempts.current >= maxReconnectAttempts) {
-        console.log('🔴 Máximo de intentos de reconexión alcanzado');
+        console.log('❌ Máximo de intentos de reconexión alcanzado');
         socket.disconnect();
+        onError?.(error);
       }
     });
 
@@ -128,26 +145,15 @@ export function useSocketIO({
 
     return () => {
       console.log('🧹 Limpiando conexión');
+      clearReconnectTimeout();
       stopHeartbeat();
       socket.disconnect();
       socketRef.current = null;
-      setConnectionState('disconnected');
     };
   }, [enabled, onData, onProfileData, onError]);
 
-  const sendData = (data: any) => {
-    const socket = socketRef.current;
-    if (socket?.connected && connectionState === 'connected') {
-      console.log('📤 Enviando datos al servidor');
-      socket.emit('orderbook_data', data);
-    } else {
-      console.warn(`⚠️ No se pueden enviar datos - Estado actual: ${connectionState}`);
-    }
-  };
-
   return {
     connectionState,
-    sendData,
     socket: socketRef.current
   };
 }

@@ -43,31 +43,45 @@ export function setupSocketServer(httpServer: HTTPServer) {
     let heartbeatTimeout: NodeJS.Timeout | null = null;
     let clientState = 'connected';
     let consecutiveFailures = 0;
+    let isCleanupNeeded = true;
 
-    const clearHeartbeatCheck = () => {
+    const cleanup = () => {
+      if (!isCleanupNeeded) return;
+      isCleanupNeeded = false;
+
       if (heartbeatTimeout) {
         clearTimeout(heartbeatTimeout);
         heartbeatTimeout = null;
       }
+
+      socket.removeAllListeners();
+      console.log('🧹 Limpieza realizada para socket:', socket.id);
     };
 
     const setupHeartbeatCheck = () => {
-      clearHeartbeatCheck();
+      if (heartbeatTimeout) {
+        clearTimeout(heartbeatTimeout);
+      }
+
       heartbeatTimeout = setTimeout(() => {
         if (clientState === 'connected') {
           console.log('⚠️ No se recibió heartbeat del cliente:', socket.id);
           consecutiveFailures++;
+
           if (consecutiveFailures > 3) {
             console.log('❌ Demasiados fallos consecutivos, desconectando cliente:', socket.id);
+            cleanup();
             socket.disconnect(true);
           } else {
             setupHeartbeatCheck();
           }
         }
-      }, 60000); // 60 segundos para el heartbeat
+      }, 60000);
     };
 
     socket.on('heartbeat', () => {
+      if (clientState !== 'connected') return;
+
       socket.emit('heartbeat_ack');
       consecutiveFailures = 0;
       console.log('💓 Heartbeat recibido del cliente:', socket.id);
@@ -103,7 +117,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
     socket.on('error', (error) => {
       console.error('❌ Error en socket:', socket.id, error);
       clientState = 'error';
-      clearHeartbeatCheck();
+      cleanup();
     });
 
     socket.on('disconnect', (reason) => {
@@ -114,7 +128,7 @@ export function setupSocketServer(httpServer: HTTPServer) {
         previousState: clientState,
         consecutiveFailures
       });
-      clearHeartbeatCheck();
+      cleanup();
     });
 
     // Iniciar el primer heartbeat check
