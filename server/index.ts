@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import './socket-server'; // Importar el servidor Socket.IO
 
 const app = express();
 
@@ -48,11 +49,6 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = registerRoutes(app);
-
-  // Register BingX routes
-  import('./routes/bingx').then(bingXRoutes => {
-    app.use('/api/bingx', bingXRoutes.default);
-  });
 
   // Error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
