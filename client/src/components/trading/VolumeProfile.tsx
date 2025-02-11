@@ -155,7 +155,11 @@ export const VolumeProfile = ({
     // Eje de precios con incrementos de $10
     const priceAxis = d3.axisRight(yScale)
       .ticks((visiblePriceRange.max - visiblePriceRange.min) / 10)
-      .tickFormat(d => d.toFixed(0))
+      .tickFormat(d => {
+        const y = yScale(d);
+        console.log(`Scale Price: ${d}, Y coordinate: ${y}`);
+        return `${d.toFixed(0)} (${y.toFixed(1)})`;
+      })
       .tickSize(3);
 
     const priceAxisGroup = g.append('g')
