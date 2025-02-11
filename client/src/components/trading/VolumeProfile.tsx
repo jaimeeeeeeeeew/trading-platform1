@@ -75,7 +75,7 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 10, right: 0, bottom: 10, left: 30 };
+    const margin = { top: 10, right: 0, bottom: 10, left: 50 }; // Aumentado el margen izquierdo
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -111,6 +111,19 @@ export const VolumeProfile = ({
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
+
+    // Agregar etiquetas de precio a la izquierda de cada barra
+    g.selectAll('.price-label')
+      .data(groupedData)
+      .join('text')
+      .attr('class', 'price-label')
+      .attr('x', -5) // Posición a la izquierda de las barras
+      .attr('y', d => yScale(d.price))
+      .attr('text-anchor', 'end')
+      .attr('alignment-baseline', 'middle')
+      .attr('fill', '#ffffff')
+      .attr('font-size', '10px')
+      .text(d => d.price.toFixed(0));
 
     console.log('Bars created:', bars.size());
 
