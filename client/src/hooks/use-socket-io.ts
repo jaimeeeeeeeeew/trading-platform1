@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-type ConnectionState = 'connected' | 'disconnected';
+type ConnectionState = 'connected' | 'disconnected' | 'connecting' | 'error';
 
 interface UseSocketOptions {
   enabled?: boolean;
@@ -14,6 +14,8 @@ export function useSocketIO({
 }: UseSocketOptions = {}) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const socketRef = useRef<Socket | null>(null);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 5;
 
   useEffect(() => {
     if (!enabled) {
@@ -22,15 +24,18 @@ export function useSocketIO({
     }
 
     console.log('🎧 Initializing socket connection...');
+    setConnectionState('connecting');
 
     const socket = io(window.location.origin, {
       path: '/trading-socket',
-      transports: ['polling', 'websocket'],
-      timeout: 60000,
+      transports: ['websocket', 'polling'],
+      timeout: 10000,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
-      autoConnect: true
+      reconnectionDelayMax: 5000,
+      autoConnect: true,
+      forceNew: true
     });
 
     socketRef.current = socket;
@@ -38,6 +43,7 @@ export function useSocketIO({
     socket.on('connect', () => {
       console.log('🟢 Connected to server');
       setConnectionState('connected');
+      reconnectAttempts.current = 0;
     });
 
     socket.on('disconnect', (reason) => {
@@ -46,23 +52,46 @@ export function useSocketIO({
     });
 
     socket.on('error', (error) => {
-      console.error('❌ Error:', error);
+      console.error('❌ Socket Error:', error);
+      setConnectionState('error');
       onError?.();
     });
 
     socket.on('connect_error', (error) => {
       console.log('⚠️ Connection error:', error.message);
+      reconnectAttempts.current++;
+
+      if (reconnectAttempts.current >= maxReconnectAttempts) {
+        console.log('🔄 Max reconnection attempts reached, stopping...');
+        socket.disconnect();
+        setConnectionState('error');
+        onError?.();
+      } else {
+        console.log(`🔄 Reconnecting... Attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+        setConnectionState('connecting');
+      }
     });
 
     return () => {
-      console.log('🧹 Cleaning up connection');
-      socket.disconnect();
+      console.log('🧹 Cleaning up socket connection');
+      if (socket.connected) {
+        socket.disconnect();
+      }
       socketRef.current = null;
     };
   }, [enabled, onError]);
 
+  const reconnect = () => {
+    if (socketRef.current) {
+      console.log('🔄 Forcing reconnection...');
+      reconnectAttempts.current = 0;
+      socketRef.current.connect();
+    }
+  };
+
   return {
     connectionState,
-    socket: socketRef.current
+    socket: socketRef.current,
+    reconnect
   };
 }

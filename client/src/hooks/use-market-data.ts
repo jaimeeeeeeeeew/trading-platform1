@@ -31,12 +31,20 @@ export function useMarketData() {
 
   const [error, setError] = useState(false);
   const { toast } = useToast();
-  const { socket, connectionState } = useSocketIO();
+  const { socket, connectionState, reconnect } = useSocketIO();
 
   useEffect(() => {
     if (!socket) return;
 
+    console.log('Setting up orderbook listeners...');
+
     socket.on('orderbook_update', (newData: OrderbookData) => {
+      console.log('📊 Received orderbook data:', {
+        timestamp: newData.timestamp,
+        bids_count: newData.bids.length,
+        asks_count: newData.asks.length
+      });
+
       try {
         setData(prev => ({
           ...prev,
@@ -64,7 +72,10 @@ export function useMarketData() {
 
   // Calculate volume profile data from orderbook with price buckets
   const volumeProfile = useMemo(() => {
-    if (!data.orderbook.bids.length && !data.orderbook.asks.length) return [];
+    if (!data.orderbook.bids.length && !data.orderbook.asks.length) {
+      console.log('No orderbook data available for volume profile');
+      return [];
+    }
 
     const PRICE_BUCKET_SIZE = 10; // Agrupar precios cada $10
 
@@ -108,6 +119,11 @@ export function useMarketData() {
       }))
       .sort((a, b) => b.price - a.price);
 
+    if (groupedLevels.length === 0) {
+      console.log('No grouped levels available');
+      return [];
+    }
+
     // Encontrar el volumen máximo para normalización
     const maxVolume = Math.max(...groupedLevels.map(level => level.volume));
 
@@ -126,5 +142,11 @@ export function useMarketData() {
     return normalizedLevels;
   }, [data.orderbook]);
 
-  return { data, volumeProfile, error, connectionState };
+  return { 
+    data, 
+    volumeProfile, 
+    error, 
+    connectionState,
+    reconnect
+  };
 }
