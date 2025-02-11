@@ -61,7 +61,6 @@ export const VolumeProfile = ({
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      // Establecer dimensiones del SVG
       svg
         .attr('width', width)
         .attr('height', height)
