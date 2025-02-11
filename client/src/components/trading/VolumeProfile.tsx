@@ -19,7 +19,7 @@ interface Props {
 
 export const VolumeProfile = ({
   data,
-  width = 160, 
+  width = 160,
   height,
   visiblePriceRange,
   currentPrice
@@ -118,12 +118,16 @@ export const VolumeProfile = ({
       .join('text')
       .attr('class', 'price-label')
       .attr('x', -5) // Posición a la izquierda de las barras
-      .attr('y', d => yScale(d.price))
+      .attr('y', d => {
+        const y = yScale(d.price);
+        console.log(`Price: ${d.price}, Y coordinate: ${y}`);
+        return y;
+      })
       .attr('text-anchor', 'end')
       .attr('alignment-baseline', 'middle')
       .attr('fill', '#ffffff')
       .attr('font-size', '10px')
-      .text(d => d.price.toFixed(0));
+      .text(d => `${d.price.toFixed(0)} (${yScale(d.price).toFixed(1)})`);
 
     console.log('Bars created:', bars.size());
 
