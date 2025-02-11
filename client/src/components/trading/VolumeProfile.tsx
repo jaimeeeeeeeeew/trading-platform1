@@ -49,7 +49,7 @@ export const VolumeProfile = ({
     svg.selectAll('*').remove();
 
     // Ajustamos el margen derecho para el eje de precios
-    const margin = { top: 10, right: 40, bottom: 10, left: 0 };
+    const margin = { top: 10, right: 50, bottom: 10, left: -10 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -93,7 +93,7 @@ export const VolumeProfile = ({
     // Línea de precio actual
     if (currentPrice) {
       g.append('line')
-        .attr('x1', innerWidth - maxBarWidth)
+        .attr('x1', innerWidth - maxBarWidth - 20)
         .attr('x2', innerWidth)
         .attr('y1', yScale(currentPrice))
         .attr('y2', yScale(currentPrice))
@@ -103,7 +103,7 @@ export const VolumeProfile = ({
 
       // Etiqueta del precio actual
       g.append('text')
-        .attr('x', innerWidth - maxBarWidth - 5)
+        .attr('x', innerWidth - maxBarWidth - 25)
         .attr('y', yScale(currentPrice))
         .attr('dy', '-4')
         .attr('text-anchor', 'end')
@@ -131,7 +131,7 @@ export const VolumeProfile = ({
 
     // Información del perfil
     g.append('text')
-      .attr('x', innerWidth - maxBarWidth)
+      .attr('x', innerWidth - maxBarWidth - 20)
       .attr('y', 15)
       .attr('fill', '#fff')
       .attr('font-size', '10px')
