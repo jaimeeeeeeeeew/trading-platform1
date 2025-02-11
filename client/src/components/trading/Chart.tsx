@@ -341,20 +341,26 @@ export default function Chart() {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
     try {
-      const minPrice = 90000;
-      const maxPrice = 105000;
+      // Obtener el último precio del mercado
+      const lastPrice = historicalDataRef.current[historicalDataRef.current.length - 1]?.close || 95000;
+
+      // Calcular rango dinámico (±7.5% desde el último precio)
+      const rangoTotal = lastPrice * 0.15;
+      const minPrice = lastPrice - (rangoTotal / 2);
+      const maxPrice = lastPrice + (rangoTotal / 2);
 
       // Solo mostrar información del rango visible
       console.log('📊 Rango visible de precios:', {
         min: { 
-          precio: minPrice, 
+          precio: minPrice.toFixed(1), 
           coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(minPrice) 
         },
         max: { 
-          precio: maxPrice, 
+          precio: maxPrice.toFixed(1), 
           coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(maxPrice) 
         },
-        rangoTotal: maxPrice - minPrice
+        rangoTotal: rangoTotal.toFixed(1),
+        precioActual: lastPrice.toFixed(1)
       });
 
       setVisiblePriceRange({
@@ -366,50 +372,6 @@ export default function Chart() {
       const visibleLogicalRange = timeScale.getVisibleLogicalRange();
       if (visibleLogicalRange) {
         setVisibleRange(visibleLogicalRange);
-      }
-
-      const visibleRange = timeScale.getVisibleRange();
-      if (!visibleRange) return;
-
-      const allData = historicalDataRef.current;
-      if (!allData.length) return;
-
-      // Solo mostrar coordenadas de 2 velas aleatorias
-      const visibleCandles = allData.slice(-20);
-      const randomCandles = visibleCandles
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 2);
-
-      console.log('📈 Coordenadas de velas aleatorias:');
-      randomCandles.forEach((candle, i) => {
-        const coordinate = candlestickSeriesRef.current?.priceToCoordinate(candle.close);
-        console.log(`Vela ${i + 1}: Precio=${candle.close}, Y=${coordinate}`);
-      });
-
-
-      const lastPoint = allData[allData.length - 1];
-      if (!lastPoint) return;
-
-      setCurrentChartPrice(lastPoint.close);
-
-      if (candlestickSeriesRef.current) {
-        const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
-        const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
-        const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
-
-        if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
-          const coordinates = {
-            currentPrice: lastPoint.close,
-            currentY,
-            minPrice,
-            minY,
-            maxPrice,
-            maxY
-          };
-
-          setPriceCoordinates(coordinates);
-          setPriceCoordinate(currentY);
-        }
       }
     } catch (error) {
       console.error('Error updating visible price range:', error);
