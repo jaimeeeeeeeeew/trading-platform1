@@ -147,15 +147,16 @@ export const VolumeProfile = ({
       style={{
         position: 'absolute',
         right: 0,
-        top: priceCoordinate ? `${priceCoordinate - height / 2}px` : '0',
+        top: priceCoordinate ? `${priceCoordinate - (height * 0.5)}px` : '0',
         width: `${width}px`,
-        height: '100%',
+        height: `${height}px`,
         borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        transition: 'top 0.1s ease-out'
+        transition: 'top 0.1s ease-out',
+        pointerEvents: 'none'
       }}
     >
       <svg
