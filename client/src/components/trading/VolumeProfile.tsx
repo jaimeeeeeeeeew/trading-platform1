@@ -39,11 +39,12 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0 || !priceCoordinates || !visibleLogicalRange) {
-      console.log('Esperando datos para renderizar el perfil de volumen:', {
+      console.log('Estado de los datos del perfil:', {
         tieneRef: !!svgRef.current,
         datosLength: data?.length,
         tieneCoords: !!priceCoordinates,
-        tieneRango: !!visibleLogicalRange
+        tieneRango: !!visibleLogicalRange,
+        datosRecibidos: data
       });
       return;
     }
@@ -54,43 +55,24 @@ export const VolumeProfile = ({
       svg.selectAll('*').remove();
       svg.attr('width', width).attr('height', height);
 
-      // Procesar y agrupar datos por nivel de precio
-      const priceStep = 10; // Agrupar cada $10
-      const volumeByPrice = new Map<number, number>();
-
-      data.forEach(item => {
-        const priceLevel = Math.floor(item.price / priceStep) * priceStep;
-        const currentVolume = volumeByPrice.get(priceLevel) || 0;
-        volumeByPrice.set(priceLevel, currentVolume + item.volume);
-      });
-
-      // Convertir a array y calcular volumen normalizado
-      const processedData = Array.from(volumeByPrice.entries()).map(([price, volume]) => ({
-        price,
-        volume,
-        normalizedVolume: 0
-      }));
-
       // Calcular volumen normalizado
-      const maxVolume = Math.max(...processedData.map(d => d.volume));
-      const normalizedData = processedData.map(data => ({
-        ...data,
-        normalizedVolume: data.volume / maxVolume
+      const maxVolume = Math.max(...data.map(d => d.volume));
+      const normalizedData = data.map(d => ({
+        ...d,
+        normalizedVolume: d.volume / maxVolume
       }));
 
-      console.log('Datos procesados para el perfil:', {
-        nivelesDePrecio: normalizedData.length,
-        rangoDePrecio: {
-          min: Math.min(...normalizedData.map(d => d.price)),
-          max: Math.max(...normalizedData.map(d => d.price))
-        },
-        volumenMax: maxVolume
+      console.log('Datos normalizados:', {
+        cantidadDatos: normalizedData.length,
+        primerDato: normalizedData[0],
+        ultimoDato: normalizedData[normalizedData.length - 1],
+        maxVolume
       });
 
       // Configurar escalas
       const xScale = d3.scaleLinear()
         .domain([0, 1])
-        .range([0, width]);
+        .range([0, width - 20]); // Dejar espacio para las etiquetas
 
       const priceScale = d3.scaleLinear()
         .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
@@ -108,20 +90,45 @@ export const VolumeProfile = ({
           : `rgba(239, 83, 80, ${alpha})`; // Rojo para precios por debajo
       };
 
-      // Dibujar barras
-      svg.selectAll('rect')
+      // Crear grupo para las barras
+      const barsGroup = svg.append('g')
+        .attr('class', 'bars-group');
+
+      // Dibujar barras con transición
+      barsGroup.selectAll('rect')
         .data(normalizedData)
-        .join('rect')
-        .attr('x', 0)
-        .attr('y', d => priceScale(d.price))
-        .attr('width', d => xScale(d.normalizedVolume))
-        .attr('height', barHeight)
-        .attr('fill', d => getBarColor(d.price, d.volume))
-        .attr('opacity', 1);
+        .join(
+          enter => enter.append('rect')
+            .attr('x', 0)
+            .attr('y', d => priceScale(d.price))
+            .attr('width', 0)
+            .attr('height', barHeight)
+            .attr('fill', d => getBarColor(d.price, d.volume))
+            .call(enter => enter.transition()
+              .duration(300)
+              .attr('width', d => xScale(d.normalizedVolume))
+            ),
+          update => update
+            .call(update => update.transition()
+              .duration(300)
+              .attr('y', d => priceScale(d.price))
+              .attr('width', d => xScale(d.normalizedVolume))
+              .attr('fill', d => getBarColor(d.price, d.volume))
+            ),
+          exit => exit
+            .call(exit => exit.transition()
+              .duration(300)
+              .attr('width', 0)
+              .remove()
+            )
+        );
 
       // Añadir etiquetas de precio y volumen si hay espacio
       if (barHeight >= 8) {
-        svg.selectAll('text')
+        const labelsGroup = svg.append('g')
+          .attr('class', 'labels-group');
+
+        labelsGroup.selectAll('text')
           .data(normalizedData)
           .join('text')
           .attr('x', 5)
