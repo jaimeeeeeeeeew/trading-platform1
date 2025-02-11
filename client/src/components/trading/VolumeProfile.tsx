@@ -31,7 +31,9 @@ export const VolumeProfile = ({
   width, 
   height,
   visiblePriceRange,
-  currentPrice
+  currentPrice,
+  priceCoordinate,
+  priceCoordinates 
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -42,7 +44,8 @@ export const VolumeProfile = ({
       dataLength: data.length,
       firstItem: data[0],
       visibleRange: visiblePriceRange,
-      currentPrice
+      currentPrice,
+      priceCoordinates
     });
 
     const svg = d3.select(svgRef.current);
@@ -137,21 +140,22 @@ export const VolumeProfile = ({
       .attr('font-size', '10px')
       .text(`Vol Profile (${data.length})`);
 
-  }, [data, width, height, visiblePriceRange, currentPrice]);
+  }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates]);
 
   return (
     <div
       style={{
         position: 'absolute',
         right: 0,
-        top: 0,
+        top: priceCoordinate ? `${priceCoordinate - height / 2}px` : '0',
         width: `${width}px`,
         height: '100%',
         borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000
+        zIndex: 1000,
+        transition: 'top 0.1s ease-out'
       }}
     >
       <svg
