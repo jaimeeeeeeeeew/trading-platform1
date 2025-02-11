@@ -39,7 +39,7 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0 || !priceCoordinates || !visibleLogicalRange) {
-      console.log('📊 Volume Profile debug - No rendering:', {
+      console.log('📊 Volume Profile debug - Missing data:', {
         hasRef: !!svgRef.current,
         dataLength: data?.length,
         hasCoords: !!priceCoordinates,
@@ -51,60 +51,55 @@ export const VolumeProfile = ({
     }
 
     try {
-      console.log('📊 Data received:', {
-        points: data.length,
-        samplePoint: data[0],
-        maxVolume: Math.max(...data.map(d => d.volume)),
-        minVolume: Math.min(...data.map(d => d.volume))
+      console.log('📊 Rendering volume profile with:', {
+        dataPoints: data.length,
+        dimensions: { width, height },
+        priceRange: visiblePriceRange,
+        sampleData: data.slice(0, 3)
       });
 
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
+      // Establecer dimensiones del SVG
       svg
         .attr('width', width)
         .attr('height', height)
-        .style('overflow', 'visible')
-        .style('position', 'absolute')
-        .style('right', '0')
-        .style('top', '0')
-        .style('z-index', '1000');
+        .style('overflow', 'visible');
 
       const maxVolume = Math.max(...data.map(d => d.volume));
 
-      // Usar el 90% del ancho disponible para las barras
+      // Escala para el ancho de las barras
       const xScale = d3.scaleLinear()
         .domain([0, maxVolume])
-        .range([0, width * 0.9]);
+        .range([0, width * 0.8]); // Usar 80% del ancho
 
+      // Escala para la posición vertical
       const yScale = d3.scaleLinear()
         .domain([visiblePriceRange.min, visiblePriceRange.max])
-        .range([height, 0]);
+        .range([height - 20, 20]); // Dejar margen arriba y abajo
 
-      // Grupo para las barras
+      // Contenedor para las barras
       const barsGroup = svg.append('g')
-        .style('transform', 'translateX(0)');
+        .attr('transform', 'translate(0,0)');
 
-      // Altura mínima de 3 píxeles para cada barra
-      const barHeight = Math.max(3, height / (visiblePriceRange.max - visiblePriceRange.min));
+      // Altura mínima de barra más grande
+      const barHeight = Math.max(5, height / (visiblePriceRange.max - visiblePriceRange.min));
 
-      const bars = barsGroup.selectAll('rect')
+      // Renderizar las barras
+      barsGroup.selectAll('rect')
         .data(data)
         .join('rect')
         .attr('x', 0)
         .attr('y', d => yScale(d.price))
-        .attr('width', d => Math.max(5, xScale(d.volume))) // Ancho mínimo de 5 píxeles
+        .attr('width', d => Math.max(10, xScale(d.volume))) // Ancho mínimo de 10px
         .attr('height', barHeight)
-        .attr('fill', d => {
-          const alpha = Math.min(1, 0.7 + (d.volume / maxVolume) * 0.3); // Mayor opacidad base
-          return d.side === 'ask' 
-            ? `rgba(239, 83, 80, ${alpha})` // Rojo para asks
-            : `rgba(38, 166, 154, ${alpha})`; // Verde para bids
-        })
+        .attr('fill', d => d.side === 'ask' ? '#ef5350' : '#26a69a')
+        .attr('opacity', 0.8)
         .attr('stroke', d => d.side === 'ask' ? '#ef5350' : '#26a69a')
         .attr('stroke-width', 1);
 
-      // Línea del precio actual
+      // Línea de precio actual
       if (currentPrice) {
         svg.append('line')
           .attr('x1', 0)
@@ -117,23 +112,21 @@ export const VolumeProfile = ({
       }
 
     } catch (error) {
-      console.error('❌ Error renderizando el perfil de volumen:', error);
+      console.error('❌ Error rendering volume profile:', error);
     }
   }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates, visibleLogicalRange]);
 
   return (
     <svg 
       ref={svgRef}
-      className="volume-profile-svg"
       style={{
         position: 'absolute',
         right: 0,
         top: 0,
         width: '100%',
         height: '100%',
-        overflow: 'visible',
-        backgroundColor: 'rgba(21, 25, 36, 0.9)',
-        border: '2px solid rgba(255, 255, 255, 0.2)',
+        background: 'rgba(21, 25, 36, 0.95)',
+        border: '2px solid rgba(255, 255, 255, 0.3)',
         zIndex: 1000,
       }}
     />

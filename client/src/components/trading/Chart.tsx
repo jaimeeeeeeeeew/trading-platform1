@@ -619,7 +619,7 @@ export default function Chart() {
           <div
             className="absolute right-20 top-0 h-full"
             style={{
-              width: '200px', // Aumentado de 120px a 200px
+              width: '200px',
               zIndex: 2,
               pointerEvents: 'none',
               background: 'rgba(21, 25, 36, 0.9)',
@@ -649,7 +649,7 @@ export default function Chart() {
                 ...item,
                 volume: item.volume * 100 // Multiplicar el volumen por 100 para hacerlo más visible
               }))}
-              width={200} // Aumentado de 120 a 200
+              width={200} 
               height={container.current.clientHeight}
               visiblePriceRange={visiblePriceRange}
               currentPrice={currentChartPrice}
