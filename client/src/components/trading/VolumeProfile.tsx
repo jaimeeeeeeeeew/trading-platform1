@@ -19,7 +19,7 @@ interface Props {
 
 export const VolumeProfile = ({
   data,
-  width = 160, // Reducido de 180 a 160
+  width = 160, 
   height,
   visiblePriceRange,
   currentPrice
@@ -62,7 +62,7 @@ export const VolumeProfile = ({
     // Escalas - Invertimos el rango para que crezca hacia la izquierda
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([maxBarWidth, 0]); // Cambiado para que crezca hacia la izquierda
+      .range([maxBarWidth, 0]); 
 
     const yScale = d3.scaleLinear()
       .domain([visiblePriceRange.min, visiblePriceRange.max])
@@ -76,9 +76,9 @@ export const VolumeProfile = ({
       .data(data)
       .join('rect')
       .attr('class', 'volume-bar')
-      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume)) // Nueva posición x
+      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume)) 
       .attr('y', d => yScale(d.price) - barHeight / 2)
-      .attr('width', d => Math.max(1, xScale(d.normalizedVolume))) //Corrected width calculation
+      .attr('width', d => Math.max(1, xScale(d.normalizedVolume))) 
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
@@ -137,7 +137,7 @@ export const VolumeProfile = ({
     <div
       style={{
         position: 'absolute',
-        right: '100px',
+        right: '80px',
         top: 0,
         width: `${width}px`,
         height: '100%',
