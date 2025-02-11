@@ -48,7 +48,8 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 10, right: 0, bottom: 10, left: 30 };
+    // Ajustamos el margen derecho para el eje de precios
+    const margin = { top: 10, right: 40, bottom: 10, left: 0 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -58,8 +59,8 @@ export const VolumeProfile = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Ancho máximo para las barras (70% del ancho disponible)
-    const maxBarWidth = innerWidth * 0.7;
+    // Ancho máximo para las barras (85% del ancho disponible)
+    const maxBarWidth = innerWidth * 0.85;
 
     // Escalas - Invertimos el rango del xScale para que crezca hacia la izquierda
     const xScale = d3.scaleLinear()
@@ -92,7 +93,7 @@ export const VolumeProfile = ({
     // Línea de precio actual
     if (currentPrice) {
       g.append('line')
-        .attr('x1', 0)
+        .attr('x1', innerWidth - maxBarWidth)
         .attr('x2', innerWidth)
         .attr('y1', yScale(currentPrice))
         .attr('y2', yScale(currentPrice))
