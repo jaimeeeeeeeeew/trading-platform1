@@ -166,6 +166,19 @@ export const VolumeProfile = ({
       .attr('font-size', '10px')
       .text(`Vol Profile (${data.length})`);
 
+    // Seleccionar 2 barras aleatorias y mostrar sus coordenadas
+    const randomBars = data
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 2);
+
+    randomBars.forEach((bar, i) => {
+      const y = yScale(bar.price);
+      console.log(`📊 Barra de volumen aleatoria ${i + 1}:`, {
+        precio: bar.price,
+        coordenadaY: y,
+        volumen: bar.volume
+      });
+    });
   }, [data, width, height, visiblePriceRange, currentPrice]);
 
   return (
