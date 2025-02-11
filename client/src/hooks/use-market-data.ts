@@ -24,6 +24,8 @@ interface MarketData {
   delta_spot: { positivo: number; negativo: number };
 }
 
+const PRICE_BUCKET_SIZE = 10; // Agrupar cada $10
+
 export function useMarketData() {
   const [data, setData] = useState<MarketData>({
     orderbook: {
@@ -62,12 +64,11 @@ export function useMarketData() {
           negativo: Math.floor(50 + Math.random() * 30)
         }
       }));
-    }, 2000); // Actualizar cada 2 segundos
+    }, 2000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Escuchar actualizaciones del orderbook
   useEffect(() => {
     if (!socket) return;
 
@@ -101,32 +102,37 @@ export function useMarketData() {
   const volumeProfile = useMemo(() => {
     if (!data.orderbook.bids.length && !data.orderbook.asks.length) return [];
 
-    const allLevels = [
-      ...data.orderbook.bids.map(bid => ({
-        price: parseFloat(bid.Price),
-        volume: parseFloat(bid.Quantity),
-        side: 'bid' as const
-      })),
-      ...data.orderbook.asks.map(ask => ({
-        price: parseFloat(ask.Price),
-        volume: parseFloat(ask.Quantity),
-        side: 'ask' as const
-      }))
-    ];
+    // Función para redondear el precio al bucket más cercano
+    const roundToBucket = (price: number) => {
+      return Math.round(price / PRICE_BUCKET_SIZE) * PRICE_BUCKET_SIZE;
+    };
 
-    // Agrupar por nivel de precio y sumar volúmenes
-    const groupedVolumes = allLevels.reduce((acc, { price, volume, side }) => {
-      const existing = acc.find(x => x.price === price);
-      if (existing) {
-        existing.volume += volume;
-      } else {
-        acc.push({ price, volume, side });
-      }
-      return acc;
-    }, [] as Array<{ price: number; volume: number; side: 'bid' | 'ask' }>);
+    // Crear un mapa para acumular volúmenes por nivel de precio
+    const volumeMap = new Map<number, number>();
 
-    return groupedVolumes.sort((a, b) => b.price - a.price);
-  }, [data.orderbook]);
+    // Procesar bids
+    data.orderbook.bids.forEach(bid => {
+      const price = roundToBucket(parseFloat(bid.Price));
+      const volume = parseFloat(bid.Quantity);
+      volumeMap.set(price, (volumeMap.get(price) || 0) + volume);
+    });
+
+    // Procesar asks
+    data.orderbook.asks.forEach(ask => {
+      const price = roundToBucket(parseFloat(ask.Price));
+      const volume = parseFloat(ask.Quantity);
+      volumeMap.set(price, (volumeMap.get(price) || 0) + volume);
+    });
+
+    // Convertir el mapa a un array ordenado
+    const result = Array.from(volumeMap.entries()).map(([price, volume]) => ({
+      price,
+      volume,
+      side: price >= data.currentPrice ? 'ask' as const : 'bid' as const
+    }));
+
+    return result.sort((a, b) => b.price - a.price);
+  }, [data.orderbook, data.currentPrice]);
 
   return { data, volumeProfile, error, connectionState };
 }
