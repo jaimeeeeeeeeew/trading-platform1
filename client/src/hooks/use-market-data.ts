@@ -70,38 +70,54 @@ export function useMarketData() {
     };
   }, [socket, toast]);
 
-  // Calculate volume profile data from orderbook
+  // Calculate volume profile data from orderbook with additional debugging
   const volumeProfile = useMemo(() => {
-    if (!data.orderbook.bids.length && !data.orderbook.asks.length) return [];
+    if (!data.orderbook.bids.length && !data.orderbook.asks.length) {
+      console.log('⚠️ No orderbook data available for volume profile');
+      return [];
+    }
 
-    // Crear un mapa para acumular volúmenes por nivel de precio
+    console.log('📊 Processing orderbook data for volume profile:', {
+      bids: data.orderbook.bids.length,
+      asks: data.orderbook.asks.length,
+      sampleBid: data.orderbook.bids[0],
+      sampleAsk: data.orderbook.asks[0]
+    });
+
+    // Create a price-volume map for aggregation
     const volumeMap = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
 
-    // Procesar bids
+    // Process bids with price normalization
     data.orderbook.bids.forEach(bid => {
-      const price = Math.floor(parseFloat(bid.Price));
+      const price = Math.round(parseFloat(bid.Price));
       const volume = parseFloat(bid.Quantity);
-      const existing = volumeMap.get(price);
-      if (existing) {
-        existing.volume += volume;
-      } else {
-        volumeMap.set(price, { volume, side: 'bid' });
+
+      if (!isNaN(price) && !isNaN(volume)) {
+        const existing = volumeMap.get(price);
+        if (existing) {
+          existing.volume += volume;
+        } else {
+          volumeMap.set(price, { volume, side: 'bid' });
+        }
       }
     });
 
-    // Procesar asks
+    // Process asks with price normalization
     data.orderbook.asks.forEach(ask => {
-      const price = Math.floor(parseFloat(ask.Price));
+      const price = Math.round(parseFloat(ask.Price));
       const volume = parseFloat(ask.Quantity);
-      const existing = volumeMap.get(price);
-      if (existing) {
-        existing.volume += volume;
-      } else {
-        volumeMap.set(price, { volume, side: 'ask' });
+
+      if (!isNaN(price) && !isNaN(volume)) {
+        const existing = volumeMap.get(price);
+        if (existing) {
+          existing.volume += volume;
+        } else {
+          volumeMap.set(price, { volume, side: 'ask' });
+        }
       }
     });
 
-    // Convertir el mapa a un array y ordenar por precio
+    // Convert map to array and sort by price
     const sortedEntries = Array.from(volumeMap.entries())
       .map(([price, { volume, side }]) => ({
         price,
@@ -110,11 +126,11 @@ export function useMarketData() {
       }))
       .sort((a, b) => b.price - a.price);
 
-    console.log('📊 Volume profile calculated:', {
-      levels: sortedEntries.length,
+    console.log('📊 Volume profile generated:', {
+      entries: sortedEntries.length,
       maxVolume: Math.max(...sortedEntries.map(entry => entry.volume)),
-      minPrice: Math.min(...sortedEntries.map(entry => entry.price)),
-      maxPrice: Math.max(...sortedEntries.map(entry => entry.price))
+      minVolume: Math.min(...sortedEntries.map(entry => entry.volume)),
+      sampleEntry: sortedEntries[0]
     });
 
     return sortedEntries;

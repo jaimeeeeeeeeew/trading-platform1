@@ -23,7 +23,6 @@ interface Props {
     maxPrice: number;
     maxY: number;
   } | null;
-  visibleLogicalRange: { from: number; to: number; } | null;
 }
 
 export const VolumeProfile = ({ 
@@ -32,102 +31,135 @@ export const VolumeProfile = ({
   height,
   visiblePriceRange,
   currentPrice,
-  priceCoordinates,
-  visibleLogicalRange
+  priceCoordinates
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data || data.length === 0 || !priceCoordinates || !visibleLogicalRange) {
-      console.log('📊 Volume Profile debug - Missing data:', {
+    if (!svgRef.current || !data || data.length === 0) {
+      console.log('⚠️ Volume Profile not rendering:', {
         hasRef: !!svgRef.current,
         dataLength: data?.length,
-        hasCoords: !!priceCoordinates,
-        hasRange: !!visibleLogicalRange,
-        width,
-        height
+        sampleData: data?.[0]
       });
       return;
     }
 
     try {
-      console.log('📊 Rendering volume profile with:', {
-        dataPoints: data.length,
-        dimensions: { width, height },
-        priceRange: visiblePriceRange,
-        sampleData: data.slice(0, 3)
-      });
-
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
+      // Set SVG dimensions
       svg
         .attr('width', width)
-        .attr('height', height)
-        .style('overflow', 'visible');
+        .attr('height', height);
 
+      // Calculate scales
       const maxVolume = Math.max(...data.map(d => d.volume));
+      const minPrice = Math.min(...data.map(d => d.price));
+      const maxPrice = Math.max(...data.map(d => d.price));
 
-      // Escala para el ancho de las barras
+      console.log('📊 Rendering volume profile:', {
+        maxVolume,
+        priceRange: { min: minPrice, max: maxPrice },
+        bars: data.length
+      });
+
+      // Simple horizontal bar chart
+      const barHeight = Math.max(2, (height * 0.8) / data.length);
+      const barPadding = 1;
+
       const xScale = d3.scaleLinear()
         .domain([0, maxVolume])
-        .range([0, width * 0.8]); // Usar 80% del ancho
+        .range([0, width * 0.8]);
 
-      // Escala para la posición vertical
       const yScale = d3.scaleLinear()
-        .domain([visiblePriceRange.min, visiblePriceRange.max])
-        .range([height - 20, 20]); // Dejar margen arriba y abajo
+        .domain([minPrice, maxPrice])
+        .range([height * 0.9, height * 0.1]);
 
-      // Contenedor para las barras
-      const barsGroup = svg.append('g')
-        .attr('transform', 'translate(0,0)');
+      // Draw background
+      svg.append('rect')
+        .attr('width', width)
+        .attr('height', height)
+        .attr('fill', 'rgba(21, 25, 36, 0.95)')
+        .attr('stroke', 'rgba(255, 255, 255, 0.3)')
+        .attr('stroke-width', 2);
 
-      // Altura mínima de barra más grande
-      const barHeight = Math.max(5, height / (visiblePriceRange.max - visiblePriceRange.min));
-
-      // Renderizar las barras
-      barsGroup.selectAll('rect')
+      // Draw bars
+      svg.selectAll('.volume-bar')
         .data(data)
         .join('rect')
+        .attr('class', 'volume-bar')
         .attr('x', 0)
         .attr('y', d => yScale(d.price))
-        .attr('width', d => Math.max(10, xScale(d.volume))) // Ancho mínimo de 10px
-        .attr('height', barHeight)
+        .attr('width', d => xScale(d.volume))
+        .attr('height', barHeight - barPadding)
         .attr('fill', d => d.side === 'ask' ? '#ef5350' : '#26a69a')
-        .attr('opacity', 0.8)
-        .attr('stroke', d => d.side === 'ask' ? '#ef5350' : '#26a69a')
-        .attr('stroke-width', 1);
+        .attr('opacity', 0.8);
 
-      // Línea de precio actual
+      // Draw current price line
       if (currentPrice) {
         svg.append('line')
           .attr('x1', 0)
-          .attr('y1', yScale(currentPrice))
           .attr('x2', width)
+          .attr('y1', yScale(currentPrice))
           .attr('y2', yScale(currentPrice))
           .attr('stroke', '#ffffff')
           .attr('stroke-width', 2)
           .attr('stroke-dasharray', '4,4');
       }
 
+      // Add price labels
+      svg.selectAll('.price-label')
+        .data([minPrice, currentPrice, maxPrice].filter(Boolean))
+        .join('text')
+        .attr('class', 'price-label')
+        .attr('x', width - 5)
+        .attr('y', d => yScale(d))
+        .attr('text-anchor', 'end')
+        .attr('fill', 'white')
+        .attr('font-size', '10px')
+        .text(d => d.toFixed(0));
+
     } catch (error) {
       console.error('❌ Error rendering volume profile:', error);
     }
-  }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates, visibleLogicalRange]);
+  }, [data, width, height, currentPrice]);
 
   return (
-    <svg 
-      ref={svgRef}
+    <div 
       style={{
         position: 'absolute',
         right: 0,
         top: 0,
-        width: '100%',
+        width: `${width}px`,
         height: '100%',
         background: 'rgba(21, 25, 36, 0.95)',
         border: '2px solid rgba(255, 255, 255, 0.3)',
         zIndex: 1000,
       }}
-    />
+    >
+      <div 
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          padding: '4px',
+          background: 'rgba(0,0,0,0.8)',
+          color: 'white',
+          fontSize: '10px',
+          zIndex: 1001
+        }}
+      >
+        Volume Profile Bars: {data.length}
+      </div>
+      <svg 
+        ref={svgRef}
+        style={{
+          width: '100%',
+          height: '100%',
+        }}
+      />
+    </div>
   );
 };
