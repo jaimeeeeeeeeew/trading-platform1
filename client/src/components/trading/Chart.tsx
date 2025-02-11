@@ -617,28 +617,26 @@ export default function Chart() {
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
 
-        {container.current && orderbookVolumeProfile.length > 0 && currentChartPrice && (
-          <div
-            className="absolute right-0 top-0 h-full pointer-events-none"
-            style={{
-              width: '180px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 100
-            }}
-          >
-            <VolumeProfile
-              data={orderbookVolumeProfile}
-              width={180}
-              height={container.current.clientHeight}
-              visiblePriceRange={visiblePriceRange}
-              currentPrice={currentChartPrice}
-              priceCoordinate={priceCoordinate}
-              priceCoordinates={priceCoordinates}
-            />
-          </div>
-        )}
+        <div
+          className="absolute right-[40px] top-0 h-full pointer-events-none"
+          style={{
+            width: '180px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100
+          }}
+        >
+          <VolumeProfile
+            data={orderbookVolumeProfile}
+            width={180}
+            height={container.current?.clientHeight || 0}
+            visiblePriceRange={visiblePriceRange}
+            currentPrice={currentChartPrice}
+            priceCoordinate={priceCoordinate}
+            priceCoordinates={priceCoordinates}
+          />
+        </div>
 
         {activeIndicator !== 'none' && (
           <div
