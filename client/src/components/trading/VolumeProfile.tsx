@@ -61,17 +61,23 @@ export const VolumeProfile = ({
       .domain([0, 1])
       .range([maxBarWidth, 0]);
 
-    // Asegurar que los valores del dominio sean números válidos
-    const yMin = Number.isFinite(visiblePriceRange.min) ? visiblePriceRange.min : 0;
-    const yMax = Number.isFinite(visiblePriceRange.max) ? visiblePriceRange.max : 100000;
+    // Función para crear la escala Y
+    const createYScale = () => {
+      // Asegurar que los valores del dominio sean números válidos
+      const yMin = Number.isFinite(visiblePriceRange.min) ? visiblePriceRange.min : 0;
+      const yMax = Number.isFinite(visiblePriceRange.max) ? visiblePriceRange.max : 100000;
 
-    // Invertir el rango para que coincida con el gráfico principal
-    const yScale = d3.scaleLinear()
-      .domain([yMin, yMax])
-      .range([innerHeight, 0]);
+      // Usar el mismo rango que el gráfico principal (invertido)
+      return d3.scaleLinear()
+        .domain([yMin, yMax])
+        .range([innerHeight, 0]);
+    };
 
-    // Altura fija para las barras, ajustada para incrementos de $10
-    const barHeight = Math.max(2, (innerHeight / ((yMax - yMin) / 10)));
+    const yScale = createYScale();
+
+    // Altura de las barras basada en el rango de precios
+    const priceRange = visiblePriceRange.max - visiblePriceRange.min;
+    const barHeight = Math.max(1, (innerHeight / (priceRange / 10)));
 
     // Dibujar barras de volumen
     const bars = g.selectAll('.volume-bar')
@@ -81,8 +87,10 @@ export const VolumeProfile = ({
       .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
       .attr('y', d => {
         const y = yScale(d.price);
-        // Verificar y registrar coordenadas para debug
-        console.log(`Barra de volumen - Precio: ${d.price}, Y calculado: ${y}`);
+        // Debug: mostrar coordenadas de algunas barras
+        if (Math.random() < 0.1) { // Solo mostrar ~10% de las barras para no saturar los logs
+          console.log(`🎯 Barra - Precio: ${d.price.toFixed(1)}, Y: ${y?.toFixed(1)}`);
+        }
         return Number.isFinite(y) ? y - barHeight / 2 : 0;
       })
       .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
@@ -129,7 +137,7 @@ export const VolumeProfile = ({
 
     // Eje de precios con incrementos de $10
     const priceAxis = d3.axisRight(yScale)
-      .ticks((yMax - yMin) / 10)
+      .ticks((visiblePriceRange.max - visiblePriceRange.min) / 10)
       .tickFormat((d: any) => {
         if (typeof d === 'number' && Number.isFinite(d)) {
           return `${d.toFixed(0)}`;
@@ -158,16 +166,6 @@ export const VolumeProfile = ({
       .attr('font-size', '10px')
       .text(`Vol Profile (${data.length})`);
 
-    // Solo mostrar coordenadas de 2 barras aleatorias para debug
-    const randomBars = data
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 2);
-
-    console.log('📊 Coordenadas de barras de volumen:');
-    randomBars.forEach((bar, i) => {
-      const y = yScale(bar.price);
-      console.log(`Barra ${i + 1}: Precio=${bar.price}, Y=${y}`);
-    });
 
   }, [data, width, height, visiblePriceRange, currentPrice]);
 

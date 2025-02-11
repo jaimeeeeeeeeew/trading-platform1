@@ -341,16 +341,15 @@ export default function Chart() {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
     try {
-      // Obtener el último precio del mercado
-      const lastPrice = historicalDataRef.current[historicalDataRef.current.length - 1]?.close || 95000;
+      // Obtener el rango de precios real del gráfico
+      const priceRange = candlestickSeriesRef.current.priceScale().priceRange();
+      if (!priceRange) return;
 
-      // Calcular rango dinámico (±7.5% desde el último precio)
-      const rangoTotal = lastPrice * 0.15;
-      const minPrice = lastPrice - (rangoTotal / 2);
-      const maxPrice = lastPrice + (rangoTotal / 2);
+      const minPrice = priceRange.minValue();
+      const maxPrice = priceRange.maxValue();
 
       // Solo mostrar información del rango visible
-      console.log('📊 Rango visible de precios:', {
+      console.log('📊 Rango visible del gráfico:', {
         min: { 
           precio: minPrice.toFixed(1), 
           coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(minPrice) 
@@ -359,19 +358,30 @@ export default function Chart() {
           precio: maxPrice.toFixed(1), 
           coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(maxPrice) 
         },
-        rangoTotal: rangoTotal.toFixed(1),
-        precioActual: lastPrice.toFixed(1)
+        rangoTotal: (maxPrice - minPrice).toFixed(1)
       });
 
+      // Actualizar el estado con el rango real
       setVisiblePriceRange({
         min: minPrice,
         max: maxPrice
       });
 
+      // Obtener el rango lógico visible para sincronización
       const timeScale = chartRef.current.timeScale();
       const visibleLogicalRange = timeScale.getVisibleLogicalRange();
       if (visibleLogicalRange) {
         setVisibleRange(visibleLogicalRange);
+      }
+
+      // Actualizar el precio actual y sus coordenadas
+      const lastPrice = historicalDataRef.current[historicalDataRef.current.length - 1]?.close;
+      if (lastPrice) {
+        setCurrentChartPrice(lastPrice);
+        const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPrice);
+        if (currentY !== null) {
+          setPriceCoordinate(currentY);
+        }
       }
     } catch (error) {
       console.error('Error updating visible price range:', error);
