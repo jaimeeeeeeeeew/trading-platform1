@@ -87,7 +87,7 @@ export const VolumeProfile = ({
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
-    // Agregar etiquetas de precio a la izquierda de cada barra
+    // Agregar etiquetas de precio
     g.selectAll('.price-label')
       .data(data)
       .join('text')
@@ -101,10 +101,7 @@ export const VolumeProfile = ({
       .attr('alignment-baseline', 'middle')
       .attr('fill', '#ffffff')
       .attr('font-size', '10px')
-      .text(d => {
-        const y = yScale(d.price);
-        return Number.isFinite(y) ? `${d.price.toFixed(0)}` : d.price.toFixed(0);
-      });
+      .text(d => d.price.toFixed(0));
 
     // Línea de precio actual
     if (currentPrice && Number.isFinite(yScale(currentPrice))) {
