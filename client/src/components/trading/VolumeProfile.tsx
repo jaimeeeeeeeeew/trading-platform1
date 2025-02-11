@@ -65,6 +65,7 @@ export const VolumeProfile = ({
     const yMin = Number.isFinite(visiblePriceRange.min) ? visiblePriceRange.min : 0;
     const yMax = Number.isFinite(visiblePriceRange.max) ? visiblePriceRange.max : 100000;
 
+    // Invertir el rango para que coincida con el gráfico principal
     const yScale = d3.scaleLinear()
       .domain([yMin, yMax])
       .range([innerHeight, 0]);
@@ -80,6 +81,8 @@ export const VolumeProfile = ({
       .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
       .attr('y', d => {
         const y = yScale(d.price);
+        // Verificar y registrar coordenadas para debug
+        console.log(`Barra de volumen - Precio: ${d.price}, Y calculado: ${y}`);
         return Number.isFinite(y) ? y - barHeight / 2 : 0;
       })
       .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
@@ -155,7 +158,7 @@ export const VolumeProfile = ({
       .attr('font-size', '10px')
       .text(`Vol Profile (${data.length})`);
 
-    // Solo mostrar coordenadas de 2 barras aleatorias
+    // Solo mostrar coordenadas de 2 barras aleatorias para debug
     const randomBars = data
       .sort(() => 0.5 - Math.random())
       .slice(0, 2);
