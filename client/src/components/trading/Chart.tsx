@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { VolumeProfile } from './VolumeProfile';
 import { tradingViewService } from '@/lib/tradingview-service';
 import { useSocketIO } from '@/hooks/use-socket-io';
-import { useMarketData } from '@/hooks/use-market-data'; // Import useMarketData hook
+import { useMarketData } from '@/hooks/use-market-data';
 import {
   Select,
   SelectContent,
@@ -55,18 +55,15 @@ type IntervalKey = keyof typeof INTERVALS;
 type ActiveIndicator = 'none' | 'rsi' | 'funding' | 'longShort' | 'deltaCvd';
 
 export default function Chart() {
-  // Todos los refs primero
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const historicalDataRef = useRef<Array<{ close: number; volume: number }>>([]);
 
-  // Context hooks
   const { currentSymbol } = useTrading();
   const { toast } = useToast();
 
-  // Todos los estados juntos
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [isLoading, setIsLoading] = useState(false);
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number; side: 'bid' | 'ask' }>>([]);
@@ -86,8 +83,7 @@ export default function Chart() {
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
   const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
 
-  // Custom hooks después de los estados
-  const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData(); // Get data from useMarketData
+  const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
 
   const { socket } = useSocketIO({
     onProfileData: (data) => {
@@ -109,7 +105,6 @@ export default function Chart() {
     }
   });
 
-  // Funciones auxiliares
   const cleanupWebSocket = () => {
     if (wsRef.current) {
       wsRef.current.close();
@@ -424,7 +419,6 @@ export default function Chart() {
     return ((close - open) / open) * 100;
   };
 
-  // useEffect para la inicialización del gráfico
   useEffect(() => {
     if (!container.current || !currentSymbol) return;
 
@@ -523,7 +517,6 @@ export default function Chart() {
     };
   }, [currentSymbol]);
 
-  // useEffect para manejar cambios en el indicador activo
   useEffect(() => {
     handleResize();
   }, [activeIndicator]);
@@ -617,45 +610,24 @@ export default function Chart() {
 
         {container.current && volumeProfileData.length > 0 && currentChartPrice && (
           <div
-            className="absolute right-20 top-0 h-full"
+            className="absolute right-0 top-0 h-full"
             style={{
               width: '200px',
-              zIndex: 2,
               pointerEvents: 'none',
-              background: 'rgba(21, 25, 36, 0.9)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              zIndex: 100
             }}
           >
-            <div 
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                background: 'rgba(0,0,0,0.8)',
-                color: 'white',
-                padding: '4px',
-                fontSize: '10px',
-                zIndex: 1001
-              }}
-            >
-              Volume Profile Data: {volumeProfileData.length}
-            </div>
-
             <VolumeProfile
-              data={volumeProfileData.map(item => ({
-                ...item,
-                volume: item.volume * 100 // Multiplicar el volumen por 100 para hacerlo más visible
-              }))}
-              width={200} 
+              data={volumeProfileData}
+              width={200}
               height={container.current.clientHeight}
               visiblePriceRange={visiblePriceRange}
               currentPrice={currentChartPrice}
               priceCoordinate={priceCoordinate}
               priceCoordinates={priceCoordinates}
-              visibleLogicalRange={visibleRange}
             />
           </div>
         )}

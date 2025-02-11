@@ -37,7 +37,7 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0) {
-      console.log('⚠️ Volume Profile not rendering:', {
+      console.log('⚠️ No data for volume profile:', {
         hasRef: !!svgRef.current,
         dataLength: data?.length,
         sampleData: data?.[0]
@@ -45,143 +45,132 @@ export const VolumeProfile = ({
       return;
     }
 
+    console.log('🎯 Rendering volume profile with:', {
+      dataPoints: data.length,
+      priceRange: visiblePriceRange,
+      width,
+      height
+    });
+
     try {
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      // Calculate dimensions and scales
-      const margin = { top: 20, right: 30, bottom: 20, left: 10 };
+      // Create margin and scales
+      const margin = { top: 10, right: 30, bottom: 10, left: 10 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
-      // Group data by price level for better visualization
-      const priceGroups = d3.group(data, d => d.price);
-      const groupedData = Array.from(priceGroups, ([price, values]) => ({
-        price: +price,
-        volume: d3.sum(values, d => d.volume),
-        side: values[0].side
-      }));
+      // Set up container
+      svg
+        .attr('width', width)
+        .attr('height', height)
+        .style('background', 'rgba(21, 25, 36, 0.95)');
 
-      // Create scales
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // Calculate max volume and set up scales
+      const maxVolume = d3.max(data, d => d.volume) || 100;
+
       const xScale = d3.scaleLinear()
-        .domain([0, d3.max(groupedData, d => d.volume) || 100])
-        .range([0, innerWidth * 0.8]); // Use 80% of width for bars
+        .domain([0, maxVolume])
+        .range([0, innerWidth - 40]); // Leave space for price labels
 
       const yScale = d3.scaleLinear()
         .domain([visiblePriceRange.min, visiblePriceRange.max])
         .range([innerHeight, 0]);
 
-      // Create container group
-      const g = svg
-        .attr('width', width)
-        .attr('height', height)
-        .append('g')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
-
-      // Add background
-      g.append('rect')
-        .attr('width', width)
-        .attr('height', height)
-        .attr('fill', 'rgba(21, 25, 36, 0.95)')
-        .attr('stroke', 'rgba(255, 255, 255, 0.3)')
-        .attr('stroke-width', 2);
-
-      // Calculate optimal bar height
-      const barHeight = Math.max(
-        1,
-        Math.min(
-          10,
-          innerHeight / (visiblePriceRange.max - visiblePriceRange.min)
-        )
-      );
-
       // Draw volume bars
       g.selectAll('.volume-bar')
-        .data(groupedData)
+        .data(data)
         .join('rect')
         .attr('class', 'volume-bar')
         .attr('x', 0)
         .attr('y', d => yScale(d.price))
-        .attr('width', d => xScale(d.volume))
-        .attr('height', barHeight)
-        .attr('fill', d => d.side === 'ask' ? '#ef5350' : '#26a69a')
-        .attr('opacity', 0.8)
-        .attr('rx', 1)
-        .attr('ry', 1);
+        .attr('width', d => Math.max(2, xScale(d.volume))) // Minimum width of 2px
+        .attr('height', 2) // Fixed height of 2px
+        .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
+        .attr('opacity', 0.8);
 
-      // Add price line
+      // Add current price line
       if (currentPrice) {
         g.append('line')
           .attr('x1', 0)
-          .attr('x2', width)
+          .attr('x2', innerWidth)
           .attr('y1', yScale(currentPrice))
           .attr('y2', yScale(currentPrice))
           .attr('stroke', '#ffffff')
-          .attr('stroke-width', 1.5)
+          .attr('stroke-width', 1)
           .attr('stroke-dasharray', '4,4');
 
-        // Add current price label
+        // Add price label
         g.append('text')
-          .attr('x', width - margin.right)
+          .attr('x', innerWidth)
           .attr('y', yScale(currentPrice))
-          .attr('dy', '-0.5em')
+          .attr('dy', '-4')
           .attr('text-anchor', 'end')
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .text(currentPrice.toFixed(1));
+          .text(currentPrice.toFixed(0));
       }
 
-      // Add price scale
+      // Add price axis
       const priceAxis = d3.axisRight(yScale)
         .ticks(5)
         .tickSize(3);
 
       g.append('g')
-        .attr('transform', `translate(${width - margin.right},0)`)
+        .attr('transform', `translate(${innerWidth - 30},0)`)
         .call(priceAxis)
-        .call(g => g.select('.domain').remove())
-        .call(g => g.selectAll('.tick line').attr('stroke', '#666'))
-        .call(g => g.selectAll('.tick text')
-          .attr('fill', '#fff')
-          .attr('font-size', '10px'));
+        .call(g => {
+          g.select('.domain').remove();
+          g.selectAll('.tick line').attr('stroke', '#666');
+          g.selectAll('.tick text')
+            .attr('fill', '#fff')
+            .attr('font-size', '10px');
+        });
 
     } catch (error) {
       console.error('❌ Error rendering volume profile:', error);
     }
-  }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates]);
+  }, [data, width, height, visiblePriceRange, currentPrice]);
 
   return (
-    <div 
+    <div
       style={{
         position: 'absolute',
         right: 0,
         top: 0,
         width: `${width}px`,
         height: '100%',
-        background: 'rgba(21, 25, 36, 0.95)',
-        border: '2px solid rgba(255, 255, 255, 0.3)',
-        zIndex: 1000,
+        backgroundColor: 'rgba(21, 25, 36, 0.95)',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000
       }}
     >
-      <div 
+      <div
         style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          padding: '4px',
-          background: 'rgba(0,0,0,0.8)',
-          color: 'white',
+          top: 5,
+          left: 5,
+          color: '#fff',
           fontSize: '10px',
-          zIndex: 1001
+          background: 'rgba(0,0,0,0.5)',
+          padding: '2px 4px',
+          borderRadius: '2px'
         }}
       >
-        Volume Profile Data Points: {data.length}
+        Volume Profile ({data.length} levels)
       </div>
-      <svg 
+      <svg
         ref={svgRef}
         style={{
           width: '100%',
-          height: '100%',
+          height: '100%'
         }}
       />
     </div>
