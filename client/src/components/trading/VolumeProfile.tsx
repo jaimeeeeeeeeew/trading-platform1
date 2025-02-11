@@ -15,6 +15,17 @@ interface Props {
     max: number;
   };
   currentPrice: number;
+  priceCoordinate: number | null;
+  priceCoordinates: PriceCoordinates | null;
+}
+
+interface PriceCoordinates {
+  currentPrice: number;
+  currentY: number;
+  minPrice: number;
+  minY: number;
+  maxPrice: number;
+  maxY: number;
 }
 
 export const VolumeProfile = ({
@@ -22,60 +33,19 @@ export const VolumeProfile = ({
   width = 160,
   height,
   visiblePriceRange,
-  currentPrice
+  currentPrice,
+  priceCoordinate,
+  priceCoordinates
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data || data.length === 0) {
-      console.log('VolumeProfile render skipped:', {
-        hasRef: !!svgRef.current,
-        hasData: !!data,
-        dataLength: data?.length
-      });
-      return;
-    }
-
-    // Agrupar datos por niveles de precio de $10
-    const groupedData = data.reduce((acc, item) => {
-      // Redondear el precio al múltiplo de 10 más cercano
-      const bucketPrice = Math.round(item.price / 10) * 10;
-      const existing = acc.find(x => x.price === bucketPrice);
-
-      if (existing) {
-        existing.volume += item.volume;
-        // Mantener el lado (bid/ask) basado en el mayor volumen
-        if (item.volume > existing.volume) {
-          existing.side = item.side;
-        }
-      } else {
-        acc.push({
-          price: bucketPrice,
-          volume: item.volume,
-          side: item.side,
-          normalizedVolume: 0 // Se normalizará después
-        });
-      }
-      return acc;
-    }, [] as Props['data']);
-
-    // Normalizar volúmenes después de agrupar
-    const maxVolume = Math.max(...groupedData.map(d => d.volume));
-    groupedData.forEach(d => {
-      d.normalizedVolume = d.volume / maxVolume;
-    });
-
-    console.log('VolumeProfile rendering with:', {
-      dataPoints: groupedData.length,
-      priceRange: visiblePriceRange,
-      currentPrice,
-      dimensions: { width, height }
-    });
+    if (!svgRef.current || !data || data.length === 0) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 10, right: 0, bottom: 10, left: 50 }; // Aumentado el margen izquierdo
+    const margin = { top: 10, right: 0, bottom: 10, left: 50 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -85,10 +55,8 @@ export const VolumeProfile = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Ancho máximo para las barras (70% del ancho disponible)
     const maxBarWidth = innerWidth * 0.7;
 
-    // Escalas
     const xScale = d3.scaleLinear()
       .domain([0, 1])
       .range([maxBarWidth, 0]);
@@ -106,7 +74,7 @@ export const VolumeProfile = ({
 
     // Dibujar barras de volumen
     const bars = g.selectAll('.volume-bar')
-      .data(groupedData)
+      .data(data)
       .join('rect')
       .attr('class', 'volume-bar')
       .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
@@ -121,10 +89,10 @@ export const VolumeProfile = ({
 
     // Agregar etiquetas de precio a la izquierda de cada barra
     g.selectAll('.price-label')
-      .data(groupedData)
+      .data(data)
       .join('text')
       .attr('class', 'price-label')
-      .attr('x', -5) // Posición a la izquierda de las barras
+      .attr('x', -5)
       .attr('y', d => {
         const y = yScale(d.price);
         if (Number.isFinite(y)) {
@@ -196,7 +164,7 @@ export const VolumeProfile = ({
       .attr('y', 15)
       .attr('fill', '#fff')
       .attr('font-size', '10px')
-      .text(`Vol Profile (${groupedData.length})`);
+      .text(`Vol Profile (${data.length})`);
 
   }, [data, width, height, visiblePriceRange, currentPrice]);
 
