@@ -15,15 +15,6 @@ interface Props {
     max: number;
   };
   currentPrice: number;
-  priceCoordinate: number | null;
-  priceCoordinates: {
-    currentPrice: number;
-    currentY: number;
-    minPrice: number;
-    minY: number;
-    maxPrice: number;
-    maxY: number;
-  } | null;
 }
 
 export const VolumeProfile = ({ 
@@ -37,12 +28,20 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0) {
-      console.log('No data available for VolumeProfile:', { 
+      console.log('VolumeProfile render skipped:', { 
         hasRef: !!svgRef.current, 
+        hasData: !!data,
         dataLength: data?.length 
       });
       return;
     }
+
+    console.log('VolumeProfile rendering with:', {
+      dataPoints: data.length,
+      priceRange: visiblePriceRange,
+      currentPrice,
+      dimensions: { width, height }
+    });
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -73,7 +72,7 @@ export const VolumeProfile = ({
     const barHeight = 6;
 
     // Dibujar barras de volumen
-    g.selectAll('.volume-bar')
+    const bars = g.selectAll('.volume-bar')
       .data(data)
       .join('rect')
       .attr('class', 'volume-bar')
@@ -83,6 +82,8 @@ export const VolumeProfile = ({
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
+
+    console.log('Bars created:', bars.size());
 
     // Línea de precio actual
     if (currentPrice) {

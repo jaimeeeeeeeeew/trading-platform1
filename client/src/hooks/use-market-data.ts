@@ -42,7 +42,9 @@ export function useMarketData() {
       console.log('📊 Received orderbook data:', {
         timestamp: newData.timestamp,
         bids_count: newData.bids.length,
-        asks_count: newData.asks.length
+        asks_count: newData.asks.length,
+        first_bid: newData.bids[0],
+        first_ask: newData.asks[0]
       });
 
       try {
@@ -73,14 +75,12 @@ export function useMarketData() {
   // Calculate volume profile data from orderbook with price buckets
   const volumeProfile = useMemo(() => {
     if (!data.orderbook.bids.length && !data.orderbook.asks.length) {
-      console.log('No orderbook data available for volume profile');
+      console.log('No orderbook data available for volume profile:', {
+        bids: data.orderbook.bids.length,
+        asks: data.orderbook.asks.length
+      });
       return [];
     }
-
-    console.log('Processing orderbook data for volume profile:', {
-      bids: data.orderbook.bids.length,
-      asks: data.orderbook.asks.length
-    });
 
     const PRICE_BUCKET_SIZE = 10; // Agrupar precios cada $10
 
@@ -123,6 +123,15 @@ export function useMarketData() {
         side: data.side
       }))
       .sort((a, b) => b.price - a.price);
+
+    console.log('Volume Profile Calculation:', {
+      inputData: {
+        bids: data.orderbook.bids.length,
+        asks: data.orderbook.asks.length
+      },
+      processedLevels: groupedLevels.length,
+      sampleLevel: groupedLevels[0]
+    });
 
     if (groupedLevels.length === 0) {
       console.log('No grouped levels available');
