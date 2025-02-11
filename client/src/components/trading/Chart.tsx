@@ -622,9 +622,28 @@ export default function Chart() {
               width: '120px',
               zIndex: 2,
               pointerEvents: 'none',
-              background: 'transparent'
+              background: 'rgba(21, 25, 36, 0.9)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
+            <div 
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                background: 'rgba(0,0,0,0.8)',
+                color: 'white',
+                padding: '4px',
+                fontSize: '10px',
+                zIndex: 1001
+              }}
+            >
+              Data points: {volumeProfileData.length}
+            </div>
+
             <VolumeProfile
               data={volumeProfileData}
               width={120}
