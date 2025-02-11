@@ -17,9 +17,9 @@ interface Props {
   currentPrice: number;
 }
 
-export const VolumeProfile = ({ 
-  data, 
-  width, 
+export const VolumeProfile = ({
+  data,
+  width,
   height,
   visiblePriceRange,
   currentPrice
@@ -28,10 +28,10 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0) {
-      console.log('VolumeProfile render skipped:', { 
-        hasRef: !!svgRef.current, 
+      console.log('VolumeProfile render skipped:', {
+        hasRef: !!svgRef.current,
         hasData: !!data,
-        dataLength: data?.length 
+        dataLength: data?.length
       });
       return;
     }
@@ -76,9 +76,9 @@ export const VolumeProfile = ({
       .data(data)
       .join('rect')
       .attr('class', 'volume-bar')
-      .attr('x', d => innerWidth - maxBarWidth) // Las barras empiezan desde la derecha
+      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume)) // Nueva posición x
       .attr('y', d => yScale(d.price) - barHeight / 2)
-      .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
+      .attr('width', d => Math.max(1, xScale(d.normalizedVolume))) //Corrected width calculation
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
