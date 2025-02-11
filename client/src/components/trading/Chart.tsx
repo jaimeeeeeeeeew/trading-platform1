@@ -608,12 +608,11 @@ export default function Chart() {
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
 
-        {container.current && volumeProfileData.length > 0 && currentChartPrice && (
+        {container.current && orderbookVolumeProfile.length > 0 && currentChartPrice && (
           <div
-            className="absolute right-0 top-0 h-full"
+            className="absolute right-0 top-0 h-full pointer-events-none"
             style={{
-              width: '200px',
-              pointerEvents: 'none',
+              width: '250px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -621,8 +620,8 @@ export default function Chart() {
             }}
           >
             <VolumeProfile
-              data={volumeProfileData}
-              width={200}
+              data={orderbookVolumeProfile}
+              width={250}
               height={container.current.clientHeight}
               visiblePriceRange={visiblePriceRange}
               currentPrice={currentChartPrice}
