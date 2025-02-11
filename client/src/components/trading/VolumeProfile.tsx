@@ -36,7 +36,13 @@ export const VolumeProfile = ({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data || data.length === 0) return;
+    if (!svgRef.current || !data || data.length === 0) {
+      console.log('No data available for VolumeProfile:', { 
+        hasRef: !!svgRef.current, 
+        dataLength: data?.length 
+      });
+      return;
+    }
 
     console.log('Renderizando VolumeProfile con datos:', {
       dataLength: data.length,
@@ -73,6 +79,16 @@ export const VolumeProfile = ({
     // Altura fija para las barras
     const barHeight = 6;
 
+    // Debug: Imprimir información de las barras antes de dibujarlas
+    console.log('Datos de las barras:', data.map(d => ({
+      price: d.price,
+      volume: d.volume,
+      normalizedVolume: d.normalizedVolume,
+      calculatedWidth: maxBarWidth - xScale(d.normalizedVolume),
+      calculatedX: innerWidth - maxBarWidth + xScale(d.normalizedVolume),
+      calculatedY: yScale(d.price)
+    })));
+
     // Dibujar barras de volumen - Ajustamos la posición x para que comiencen desde la derecha
     g.selectAll('.volume-bar')
       .data(data)
@@ -80,11 +96,7 @@ export const VolumeProfile = ({
       .attr('class', 'volume-bar')
       .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume)) // Nueva posición x
       .attr('y', d => yScale(d.price) - barHeight / 2)
-      .attr('width', d => {
-        const width = maxBarWidth - xScale(d.normalizedVolume);
-        console.log('Bar width for price', d.price, ':', width, 'normalized volume:', d.normalizedVolume);
-        return Math.max(1, width);
-      })
+      .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);

@@ -77,6 +77,11 @@ export function useMarketData() {
       return [];
     }
 
+    console.log('Processing orderbook data for volume profile:', {
+      bids: data.orderbook.bids.length,
+      asks: data.orderbook.asks.length
+    });
+
     const PRICE_BUCKET_SIZE = 10; // Agrupar precios cada $10
 
     // Función para agrupar precios en buckets
