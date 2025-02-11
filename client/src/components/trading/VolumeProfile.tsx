@@ -5,6 +5,7 @@ interface Props {
   data: {
     price: number;
     volume: number;
+    normalizedVolume: number;
     side: 'bid' | 'ask';
   }[];
   width: number;
@@ -35,21 +36,16 @@ export const VolumeProfile = ({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data || data.length === 0) {
-      return;
-    }
+    if (!svgRef.current || !data || data.length === 0) return;
 
     try {
-      // Limpiar el SVG anterior
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      // Configurar márgenes y dimensiones
       const margin = { top: 10, right: 30, bottom: 10, left: 0 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
-      // Crear el contenedor principal
       const g = svg
         .attr('width', width)
         .attr('height', height)
@@ -62,23 +58,23 @@ export const VolumeProfile = ({
       // Escalas
       const xScale = d3.scaleLinear()
         .domain([0, maxVolume])
-        .range([0, innerWidth * 0.8]); // Usar 80% del ancho para las barras
+        .range([0, innerWidth * 0.8]);
 
       const yScale = d3.scaleLinear()
         .domain([visiblePriceRange.min, visiblePriceRange.max])
         .range([innerHeight, 0]);
 
-      // Altura de las barras
-      const barHeight = Math.max(2, Math.min(4, height / data.length));
+      // Altura mínima de las barras para asegurar visibilidad
+      const barHeight = Math.max(3, Math.min(6, height / data.length));
 
-      // Dibujar barras de volumen con colores según side
+      // Dibujar barras de volumen
       g.selectAll('.volume-bar')
         .data(data)
         .join('rect')
         .attr('class', 'volume-bar')
         .attr('x', 0)
         .attr('y', d => yScale(d.price) - barHeight / 2)
-        .attr('width', d => Math.max(1, xScale(d.volume))) // Mínimo 1px de ancho
+        .attr('width', d => Math.max(2, xScale(d.volume))) // Mínimo 2px de ancho
         .attr('height', barHeight)
         .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
         .attr('opacity', 0.8)
@@ -86,15 +82,6 @@ export const VolumeProfile = ({
 
       // Línea de precio actual
       if (currentPrice) {
-        // Sombra para la línea
-        g.append('line')
-          .attr('x1', 0)
-          .attr('x2', innerWidth)
-          .attr('y1', yScale(currentPrice))
-          .attr('y2', yScale(currentPrice))
-          .attr('stroke', 'rgba(255, 255, 255, 0.3)')
-          .attr('stroke-width', 3);
-
         // Línea principal
         g.append('line')
           .attr('x1', 0)
@@ -116,7 +103,7 @@ export const VolumeProfile = ({
           .text(currentPrice.toFixed(1));
       }
 
-      // Eje de precios con menos ticks
+      // Eje de precios
       const priceAxis = d3.axisRight(yScale)
         .ticks(5)
         .tickSize(3);
@@ -125,7 +112,6 @@ export const VolumeProfile = ({
         .attr('transform', `translate(${innerWidth},0)`)
         .call(priceAxis);
 
-      // Estilizar el eje
       priceAxisGroup.select('.domain').remove();
       priceAxisGroup.selectAll('.tick line')
         .attr('stroke', '#666')
@@ -134,7 +120,7 @@ export const VolumeProfile = ({
         .attr('fill', '#fff')
         .attr('font-size', '9px');
 
-      // Agregar etiqueta de información
+      // Información del perfil
       g.append('text')
         .attr('x', 5)
         .attr('y', 15)
