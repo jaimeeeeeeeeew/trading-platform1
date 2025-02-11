@@ -353,8 +353,8 @@ export default function Chart() {
       const allData = historicalDataRef.current;
       if (!allData.length) return;
 
-      // Obtener 2 velas aleatorias y sus coordenadas
-      const visibleCandles = allData.slice(-20); // Últimas 20 velas
+      // Solo mostrar coordenadas de 2 velas aleatorias
+      const visibleCandles = allData.slice(-20);
       const randomCandles = visibleCandles
         .sort(() => 0.5 - Math.random())
         .slice(0, 2);
@@ -368,17 +368,11 @@ export default function Chart() {
       const minPrice = 90000;
       const maxPrice = 105000;
 
-      // Obtener 2 precios aleatorios del rango visible y sus coordenadas
+      // Solo mostrar coordenadas de 2 precios del rango visible
       const randomPrices = [
         minPrice + Math.random() * (maxPrice - minPrice),
         minPrice + Math.random() * (maxPrice - minPrice)
       ];
-
-      console.log('🎯 Coordenadas de precios aleatorios en rango visible:');
-      randomPrices.forEach((price, i) => {
-        const coordinate = candlestickSeriesRef.current?.priceToCoordinate(price);
-        console.log(`Precio ${i + 1}: Valor=${price}, Y=${coordinate}`);
-      });
 
       console.log('📊 Rango visible:', {
         min: { precio: minPrice, y: candlestickSeriesRef.current?.priceToCoordinate(minPrice) },
