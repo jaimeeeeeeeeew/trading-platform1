@@ -36,8 +36,37 @@ export const VolumeProfile = ({
       return;
     }
 
+    // Agrupar datos por niveles de precio de $10
+    const groupedData = data.reduce((acc, item) => {
+      // Redondear el precio al múltiplo de 10 más cercano
+      const bucketPrice = Math.round(item.price / 10) * 10;
+      const existing = acc.find(x => x.price === bucketPrice);
+
+      if (existing) {
+        existing.volume += item.volume;
+        // Mantener el lado (bid/ask) basado en el mayor volumen
+        if (item.volume > existing.volume) {
+          existing.side = item.side;
+        }
+      } else {
+        acc.push({
+          price: bucketPrice,
+          volume: item.volume,
+          side: item.side,
+          normalizedVolume: 0 // Se normalizará después
+        });
+      }
+      return acc;
+    }, [] as Props['data']);
+
+    // Normalizar volúmenes después de agrupar
+    const maxVolume = Math.max(...groupedData.map(d => d.volume));
+    groupedData.forEach(d => {
+      d.normalizedVolume = d.volume / maxVolume;
+    });
+
     console.log('VolumeProfile rendering with:', {
-      dataPoints: data.length,
+      dataPoints: groupedData.length,
       priceRange: visiblePriceRange,
       currentPrice,
       dimensions: { width, height }
@@ -59,26 +88,26 @@ export const VolumeProfile = ({
     // Ancho máximo para las barras (70% del ancho disponible)
     const maxBarWidth = innerWidth * 0.7;
 
-    // Escalas - Invertimos el rango para que crezca hacia la izquierda
+    // Escalas
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([maxBarWidth, 0]); 
+      .range([maxBarWidth, 0]);
 
     const yScale = d3.scaleLinear()
       .domain([visiblePriceRange.min, visiblePriceRange.max])
       .range([innerHeight, 0]);
 
-    // Altura fija para las barras
-    const barHeight = 6;
+    // Altura fija para las barras, ajustada para incrementos de $10
+    const barHeight = Math.max(2, (innerHeight / ((visiblePriceRange.max - visiblePriceRange.min) / 10)));
 
     // Dibujar barras de volumen
     const bars = g.selectAll('.volume-bar')
-      .data(data)
+      .data(groupedData)
       .join('rect')
       .attr('class', 'volume-bar')
-      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume)) 
+      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
       .attr('y', d => yScale(d.price) - barHeight / 2)
-      .attr('width', d => Math.max(1, xScale(d.normalizedVolume))) 
+      .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
@@ -106,9 +135,10 @@ export const VolumeProfile = ({
         .text(currentPrice.toFixed(1));
     }
 
-    // Eje de precios
+    // Eje de precios con incrementos de $10
     const priceAxis = d3.axisRight(yScale)
-      .ticks(5)
+      .ticks((visiblePriceRange.max - visiblePriceRange.min) / 10)
+      .tickFormat(d => d.toFixed(0))
       .tickSize(3);
 
     const priceAxisGroup = g.append('g')
@@ -129,7 +159,7 @@ export const VolumeProfile = ({
       .attr('y', 15)
       .attr('fill', '#fff')
       .attr('font-size', '10px')
-      .text(`Vol Profile (${data.length})`);
+      .text(`Vol Profile (${groupedData.length})`);
 
   }, [data, width, height, visiblePriceRange, currentPrice]);
 
