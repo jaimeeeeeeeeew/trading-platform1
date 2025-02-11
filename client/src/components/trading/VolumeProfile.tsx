@@ -137,7 +137,7 @@ export const VolumeProfile = ({
     <div
       style={{
         position: 'absolute',
-        right: 0,
+        right: '180px', // Movido más a la izquierda
         top: 0,
         width: `${width}px`,
         height: '100%',
