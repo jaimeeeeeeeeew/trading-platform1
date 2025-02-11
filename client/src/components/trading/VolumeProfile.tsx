@@ -52,20 +52,20 @@ export const VolumeProfile = ({
         .append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-      // Calcular el volumen máximo
-      const maxVolume = d3.max(data, d => d.volume) || 0;
+      // Ancho máximo para las barras (80% del ancho disponible)
+      const maxBarWidth = innerWidth * 0.8;
 
       // Escalas
       const xScale = d3.scaleLinear()
-        .domain([0, maxVolume])
-        .range([0, innerWidth * 0.8]);
+        .domain([0, 1]) // Usamos normalizedVolume que va de 0 a 1
+        .range([0, maxBarWidth]);
 
       const yScale = d3.scaleLinear()
         .domain([visiblePriceRange.min, visiblePriceRange.max])
         .range([innerHeight, 0]);
 
-      // Altura mínima de las barras para asegurar visibilidad
-      const barHeight = Math.max(3, Math.min(6, height / data.length));
+      // Altura fija para las barras
+      const barHeight = 8;
 
       // Dibujar barras de volumen
       g.selectAll('.volume-bar')
@@ -74,15 +74,13 @@ export const VolumeProfile = ({
         .attr('class', 'volume-bar')
         .attr('x', 0)
         .attr('y', d => yScale(d.price) - barHeight / 2)
-        .attr('width', d => Math.max(2, xScale(d.volume))) // Mínimo 2px de ancho
+        .attr('width', d => xScale(d.normalizedVolume))
         .attr('height', barHeight)
         .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
-        .attr('opacity', 0.8)
-        .attr('rx', 1);
+        .attr('opacity', 0.8);
 
       // Línea de precio actual
       if (currentPrice) {
-        // Línea principal
         g.append('line')
           .attr('x1', 0)
           .attr('x2', innerWidth)
