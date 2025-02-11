@@ -59,8 +59,8 @@ export const VolumeProfile = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Ancho máximo para las barras (85% del ancho disponible)
-    const maxBarWidth = innerWidth * 0.85;
+    // Ancho máximo para las barras (95% del ancho disponible)
+    const maxBarWidth = innerWidth * 0.95;
 
     // Escalas - Invertimos el rango del xScale para que crezca hacia la izquierda
     const xScale = d3.scaleLinear()
