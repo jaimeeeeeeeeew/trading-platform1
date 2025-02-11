@@ -70,70 +70,74 @@ export function useMarketData() {
     };
   }, [socket, toast]);
 
-  // Calculate volume profile data from orderbook with additional debugging
+  // Calculate volume profile data from orderbook with improved volume normalization
   const volumeProfile = useMemo(() => {
     if (!data.orderbook.bids.length && !data.orderbook.asks.length) {
       console.log('⚠️ No orderbook data available for volume profile');
       return [];
     }
 
-    console.log('📊 Processing orderbook data for volume profile:', {
+    console.log('📊 Processing orderbook data:', {
       bids: data.orderbook.bids.length,
-      asks: data.orderbook.asks.length,
-      sampleBid: data.orderbook.bids[0],
-      sampleAsk: data.orderbook.asks[0]
+      asks: data.orderbook.asks.length
     });
 
-    // Create a price-volume map for aggregation
-    const volumeMap = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
+    // Separate bids and asks processing for better volume balance
+    const bidVolumes = new Map<number, number>();
+    const askVolumes = new Map<number, number>();
 
-    // Process bids with price normalization
+    // Process bids
     data.orderbook.bids.forEach(bid => {
       const price = Math.round(parseFloat(bid.Price));
       const volume = parseFloat(bid.Quantity);
-
       if (!isNaN(price) && !isNaN(volume)) {
-        const existing = volumeMap.get(price);
-        if (existing) {
-          existing.volume += volume;
-        } else {
-          volumeMap.set(price, { volume, side: 'bid' });
-        }
+        bidVolumes.set(price, (bidVolumes.get(price) || 0) + volume);
       }
     });
 
-    // Process asks with price normalization
+    // Process asks
     data.orderbook.asks.forEach(ask => {
       const price = Math.round(parseFloat(ask.Price));
       const volume = parseFloat(ask.Quantity);
-
       if (!isNaN(price) && !isNaN(volume)) {
-        const existing = volumeMap.get(price);
-        if (existing) {
-          existing.volume += volume;
-        } else {
-          volumeMap.set(price, { volume, side: 'ask' });
-        }
+        askVolumes.set(price, (askVolumes.get(price) || 0) + volume);
       }
     });
 
-    // Convert map to array and sort by price
-    const sortedEntries = Array.from(volumeMap.entries())
-      .map(([price, { volume, side }]) => ({
-        price,
-        volume,
-        side
-      }))
-      .sort((a, b) => b.price - a.price);
+    // Find max volumes for normalization
+    const maxBidVolume = Math.max(...Array.from(bidVolumes.values()));
+    const maxAskVolume = Math.max(...Array.from(askVolumes.values()));
+    const maxVolume = Math.max(maxBidVolume, maxAskVolume);
 
-    console.log('📊 Volume profile generated:', {
-      entries: sortedEntries.length,
-      maxVolume: Math.max(...sortedEntries.map(entry => entry.volume)),
-      minVolume: Math.min(...sortedEntries.map(entry => entry.volume)),
-      sampleEntry: sortedEntries[0]
+    console.log('📊 Volume ranges:', {
+      maxBidVolume,
+      maxAskVolume,
+      totalMaxVolume: maxVolume
     });
 
-    return sortedEntries;
+    // Combine and normalize volumes
+    const normalizedProfile = [
+      ...Array.from(bidVolumes.entries()).map(([price, volume]) => ({
+        price,
+        volume: (volume / maxVolume) * 100, // Normalize to percentage
+        side: 'bid' as const
+      })),
+      ...Array.from(askVolumes.entries()).map(([price, volume]) => ({
+        price,
+        volume: (volume / maxVolume) * 100, // Normalize to percentage
+        side: 'ask' as const
+      }))
+    ];
+
+    const sortedProfile = normalizedProfile.sort((a, b) => b.price - a.price);
+
+    console.log('📊 Generated volume profile:', {
+      entries: sortedProfile.length,
+      sampleBids: sortedProfile.filter(x => x.side === 'bid').slice(0, 3),
+      sampleAsks: sortedProfile.filter(x => x.side === 'ask').slice(0, 3)
+    });
+
+    return sortedProfile;
   }, [data.orderbook]);
 
   return { data, volumeProfile, error, connectionState };
