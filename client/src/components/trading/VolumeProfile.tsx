@@ -147,7 +147,6 @@ export const VolumeProfile = ({
         top: 0,
         width: `${width}px`,
         height: '100%',
-        background: 'rgba(21, 25, 36, 0.95)',
         borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
         display: 'flex',
         alignItems: 'center',
