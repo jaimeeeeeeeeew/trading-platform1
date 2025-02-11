@@ -19,7 +19,7 @@ interface Props {
 
 export const VolumeProfile = ({
   data,
-  width,
+  width = 160, // Reducido de 180 a 160
   height,
   visiblePriceRange,
   currentPrice

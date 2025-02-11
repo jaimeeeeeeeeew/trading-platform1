@@ -14,3 +14,8 @@ export const tradingViewConfig = {
     value: 'crypto'
   }]
 };
+
+// Chart configuration
+export const chartConfig = {
+  volumeProfileWidth: 160 // Reducido de 180 a 160
+};
