@@ -24,8 +24,6 @@ interface MarketData {
   delta_spot: { positivo: number; negativo: number };
 }
 
-const PRICE_BUCKET_SIZE = 10; // Agrupar cada $10
-
 export function useMarketData() {
   const [data, setData] = useState<MarketData>({
     orderbook: {
@@ -102,24 +100,19 @@ export function useMarketData() {
   const volumeProfile = useMemo(() => {
     if (!data.orderbook.bids.length && !data.orderbook.asks.length) return [];
 
-    // Función para redondear el precio al bucket más cercano
-    const roundToBucket = (price: number) => {
-      return Math.round(price / PRICE_BUCKET_SIZE) * PRICE_BUCKET_SIZE;
-    };
-
     // Crear un mapa para acumular volúmenes por nivel de precio
     const volumeMap = new Map<number, number>();
 
     // Procesar bids
     data.orderbook.bids.forEach(bid => {
-      const price = roundToBucket(parseFloat(bid.Price));
+      const price = parseFloat(bid.Price);
       const volume = parseFloat(bid.Quantity);
       volumeMap.set(price, (volumeMap.get(price) || 0) + volume);
     });
 
     // Procesar asks
     data.orderbook.asks.forEach(ask => {
-      const price = roundToBucket(parseFloat(ask.Price));
+      const price = parseFloat(ask.Price);
       const volume = parseFloat(ask.Quantity);
       volumeMap.set(price, (volumeMap.get(price) || 0) + volume);
     });
