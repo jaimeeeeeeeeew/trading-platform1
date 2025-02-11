@@ -5,7 +5,7 @@ interface Props {
   data: {
     price: number;
     volume: number;
-    normalizedVolume: number;
+    side: 'bid' | 'ask';
   }[];
   width: number;
   height: number;
@@ -43,8 +43,7 @@ export const VolumeProfile = ({
         hasRef: !!svgRef.current,
         dataLength: data?.length,
         hasCoords: !!priceCoordinates,
-        hasRange: !!visibleLogicalRange,
-        receivedData: data?.slice(0, 3) // Log solo los primeros 3 elementos para debug
+        hasRange: !!visibleLogicalRange
       });
       return;
     }
@@ -62,13 +61,6 @@ export const VolumeProfile = ({
         normalizedVolume: d.volume / maxVolume
       }));
 
-      console.log('📊 Normalized volume data:', {
-        dataCount: normalizedData.length,
-        firstEntry: normalizedData[0],
-        lastEntry: normalizedData[normalizedData.length - 1],
-        maxVolume
-      });
-
       // Configurar escalas
       const xScale = d3.scaleLinear()
         .domain([0, 1])
@@ -79,15 +71,14 @@ export const VolumeProfile = ({
         .range([priceCoordinates.maxY, priceCoordinates.minY]);
 
       // Calcular altura de las barras
-      const barHeight = Math.max(2, height / normalizedData.length / 2);
+      const barHeight = Math.max(1, height / data.length);
 
       // Función para color de barras
-      const getBarColor = (price: number, volume: number) => {
-        const isAboveCurrent = price > currentPrice;
-        const alpha = Math.min(0.8, 0.3 + (volume / maxVolume) * 0.7);
-        return isAboveCurrent 
-          ? `rgba(38, 166, 154, ${alpha})` // Verde para precios por encima
-          : `rgba(239, 83, 80, ${alpha})`; // Rojo para precios por debajo
+      const getBarColor = (d: { price: number; volume: number; side: 'bid' | 'ask' }) => {
+        const alpha = Math.min(0.8, 0.3 + (d.volume / maxVolume) * 0.7);
+        return d.side === 'ask'
+          ? `rgba(239, 83, 80, ${alpha})` // Rojo para asks
+          : `rgba(38, 166, 154, ${alpha})`; // Verde para bids
       };
 
       // Crear grupo para las barras
@@ -103,17 +94,17 @@ export const VolumeProfile = ({
             .attr('y', d => priceScale(d.price))
             .attr('width', 0)
             .attr('height', barHeight)
-            .attr('fill', d => getBarColor(d.price, d.volume))
+            .attr('fill', d => getBarColor(d))
             .call(enter => enter.transition()
               .duration(300)
-              .attr('width', d => xScale(d.normalizedVolume))
+              .attr('width', d => xScale(d.volume / maxVolume))
             ),
           update => update
             .call(update => update.transition()
               .duration(300)
               .attr('y', d => priceScale(d.price))
-              .attr('width', d => xScale(d.normalizedVolume))
-              .attr('fill', d => getBarColor(d.price, d.volume))
+              .attr('width', d => xScale(d.volume / maxVolume))
+              .attr('fill', d => getBarColor(d))
             ),
           exit => exit
             .call(exit => exit.transition()
@@ -123,8 +114,8 @@ export const VolumeProfile = ({
             )
         );
 
-      // Añadir etiquetas si hay espacio
-      if (barHeight >= 8) {
+      // Añadir etiquetas de volumen si hay espacio
+      if (barHeight >= 4) {
         const labelsGroup = svg.append('g')
           .attr('class', 'labels-group');
 
@@ -134,9 +125,22 @@ export const VolumeProfile = ({
           .attr('x', 5)
           .attr('y', d => priceScale(d.price) + barHeight / 2)
           .attr('dy', '0.32em')
-          .attr('font-size', '10px')
+          .attr('font-size', '8px')
           .attr('fill', '#ffffff')
-          .text(d => `${d.price.toFixed(0)} (${d.volume.toFixed(1)})`);
+          .text(d => `${d.volume.toFixed(1)}`);
+      }
+
+      // Dibujar línea de precio actual
+      if (currentPrice) {
+        const currentPriceY = priceScale(currentPrice);
+        svg.append('line')
+          .attr('x1', 0)
+          .attr('y1', currentPriceY)
+          .attr('x2', width)
+          .attr('y2', currentPriceY)
+          .attr('stroke', '#ffffff')
+          .attr('stroke-width', 1)
+          .attr('stroke-dasharray', '2,2');
       }
 
     } catch (error) {

@@ -17,11 +17,6 @@ interface OrderbookData {
 interface MarketData {
   orderbook: OrderbookData;
   currentPrice: number;
-  // Campos simulados
-  direccion: number;
-  dominancia: { left: number; right: number };
-  delta_futuros: { positivo: number; negativo: number };
-  delta_spot: { positivo: number; negativo: number };
 }
 
 export function useMarketData() {
@@ -31,41 +26,12 @@ export function useMarketData() {
       asks: [],
       timestamp: ''
     },
-    currentPrice: 0,
-    // Valores simulados iniciales
-    direccion: 45,
-    dominancia: { left: 60, right: 40 },
-    delta_futuros: { positivo: 75, negativo: 25 },
-    delta_spot: { positivo: 55, negativo: 45 }
+    currentPrice: 0
   });
 
   const [error, setError] = useState(false);
   const { toast } = useToast();
   const { socket, connectionState } = useSocketIO();
-
-  // Actualizar datos simulados periódicamente
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setData(prev => ({
-        ...prev,
-        direccion: Math.floor(Math.random() * 100),
-        dominancia: {
-          left: Math.floor(40 + Math.random() * 30),
-          right: Math.floor(40 + Math.random() * 30)
-        },
-        delta_futuros: {
-          positivo: Math.floor(50 + Math.random() * 30),
-          negativo: Math.floor(50 + Math.random() * 30)
-        },
-        delta_spot: {
-          positivo: Math.floor(50 + Math.random() * 30),
-          negativo: Math.floor(50 + Math.random() * 30)
-        }
-      }));
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     if (!socket) return;
@@ -104,43 +70,55 @@ export function useMarketData() {
     };
   }, [socket, toast]);
 
-  // Calcular datos del perfil de volumen desde el orderbook
+  // Calculate volume profile data from orderbook
   const volumeProfile = useMemo(() => {
     if (!data.orderbook.bids.length && !data.orderbook.asks.length) return [];
 
     // Crear un mapa para acumular volúmenes por nivel de precio
-    const volumeMap = new Map<number, number>();
+    const volumeMap = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
 
     // Procesar bids
     data.orderbook.bids.forEach(bid => {
-      const price = parseFloat(bid.Price);
+      const price = Math.floor(parseFloat(bid.Price));
       const volume = parseFloat(bid.Quantity);
-      volumeMap.set(price, (volumeMap.get(price) || 0) + volume);
+      const existing = volumeMap.get(price);
+      if (existing) {
+        existing.volume += volume;
+      } else {
+        volumeMap.set(price, { volume, side: 'bid' });
+      }
     });
 
     // Procesar asks
     data.orderbook.asks.forEach(ask => {
-      const price = parseFloat(ask.Price);
+      const price = Math.floor(parseFloat(ask.Price));
       const volume = parseFloat(ask.Quantity);
-      volumeMap.set(price, (volumeMap.get(price) || 0) + volume);
+      const existing = volumeMap.get(price);
+      if (existing) {
+        existing.volume += volume;
+      } else {
+        volumeMap.set(price, { volume, side: 'ask' });
+      }
     });
+
+    // Convertir el mapa a un array y ordenar por precio
+    const sortedEntries = Array.from(volumeMap.entries())
+      .map(([price, { volume, side }]) => ({
+        price,
+        volume,
+        side
+      }))
+      .sort((a, b) => b.price - a.price);
 
     console.log('📊 Volume profile calculated:', {
-      levels: volumeMap.size,
-      maxVolume: Math.max(...Array.from(volumeMap.values())),
-      minPrice: Math.min(...Array.from(volumeMap.keys())),
-      maxPrice: Math.max(...Array.from(volumeMap.keys()))
+      levels: sortedEntries.length,
+      maxVolume: Math.max(...sortedEntries.map(entry => entry.volume)),
+      minPrice: Math.min(...sortedEntries.map(entry => entry.price)),
+      maxPrice: Math.max(...sortedEntries.map(entry => entry.price))
     });
 
-    // Convertir el mapa a un array ordenado
-    const result = Array.from(volumeMap.entries()).map(([price, volume]) => ({
-      price,
-      volume,
-      side: price >= data.currentPrice ? 'ask' as const : 'bid' as const
-    }));
-
-    return result.sort((a, b) => b.price - a.price);
-  }, [data.orderbook, data.currentPrice]);
+    return sortedEntries;
+  }, [data.orderbook]);
 
   return { data, volumeProfile, error, connectionState };
 }
