@@ -37,7 +37,7 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0) {
-      console.log('⚠️ Volume Profile debug:', {
+      console.log('⚠️ Volume Profile Debug:', {
         hasRef: !!svgRef.current,
         dataLength: data?.length,
         sampleData: data?.[0],
@@ -46,69 +46,60 @@ export const VolumeProfile = ({
       return;
     }
 
-    console.log('🎯 Rendering volume profile:', {
-      dataPoints: data.length,
-      priceRange: visiblePriceRange,
-      dimensions: { width, height },
-      volumeRange: {
-        max: Math.max(...data.map(d => d.volume)),
-        min: Math.min(...data.map(d => d.volume))
-      }
-    });
-
     try {
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      // Establecer tamaño del SVG
-      svg
-        .attr('width', width)
-        .attr('height', height)
-        .style('overflow', 'visible')
-        .style('background', 'rgba(21, 25, 36, 0.98)'); // Aumentar opacidad del fondo
-
-      // Márgenes para dejar espacio para etiquetas
-      const margin = { top: 20, right: 40, bottom: 20, left: 10 };
+      // Define margins
+      const margin = { top: 20, right: 40, bottom: 20, left: 0 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
-      // Crear el grupo principal con márgenes
-      const g = svg.append('g')
+      // Create container with margin
+      const g = svg
+        .attr('width', width)
+        .attr('height', height)
+        .append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-      // Calcular el volumen máximo para la escala
-      const maxVolume = Math.max(...data.map(d => d.volume));
+      // Background
+      g.append('rect')
+        .attr('width', width)
+        .attr('height', height)
+        .attr('fill', 'rgba(21, 25, 36, 0.98)')
+        .attr('x', -margin.left)
+        .attr('y', -margin.top);
 
-      // Configurar escalas
+      // Calculate scales
+      const maxVolume = d3.max(data, d => d.volume) || 0;
+
       const xScale = d3.scaleLinear()
         .domain([0, maxVolume])
-        .range([0, innerWidth - 20]); // Dejar espacio para etiquetas
+        .range([0, innerWidth]);
 
       const yScale = d3.scaleLinear()
         .domain([visiblePriceRange.min, visiblePriceRange.max])
         .range([innerHeight, 0]);
 
-      // Altura mínima de las barras (aumentada para mejor visibilidad)
-      const barHeight = Math.max(3, Math.min(10, height / data.length));
+      // Calculate bar height
+      const barHeight = Math.max(2, Math.min(5, height / data.length));
 
-      // Dibujar barras de volumen
+      // Draw volume bars
       g.selectAll('.volume-bar')
         .data(data)
         .join('rect')
         .attr('class', 'volume-bar')
         .attr('x', 0)
         .attr('y', d => yScale(d.price) - barHeight / 2)
-        .attr('width', d => Math.max(4, xScale(d.volume))) // Ancho mínimo aumentado
+        .attr('width', d => Math.max(1, xScale(d.volume)))
         .attr('height', barHeight)
         .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
-        .attr('opacity', 1) // Opacidad máxima
-        .attr('rx', 1) // Bordes redondeados
-        .attr('stroke', d => d.side === 'bid' ? '#1b5e57' : '#a13c39')
-        .attr('stroke-width', 0.5);
+        .attr('opacity', 1)
+        .attr('rx', 1);
 
-      // Línea de precio actual con sombra
+      // Draw price line
       if (currentPrice) {
-        // Sombra de la línea
+        // Add shadow effect
         g.append('line')
           .attr('x1', 0)
           .attr('x2', innerWidth)
@@ -117,7 +108,7 @@ export const VolumeProfile = ({
           .attr('stroke', 'rgba(255, 255, 255, 0.3)')
           .attr('stroke-width', 3);
 
-        // Línea principal
+        // Main line
         g.append('line')
           .attr('x1', 0)
           .attr('x2', innerWidth)
@@ -127,7 +118,7 @@ export const VolumeProfile = ({
           .attr('stroke-width', 1)
           .attr('stroke-dasharray', '4,4');
 
-        // Etiqueta de precio actual
+        // Price label
         g.append('text')
           .attr('x', innerWidth)
           .attr('y', yScale(currentPrice))
@@ -139,7 +130,7 @@ export const VolumeProfile = ({
           .text(currentPrice.toFixed(1));
       }
 
-      // Eje de precios
+      // Add price axis
       const priceAxis = d3.axisRight(yScale)
         .ticks(5)
         .tickSize(3);
@@ -154,8 +145,14 @@ export const VolumeProfile = ({
         .attr('stroke-width', 0.5);
       priceAxisGroup.selectAll('.tick text')
         .attr('fill', '#fff')
-        .attr('font-size', '10px')
-        .attr('font-weight', 'normal');
+        .attr('font-size', '10px');
+
+      console.log('📊 Volume Profile Rendered:', {
+        barsCount: data.length,
+        maxVolume,
+        barHeight,
+        dimensions: { width, height, innerWidth, innerHeight }
+      });
 
     } catch (error) {
       console.error('❌ Error rendering volume profile:', error);
@@ -175,7 +172,6 @@ export const VolumeProfile = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backdropFilter: 'blur(2px)',
         zIndex: 1000
       }}
     >
