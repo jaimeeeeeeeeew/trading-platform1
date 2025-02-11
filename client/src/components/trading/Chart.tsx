@@ -622,12 +622,9 @@ export default function Chart() {
         <div ref={container} className="w-full h-full" />
 
         <div
-          className="absolute right-[40px] top-0 h-full pointer-events-none"
+          className="absolute right-[40px] top-0 h-full"
           style={{
             width: '180px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             zIndex: 100
           }}
         >

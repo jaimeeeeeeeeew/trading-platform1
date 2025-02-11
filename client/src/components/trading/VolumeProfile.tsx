@@ -44,7 +44,6 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    // Ajustamos el margen derecho para el eje de precios
     const margin = { top: 10, right: 50, bottom: 10, left: -10 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
@@ -55,10 +54,8 @@ export const VolumeProfile = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Ancho máximo para las barras (95% del ancho disponible)
     const maxBarWidth = innerWidth * 0.95;
 
-    // Escalas - Invertimos el rango del xScale para que crezca hacia la izquierda
     const xScale = d3.scaleLinear()
       .domain([0, 1])
       .range([maxBarWidth, 0]);
@@ -67,10 +64,8 @@ export const VolumeProfile = ({
       .domain([visiblePriceRange.min, visiblePriceRange.max])
       .range([innerHeight, 0]);
 
-    // Altura fija para las barras
     const barHeight = 6;
 
-    // Dibujar barras de volumen
     g.selectAll('.volume-bar')
       .data(data)
       .join('rect')
@@ -82,7 +77,6 @@ export const VolumeProfile = ({
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
-    // Línea de precio actual
     if (currentPrice) {
       g.append('line')
         .attr('x1', innerWidth - maxBarWidth - 20)
@@ -93,7 +87,6 @@ export const VolumeProfile = ({
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '2,2');
 
-      // Etiqueta del precio actual
       g.append('text')
         .attr('x', innerWidth - maxBarWidth - 25)
         .attr('y', yScale(currentPrice))
@@ -104,7 +97,6 @@ export const VolumeProfile = ({
         .text(currentPrice.toFixed(1));
     }
 
-    // Eje de precios
     const priceAxis = d3.axisRight(yScale)
       .ticks(5)
       .tickSize(3);
@@ -121,30 +113,19 @@ export const VolumeProfile = ({
       .attr('fill', '#fff')
       .attr('font-size', '9px');
 
-    // Información del perfil
-    g.append('text')
-      .attr('x', innerWidth - maxBarWidth - 20)
-      .attr('y', 15)
-      .attr('fill', '#fff')
-      .attr('font-size', '10px')
-      .text(`Vol Profile (${data.length})`);
-
   }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates]);
 
   return (
-    <div className="absolute right-[40px] h-full pointer-events-none flex items-center justify-center"
+    <div 
+      className="absolute right-0 h-full pointer-events-none"
       style={{
         width: `${width}px`,
-        height: `${height}px`,
-        transform: `translateY(${priceCoordinate || 0}px)`,
+        transform: `translateY(${priceCoordinate ?? 0}px)`,
         transition: 'transform 0.1s ease-out'
       }}>
       <svg
         ref={svgRef}
-        style={{
-          width: '100%',
-          height: '100%'
-        }}
+        className="w-full h-full"
       />
     </div>
   );
