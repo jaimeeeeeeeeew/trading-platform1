@@ -69,7 +69,7 @@ export default function Chart() {
   // Todos los estados juntos
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [isLoading, setIsLoading] = useState(false);
-  const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number }>>([]);
+  const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number; side: 'bid' | 'ask' }>>([]);
   const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>({ min: 95850, max: 99300 });
   const [currentChartPrice, setCurrentChartPrice] = useState<number>(96000);
   const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
@@ -88,6 +88,7 @@ export default function Chart() {
 
   // Custom hooks después de los estados
   const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData(); // Get data from useMarketData
+
   const { socket } = useSocketIO({
     onProfileData: (data) => {
       if (!data || data.length === 0) return;
@@ -95,7 +96,7 @@ export default function Chart() {
       const processedData = data.map(item => ({
         price: item.price,
         volume: item.volume,
-        normalizedVolume: 0 
+        normalizedVolume: 0
       }));
 
       const maxVolume = Math.max(...processedData.map(d => d.volume));
@@ -528,17 +529,24 @@ export default function Chart() {
   }, [activeIndicator]);
 
   useEffect(() => {
-    if (!orderbookVolumeProfile.length) return;
+    if (!orderbookVolumeProfile.length) {
+      console.log('No volume profile data available');
+      return;
+    }
+
+    console.log('Volume Profile Data:', orderbookVolumeProfile);
 
     const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
     const normalizedData = orderbookVolumeProfile.map(data => ({
-      price: data.price,
+      ...data,
       volume: data.volume,
+      side: data.side,
       normalizedVolume: data.volume / maxVolume
     }));
 
+    console.log('Normalized Volume Profile Data:', normalizedData);
     setVolumeProfileData(normalizedData);
-  }, [orderbookVolumeProfile]); // Update volumeProfileData when orderbookVolumeProfile changes
+  }, [orderbookVolumeProfile]);
 
 
   return (
