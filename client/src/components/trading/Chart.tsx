@@ -19,10 +19,11 @@ import SecondaryIndicator from './SecondaryIndicator';
 interface PriceCoordinates {
   currentPrice: number;
   currentY: number;
-  minPrice: number;
-  minY: number;
-  maxPrice: number;
-  maxY: number;
+  upperPrice: number;
+  upperY: number;
+  lowerPrice: number;
+  lowerY: number;
+  priceStep: number;
 }
 
 interface SecondaryIndicators {
@@ -93,10 +94,8 @@ export default function Chart() {
     onProfileData: (data) => {
       if (!data || data.length === 0) return;
 
-      // Encontrar el volumen máximo para normalización
       const maxVolume = Math.max(...data.map(item => item.volume));
 
-      // Normalizar los volúmenes manteniendo el lado (bid/ask)
       const normalizedData = data.map(item => ({
         price: item.price,
         volume: item.volume,
@@ -353,36 +352,41 @@ export default function Chart() {
       const allData = historicalDataRef.current;
       if (!allData.length) return;
 
-      const minPrice = 90000;
-      const maxPrice = 105000;
-
-      setVisiblePriceRange({
-        min: minPrice,
-        max: maxPrice
-      });
-
       const lastPoint = allData[allData.length - 1];
       if (!lastPoint) return;
 
-      setCurrentChartPrice(lastPoint.close);
+      const currentPrice = lastPoint.close;
+      setCurrentChartPrice(currentPrice);
 
       if (candlestickSeriesRef.current) {
-        const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
-        const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
-        const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
+        const currentY = candlestickSeriesRef.current.priceToCoordinate(currentPrice);
 
-        if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
+        const priceStep = 100; 
+        const upperPrice = currentPrice + priceStep;
+        const lowerPrice = currentPrice - priceStep;
+
+        const upperY = candlestickSeriesRef.current.priceToCoordinate(upperPrice);
+        const lowerY = candlestickSeriesRef.current.priceToCoordinate(lowerPrice);
+
+        if (typeof currentY === 'number' && typeof upperY === 'number' && typeof lowerY === 'number') {
           const coordinates = {
-            currentPrice: lastPoint.close,
+            currentPrice,
             currentY,
-            minPrice,
-            minY,
-            maxPrice,
-            maxY
+            upperPrice,
+            upperY,
+            lowerPrice,
+            lowerY,
+            priceStep
           };
 
           setPriceCoordinates(coordinates);
           setPriceCoordinate(currentY);
+
+          const visiblePrices = {
+            min: lowerPrice - (priceStep * 5),
+            max: upperPrice + (priceStep * 5)
+          };
+          setVisiblePriceRange(visiblePrices);
         }
       }
     } catch (error) {
@@ -549,7 +553,6 @@ export default function Chart() {
     console.log('Normalized Volume Profile Data:', normalizedData);
     setVolumeProfileData(normalizedData);
   }, [orderbookVolumeProfile]);
-
 
 
   return (

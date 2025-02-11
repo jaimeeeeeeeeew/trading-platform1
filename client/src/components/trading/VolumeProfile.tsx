@@ -86,8 +86,8 @@ export const VolumeProfile = ({
       g.append('line')
         .attr('x1', innerWidth - maxBarWidth - 20)
         .attr('x2', innerWidth)
-        .attr('y1', innerHeight / 2)
-        .attr('y2', innerHeight / 2)
+        .attr('y1', yScale(currentPrice)) //Corrected line to use yScale
+        .attr('y2', yScale(currentPrice)) //Corrected line to use yScale
         .attr('stroke', '#ffffff')
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '2,2');
@@ -95,7 +95,7 @@ export const VolumeProfile = ({
       // Etiqueta del precio actual
       g.append('text')
         .attr('x', innerWidth - maxBarWidth - 25)
-        .attr('y', innerHeight / 2)
+        .attr('y', yScale(currentPrice)) //Corrected line to use yScale
         .attr('dy', '-4')
         .attr('text-anchor', 'end')
         .attr('fill', '#ffffff')
