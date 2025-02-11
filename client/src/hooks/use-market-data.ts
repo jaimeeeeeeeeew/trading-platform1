@@ -38,14 +38,6 @@ export function useMarketData() {
 
     socket.on('orderbook_update', (newData: OrderbookData) => {
       try {
-        console.log('📊 Received orderbook update:', {
-          timestamp: newData.timestamp,
-          bidsCount: newData.bids.length,
-          asksCount: newData.asks.length,
-          topBid: newData.bids[0],
-          topAsk: newData.asks[0]
-        });
-
         setData(prev => ({
           ...prev,
           orderbook: newData,
@@ -70,41 +62,37 @@ export function useMarketData() {
     };
   }, [socket, toast]);
 
-  // Calculate volume profile data from orderbook with improved volume normalization
+  // Calculate volume profile data from orderbook
   const volumeProfile = useMemo(() => {
-    if (!data.orderbook.bids.length && !data.orderbook.asks.length) {
-      console.log('⚠️ No orderbook data available for volume profile');
-      return [];
-    }
+    if (!data.orderbook.bids.length && !data.orderbook.asks.length) return [];
 
-    // Amplification factor similar to simulated data
-    const VOLUME_MULTIPLIER = 10000;
+    // Amplificación similar a los datos simulados
+    const VOLUME_MULTIPLIER = 100;
 
-    // Process bids and asks separately
-    const processOrders = (orders: Array<{ Price: string; Quantity: string }>, side: 'bid' | 'ask') => {
-      return orders.map(order => {
-        const price = Math.round(parseFloat(order.Price));
-        const volume = parseFloat(order.Quantity) * VOLUME_MULTIPLIER; // Amplify volume
-        return { price, volume, side };
-      }).filter(order => !isNaN(order.price) && !isNaN(order.volume));
-    };
+    // Procesar bids
+    const bids = data.orderbook.bids.map(bid => ({
+      price: Math.round(parseFloat(bid.Price)),
+      volume: Math.round(parseFloat(bid.Quantity) * VOLUME_MULTIPLIER),
+      side: 'bid' as const
+    }));
 
-    // Process both sides
-    const bidEntries = processOrders(data.orderbook.bids, 'bid');
-    const askEntries = processOrders(data.orderbook.asks, 'ask');
+    // Procesar asks
+    const asks = data.orderbook.asks.map(ask => ({
+      price: Math.round(parseFloat(ask.Price)),
+      volume: Math.round(parseFloat(ask.Quantity) * VOLUME_MULTIPLIER),
+      side: 'ask' as const
+    }));
 
-    // Combine and sort
-    const combinedProfile = [...bidEntries, ...askEntries]
+    // Combinar y ordenar por precio
+    const combinedProfile = [...bids, ...asks]
+      .filter(item => !isNaN(item.price) && !isNaN(item.volume))
       .sort((a, b) => b.price - a.price);
 
-    console.log('📊 Volume Profile Debug:', {
-      totalEntries: combinedProfile.length,
-      sampleBids: combinedProfile.filter(x => x.side === 'bid').slice(0, 3),
-      sampleAsks: combinedProfile.filter(x => x.side === 'ask').slice(0, 3),
-      volumeRange: {
-        max: Math.max(...combinedProfile.map(x => x.volume)),
-        min: Math.min(...combinedProfile.map(x => x.volume))
-      }
+    console.log('📊 Volume Profile Data:', {
+      bidsCount: bids.length,
+      asksCount: asks.length,
+      sampleVolumes: combinedProfile.slice(0, 3).map(x => x.volume),
+      maxVolume: Math.max(...combinedProfile.map(x => x.volume))
     });
 
     return combinedProfile;
