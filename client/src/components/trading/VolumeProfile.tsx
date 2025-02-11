@@ -46,7 +46,7 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 10, right: 30, bottom: 10, left: 0 };
+    const margin = { top: 10, right: 0, bottom: 10, left: 30 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -59,10 +59,10 @@ export const VolumeProfile = ({
     // Ancho máximo para las barras (70% del ancho disponible)
     const maxBarWidth = innerWidth * 0.7;
 
-    // Escalas
+    // Escalas - Invertimos el rango para que crezca hacia la izquierda
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([0, maxBarWidth]);
+      .range([maxBarWidth, 0]); // Cambiado para que crezca hacia la izquierda
 
     const yScale = d3.scaleLinear()
       .domain([visiblePriceRange.min, visiblePriceRange.max])
@@ -76,9 +76,9 @@ export const VolumeProfile = ({
       .data(data)
       .join('rect')
       .attr('class', 'volume-bar')
-      .attr('x', 0)
+      .attr('x', d => innerWidth - maxBarWidth) // Las barras empiezan desde la derecha
       .attr('y', d => yScale(d.price) - barHeight / 2)
-      .attr('width', d => Math.max(1, xScale(d.normalizedVolume)))
+      .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
@@ -97,7 +97,7 @@ export const VolumeProfile = ({
         .attr('stroke-dasharray', '2,2');
 
       g.append('text')
-        .attr('x', innerWidth)
+        .attr('x', innerWidth - maxBarWidth - 5)
         .attr('y', yScale(currentPrice))
         .attr('dy', '-4')
         .attr('text-anchor', 'end')
@@ -125,7 +125,7 @@ export const VolumeProfile = ({
 
     // Información del perfil
     g.append('text')
-      .attr('x', 5)
+      .attr('x', innerWidth - maxBarWidth)
       .attr('y', 15)
       .attr('fill', '#fff')
       .attr('font-size', '10px')
@@ -141,7 +141,7 @@ export const VolumeProfile = ({
         top: 0,
         width: `${width}px`,
         height: '100%',
-        background: 'rgba(21, 25, 36, 0.95)',
+        background: 'transparent', // Eliminado el fondo
         borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
         display: 'flex',
         alignItems: 'center',
