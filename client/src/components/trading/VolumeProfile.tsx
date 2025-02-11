@@ -39,12 +39,12 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0 || !priceCoordinates || !visibleLogicalRange) {
-      console.log('Estado de los datos del perfil:', {
-        tieneRef: !!svgRef.current,
-        datosLength: data?.length,
-        tieneCoords: !!priceCoordinates,
-        tieneRango: !!visibleLogicalRange,
-        datosRecibidos: data
+      console.log('📊 Volume Profile waiting for data:', {
+        hasRef: !!svgRef.current,
+        dataLength: data?.length,
+        hasCoords: !!priceCoordinates,
+        hasRange: !!visibleLogicalRange,
+        receivedData: data?.slice(0, 3) // Log solo los primeros 3 elementos para debug
       });
       return;
     }
@@ -62,10 +62,10 @@ export const VolumeProfile = ({
         normalizedVolume: d.volume / maxVolume
       }));
 
-      console.log('Datos normalizados:', {
-        cantidadDatos: normalizedData.length,
-        primerDato: normalizedData[0],
-        ultimoDato: normalizedData[normalizedData.length - 1],
+      console.log('📊 Normalized volume data:', {
+        dataCount: normalizedData.length,
+        firstEntry: normalizedData[0],
+        lastEntry: normalizedData[normalizedData.length - 1],
         maxVolume
       });
 
@@ -123,7 +123,7 @@ export const VolumeProfile = ({
             )
         );
 
-      // Añadir etiquetas de precio y volumen si hay espacio
+      // Añadir etiquetas si hay espacio
       if (barHeight >= 8) {
         const labelsGroup = svg.append('g')
           .attr('class', 'labels-group');
@@ -140,7 +140,7 @@ export const VolumeProfile = ({
       }
 
     } catch (error) {
-      console.error('Error renderizando perfil de volumen:', error);
+      console.error('❌ Error rendering volume profile:', error);
     }
   }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates, visibleLogicalRange]);
 

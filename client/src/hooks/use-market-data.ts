@@ -72,6 +72,14 @@ export function useMarketData() {
 
     socket.on('orderbook_update', (newData: OrderbookData) => {
       try {
+        console.log('📊 Received orderbook update:', {
+          timestamp: newData.timestamp,
+          bidsCount: newData.bids.length,
+          asksCount: newData.asks.length,
+          topBid: newData.bids[0],
+          topAsk: newData.asks[0]
+        });
+
         setData(prev => ({
           ...prev,
           orderbook: newData,
@@ -115,6 +123,13 @@ export function useMarketData() {
       const price = parseFloat(ask.Price);
       const volume = parseFloat(ask.Quantity);
       volumeMap.set(price, (volumeMap.get(price) || 0) + volume);
+    });
+
+    console.log('📊 Volume profile calculated:', {
+      levels: volumeMap.size,
+      maxVolume: Math.max(...Array.from(volumeMap.values())),
+      minPrice: Math.min(...Array.from(volumeMap.keys())),
+      maxPrice: Math.max(...Array.from(volumeMap.keys()))
     });
 
     // Convertir el mapa a un array ordenado
