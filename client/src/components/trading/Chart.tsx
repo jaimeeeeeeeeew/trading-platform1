@@ -54,6 +54,10 @@ const INTERVALS = {
 type IntervalKey = keyof typeof INTERVALS;
 type ActiveIndicator = 'none' | 'rsi' | 'funding' | 'longShort' | 'deltaCvd';
 
+interface UseSocketIOOptions {
+  onProfileData?: (data: Array<{ price: number; volume: number; side: 'bid' | 'ask' }>) => void;
+}
+
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
@@ -89,17 +93,22 @@ export default function Chart() {
     onProfileData: (data) => {
       if (!data || data.length === 0) return;
 
-      const processedData = data.map(item => ({
+      // Encontrar el volumen máximo para normalización
+      const maxVolume = Math.max(...data.map(item => item.volume));
+
+      // Normalizar los volúmenes manteniendo el lado (bid/ask)
+      const normalizedData = data.map(item => ({
         price: item.price,
         volume: item.volume,
-        normalizedVolume: 0
+        normalizedVolume: item.volume / maxVolume,
+        side: item.side
       }));
 
-      const maxVolume = Math.max(...processedData.map(d => d.volume));
-      const normalizedData = processedData.map(data => ({
-        ...data,
-        normalizedVolume: data.volume / maxVolume
-      }));
+      console.log('Normalized Volume Profile:', {
+        dataPoints: normalizedData.length,
+        maxVolume,
+        sampleData: normalizedData.slice(0, 3)
+      });
 
       setVolumeProfileData(normalizedData);
     }
@@ -612,7 +621,7 @@ export default function Chart() {
           <div
             className="absolute right-0 top-0 h-full pointer-events-none"
             style={{
-              width: '180px', // Reducir el ancho para hacer las barras más prominentes
+              width: '180px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

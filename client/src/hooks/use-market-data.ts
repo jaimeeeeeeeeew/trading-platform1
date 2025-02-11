@@ -66,36 +66,40 @@ export function useMarketData() {
   const volumeProfile = useMemo(() => {
     if (!data.orderbook.bids.length && !data.orderbook.asks.length) return [];
 
-    // Amplificación similar a los datos simulados
-    const VOLUME_MULTIPLIER = 100;
-
-    // Procesar bids
+    // Procesar bids y asks por separado
     const bids = data.orderbook.bids.map(bid => ({
-      price: Math.round(parseFloat(bid.Price)),
-      volume: Math.round(parseFloat(bid.Quantity) * VOLUME_MULTIPLIER),
+      price: parseFloat(bid.Price),
+      volume: parseFloat(bid.Quantity),
       side: 'bid' as const
     }));
 
-    // Procesar asks
     const asks = data.orderbook.asks.map(ask => ({
-      price: Math.round(parseFloat(ask.Price)),
-      volume: Math.round(parseFloat(ask.Quantity) * VOLUME_MULTIPLIER),
+      price: parseFloat(ask.Price),
+      volume: parseFloat(ask.Quantity),
       side: 'ask' as const
     }));
 
     // Combinar y ordenar por precio
-    const combinedProfile = [...bids, ...asks]
-      .filter(item => !isNaN(item.price) && !isNaN(item.volume))
-      .sort((a, b) => b.price - a.price);
+    const allLevels = [...bids, ...asks].sort((a, b) => b.price - a.price);
+
+    // Encontrar el volumen máximo para normalización
+    const maxVolume = Math.max(...allLevels.map(level => level.volume));
+
+    // Normalizar volúmenes y mantener el lado (bid/ask)
+    const normalizedLevels = allLevels.map(level => ({
+      ...level,
+      volume: level.volume,
+      normalizedVolume: level.volume / maxVolume
+    }));
 
     console.log('📊 Volume Profile Data:', {
       bidsCount: bids.length,
       asksCount: asks.length,
-      sampleVolumes: combinedProfile.slice(0, 3).map(x => x.volume),
-      maxVolume: Math.max(...combinedProfile.map(x => x.volume))
+      maxVolume,
+      sampleData: normalizedLevels.slice(0, 3)
     });
 
-    return combinedProfile;
+    return normalizedLevels;
   }, [data.orderbook]);
 
   return { data, volumeProfile, error, connectionState };
