@@ -115,16 +115,19 @@ export function useMarketData() {
       totalMaxVolume: maxVolume
     });
 
+    // Amplify the volumes to make them more visible
+    const volumeMultiplier = 1000; // Multiplicador para hacer los volúmenes más visibles
+
     // Combine and normalize volumes
     const normalizedProfile = [
       ...Array.from(bidVolumes.entries()).map(([price, volume]) => ({
         price,
-        volume: (volume / maxVolume) * 100, // Normalize to percentage
+        volume: (volume / maxVolume) * volumeMultiplier, // Amplificar el volumen
         side: 'bid' as const
       })),
       ...Array.from(askVolumes.entries()).map(([price, volume]) => ({
         price,
-        volume: (volume / maxVolume) * 100, // Normalize to percentage
+        volume: (volume / maxVolume) * volumeMultiplier, // Amplificar el volumen
         side: 'ask' as const
       }))
     ];
