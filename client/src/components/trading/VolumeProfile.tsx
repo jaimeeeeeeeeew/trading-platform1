@@ -40,14 +40,6 @@ export const VolumeProfile = ({
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0) return;
 
-    console.log('Renderizando VolumeProfile con datos:', {
-      dataLength: data.length,
-      firstItem: data[0],
-      visibleRange: visiblePriceRange,
-      currentPrice,
-      priceCoordinates
-    });
-
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
@@ -68,7 +60,7 @@ export const VolumeProfile = ({
     // Escalas - Invertimos el rango del xScale para que crezca hacia la izquierda
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([maxBarWidth, 0]); // Invertido: ahora va de maxBarWidth a 0
+      .range([maxBarWidth, 0]);
 
     const yScale = d3.scaleLinear()
       .domain([visiblePriceRange.min, visiblePriceRange.max])
@@ -77,18 +69,14 @@ export const VolumeProfile = ({
     // Altura fija para las barras
     const barHeight = 6;
 
-    // Dibujar barras de volumen - Ajustamos la posición x para que comiencen desde la derecha
+    // Dibujar barras de volumen
     g.selectAll('.volume-bar')
       .data(data)
       .join('rect')
       .attr('class', 'volume-bar')
-      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume)) // Nueva posición x
+      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
       .attr('y', d => yScale(d.price) - barHeight / 2)
-      .attr('width', d => {
-        const width = maxBarWidth - xScale(d.normalizedVolume);
-        console.log('Bar width for price', d.price, ':', width, 'normalized volume:', d.normalizedVolume);
-        return Math.max(1, width);
-      })
+      .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
@@ -98,8 +86,8 @@ export const VolumeProfile = ({
       g.append('line')
         .attr('x1', innerWidth - maxBarWidth - 20)
         .attr('x2', innerWidth)
-        .attr('y1', yScale(currentPrice))
-        .attr('y2', yScale(currentPrice))
+        .attr('y1', innerHeight / 2)
+        .attr('y2', innerHeight / 2)
         .attr('stroke', '#ffffff')
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '2,2');
@@ -107,7 +95,7 @@ export const VolumeProfile = ({
       // Etiqueta del precio actual
       g.append('text')
         .attr('x', innerWidth - maxBarWidth - 25)
-        .attr('y', yScale(currentPrice))
+        .attr('y', innerHeight / 2)
         .attr('dy', '-4')
         .attr('text-anchor', 'end')
         .attr('fill', '#ffffff')
@@ -115,7 +103,7 @@ export const VolumeProfile = ({
         .text(currentPrice.toFixed(1));
     }
 
-    // Eje de precios - Movido al lado derecho
+    // Eje de precios
     const priceAxis = d3.axisRight(yScale)
       .ticks(5)
       .tickSize(3);
@@ -143,22 +131,19 @@ export const VolumeProfile = ({
   }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates]);
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        right: 0,
-        top: priceCoordinate ? `${priceCoordinate - (height * 0.5)}px` : '0',
-        width: `${width}px`,
-        height: `${height}px`,
-        borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        transition: 'top 0.1s ease-out',
-        pointerEvents: 'none'
-      }}
-    >
+    <div style={{
+      position: 'absolute',
+      right: 0,
+      top: `-${height / 2}px`,
+      width: `${width}px`,
+      height: `${height}px`,
+      borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      pointerEvents: 'none'
+    }}>
       <svg
         ref={svgRef}
         style={{

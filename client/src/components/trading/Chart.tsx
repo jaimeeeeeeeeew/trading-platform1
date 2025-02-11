@@ -551,6 +551,7 @@ export default function Chart() {
   }, [orderbookVolumeProfile]);
 
 
+
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
       <div className="absolute top-2 left-2 z-10 flex items-center gap-2">
@@ -624,7 +625,9 @@ export default function Chart() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 100
+            zIndex: 100,
+            transform: priceCoordinate ? `translateY(${priceCoordinate}px)` : 'none',
+            transition: 'transform 0.1s ease-out'
           }}
         >
           <VolumeProfile
