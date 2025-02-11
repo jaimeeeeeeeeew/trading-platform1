@@ -341,6 +341,27 @@ export default function Chart() {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
     try {
+      const minPrice = 90000;
+      const maxPrice = 105000;
+
+      // Solo mostrar información del rango visible
+      console.log('📊 Rango visible de precios:', {
+        min: { 
+          precio: minPrice, 
+          coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(minPrice) 
+        },
+        max: { 
+          precio: maxPrice, 
+          coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(maxPrice) 
+        },
+        rangoTotal: maxPrice - minPrice
+      });
+
+      setVisiblePriceRange({
+        min: minPrice,
+        max: maxPrice
+      });
+
       const timeScale = chartRef.current.timeScale();
       const visibleLogicalRange = timeScale.getVisibleLogicalRange();
       if (visibleLogicalRange) {
@@ -365,24 +386,6 @@ export default function Chart() {
         console.log(`Vela ${i + 1}: Precio=${candle.close}, Y=${coordinate}`);
       });
 
-      const minPrice = 90000;
-      const maxPrice = 105000;
-
-      // Solo mostrar coordenadas de 2 precios del rango visible
-      const randomPrices = [
-        minPrice + Math.random() * (maxPrice - minPrice),
-        minPrice + Math.random() * (maxPrice - minPrice)
-      ];
-
-      console.log('📊 Rango visible:', {
-        min: { precio: minPrice, y: candlestickSeriesRef.current?.priceToCoordinate(minPrice) },
-        max: { precio: maxPrice, y: candlestickSeriesRef.current?.priceToCoordinate(maxPrice) }
-      });
-
-      setVisiblePriceRange({
-        min: minPrice,
-        max: maxPrice
-      });
 
       const lastPoint = allData[allData.length - 1];
       if (!lastPoint) return;
