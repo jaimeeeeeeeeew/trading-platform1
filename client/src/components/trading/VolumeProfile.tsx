@@ -38,6 +38,13 @@ export const VolumeProfile = ({
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0) return;
 
+    console.log('Renderizando VolumeProfile con datos:', {
+      dataLength: data.length,
+      firstItem: data[0],
+      visibleRange: visiblePriceRange,
+      currentPrice
+    });
+
     try {
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
@@ -52,12 +59,12 @@ export const VolumeProfile = ({
         .append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-      // Ancho máximo para las barras (80% del ancho disponible)
-      const maxBarWidth = innerWidth * 0.8;
+      // Ancho máximo para las barras (70% del ancho disponible)
+      const maxBarWidth = innerWidth * 0.7;
 
       // Escalas
       const xScale = d3.scaleLinear()
-        .domain([0, 1]) // Usamos normalizedVolume que va de 0 a 1
+        .domain([0, 1])
         .range([0, maxBarWidth]);
 
       const yScale = d3.scaleLinear()
@@ -65,16 +72,20 @@ export const VolumeProfile = ({
         .range([innerHeight, 0]);
 
       // Altura fija para las barras
-      const barHeight = 8;
+      const barHeight = 6;
 
       // Dibujar barras de volumen
-      g.selectAll('.volume-bar')
+      const bars = g.selectAll('.volume-bar')
         .data(data)
         .join('rect')
         .attr('class', 'volume-bar')
         .attr('x', 0)
         .attr('y', d => yScale(d.price) - barHeight / 2)
-        .attr('width', d => xScale(d.normalizedVolume))
+        .attr('width', d => {
+          const width = xScale(d.normalizedVolume);
+          console.log('Bar width for price', d.price, ':', width, 'normalized volume:', d.normalizedVolume);
+          return Math.max(1, width);
+        })
         .attr('height', barHeight)
         .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
         .attr('opacity', 0.8);
@@ -90,7 +101,6 @@ export const VolumeProfile = ({
           .attr('stroke-width', 1)
           .attr('stroke-dasharray', '2,2');
 
-        // Etiqueta de precio
         g.append('text')
           .attr('x', innerWidth)
           .attr('y', yScale(currentPrice))
