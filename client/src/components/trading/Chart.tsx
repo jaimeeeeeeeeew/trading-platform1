@@ -359,12 +359,10 @@ export default function Chart() {
         .sort(() => 0.5 - Math.random())
         .slice(0, 2);
 
+      console.log('📈 Coordenadas de velas aleatorias:');
       randomCandles.forEach((candle, i) => {
         const coordinate = candlestickSeriesRef.current?.priceToCoordinate(candle.close);
-        console.log(`📊 Vela aleatoria ${i + 1}:`, {
-          precio: candle.close,
-          coordenadaY: coordinate
-        });
+        console.log(`Vela ${i + 1}: Precio=${candle.close}, Y=${coordinate}`);
       });
 
       const minPrice = 90000;
@@ -376,12 +374,15 @@ export default function Chart() {
         minPrice + Math.random() * (maxPrice - minPrice)
       ];
 
+      console.log('🎯 Coordenadas de precios aleatorios en rango visible:');
       randomPrices.forEach((price, i) => {
         const coordinate = candlestickSeriesRef.current?.priceToCoordinate(price);
-        console.log(`🎯 Precio aleatorio ${i + 1} del rango visible:`, {
-          precio: price,
-          coordenadaY: coordinate
-        });
+        console.log(`Precio ${i + 1}: Valor=${price}, Y=${coordinate}`);
+      });
+
+      console.log('📊 Rango visible:', {
+        min: { precio: minPrice, y: candlestickSeriesRef.current?.priceToCoordinate(minPrice) },
+        max: { precio: maxPrice, y: candlestickSeriesRef.current?.priceToCoordinate(maxPrice) }
       });
 
       setVisiblePriceRange({
@@ -577,7 +578,6 @@ export default function Chart() {
     console.log('Normalized Volume Profile Data:', normalizedData);
     setVolumeProfileData(normalizedData);
   }, [orderbookVolumeProfile]);
-
 
 
   return (

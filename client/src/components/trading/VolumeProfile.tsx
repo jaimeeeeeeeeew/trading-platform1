@@ -95,11 +95,7 @@ export const VolumeProfile = ({
       .attr('x', -5)
       .attr('y', d => {
         const y = yScale(d.price);
-        if (Number.isFinite(y)) {
-          console.log(`Price: ${d.price}, Y coordinate: ${y}`);
-          return y;
-        }
-        return 0;
+        return Number.isFinite(y) ? y : 0;
       })
       .attr('text-anchor', 'end')
       .attr('alignment-baseline', 'middle')
@@ -107,7 +103,7 @@ export const VolumeProfile = ({
       .attr('font-size', '10px')
       .text(d => {
         const y = yScale(d.price);
-        return Number.isFinite(y) ? `${d.price.toFixed(0)} (${y.toFixed(1)})` : d.price.toFixed(0);
+        return Number.isFinite(y) ? `${d.price.toFixed(0)}` : d.price.toFixed(0);
       });
 
     // Línea de precio actual
@@ -136,11 +132,7 @@ export const VolumeProfile = ({
       .ticks((yMax - yMin) / 10)
       .tickFormat((d: any) => {
         if (typeof d === 'number' && Number.isFinite(d)) {
-          const y = yScale(d);
-          if (Number.isFinite(y)) {
-            console.log(`Scale Price: ${d}, Y coordinate: ${y}`);
-            return `${d.toFixed(0)} (${y.toFixed(1)})`;
-          }
+          return `${d.toFixed(0)}`;
         }
         return '';
       })
@@ -166,19 +158,17 @@ export const VolumeProfile = ({
       .attr('font-size', '10px')
       .text(`Vol Profile (${data.length})`);
 
-    // Seleccionar 2 barras aleatorias y mostrar sus coordenadas
+    // Solo mostrar coordenadas de 2 barras aleatorias
     const randomBars = data
       .sort(() => 0.5 - Math.random())
       .slice(0, 2);
 
+    console.log('📊 Coordenadas de barras de volumen:');
     randomBars.forEach((bar, i) => {
       const y = yScale(bar.price);
-      console.log(`📊 Barra de volumen aleatoria ${i + 1}:`, {
-        precio: bar.price,
-        coordenadaY: y,
-        volumen: bar.volume
-      });
+      console.log(`Barra ${i + 1}: Precio=${bar.price}, Y=${y}`);
     });
+
   }, [data, width, height, visiblePriceRange, currentPrice]);
 
   return (
