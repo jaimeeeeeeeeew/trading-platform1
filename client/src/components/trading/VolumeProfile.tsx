@@ -93,12 +93,16 @@ export const VolumeProfile = ({
       .domain([0, 1])
       .range([maxBarWidth, 0]);
 
+    // Asegurar que los valores del dominio sean números válidos
+    const yMin = Number.isFinite(visiblePriceRange.min) ? visiblePriceRange.min : 0;
+    const yMax = Number.isFinite(visiblePriceRange.max) ? visiblePriceRange.max : 100000;
+
     const yScale = d3.scaleLinear()
-      .domain([visiblePriceRange.min, visiblePriceRange.max])
+      .domain([yMin, yMax])
       .range([innerHeight, 0]);
 
     // Altura fija para las barras, ajustada para incrementos de $10
-    const barHeight = Math.max(2, (innerHeight / ((visiblePriceRange.max - visiblePriceRange.min) / 10)));
+    const barHeight = Math.max(2, (innerHeight / ((yMax - yMin) / 10)));
 
     // Dibujar barras de volumen
     const bars = g.selectAll('.volume-bar')
@@ -106,7 +110,10 @@ export const VolumeProfile = ({
       .join('rect')
       .attr('class', 'volume-bar')
       .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
-      .attr('y', d => yScale(d.price) - barHeight / 2)
+      .attr('y', d => {
+        const y = yScale(d.price);
+        return Number.isFinite(y) ? y - barHeight / 2 : 0;
+      })
       .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
@@ -120,19 +127,23 @@ export const VolumeProfile = ({
       .attr('x', -5) // Posición a la izquierda de las barras
       .attr('y', d => {
         const y = yScale(d.price);
-        console.log(`Price: ${d.price}, Y coordinate: ${y}`);
-        return y;
+        if (Number.isFinite(y)) {
+          console.log(`Price: ${d.price}, Y coordinate: ${y}`);
+          return y;
+        }
+        return 0;
       })
       .attr('text-anchor', 'end')
       .attr('alignment-baseline', 'middle')
       .attr('fill', '#ffffff')
       .attr('font-size', '10px')
-      .text(d => `${d.price.toFixed(0)} (${yScale(d.price).toFixed(1)})`);
-
-    console.log('Bars created:', bars.size());
+      .text(d => {
+        const y = yScale(d.price);
+        return Number.isFinite(y) ? `${d.price.toFixed(0)} (${y.toFixed(1)})` : d.price.toFixed(0);
+      });
 
     // Línea de precio actual
-    if (currentPrice) {
+    if (currentPrice && Number.isFinite(yScale(currentPrice))) {
       g.append('line')
         .attr('x1', 0)
         .attr('x2', innerWidth)
@@ -154,11 +165,16 @@ export const VolumeProfile = ({
 
     // Eje de precios con incrementos de $10
     const priceAxis = d3.axisRight(yScale)
-      .ticks((visiblePriceRange.max - visiblePriceRange.min) / 10)
-      .tickFormat(d => {
-        const y = yScale(d);
-        console.log(`Scale Price: ${d}, Y coordinate: ${y}`);
-        return `${d.toFixed(0)} (${y.toFixed(1)})`;
+      .ticks((yMax - yMin) / 10)
+      .tickFormat((d: any) => {
+        if (typeof d === 'number' && Number.isFinite(d)) {
+          const y = yScale(d);
+          if (Number.isFinite(y)) {
+            console.log(`Scale Price: ${d}, Y coordinate: ${y}`);
+            return `${d.toFixed(0)} (${y.toFixed(1)})`;
+          }
+        }
+        return '';
       })
       .tickSize(3);
 
