@@ -622,7 +622,7 @@ export default function Chart() {
               width: '120px',
               zIndex: 2,
               pointerEvents: 'none',
-              background: 'rgba(21, 25, 36, 0.7)'
+              background: 'transparent'
             }}
           >
             <VolumeProfile
