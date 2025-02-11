@@ -19,10 +19,11 @@ interface Props {
   priceCoordinates: {
     currentPrice: number;
     currentY: number;
-    minPrice: number;
-    minY: number;
-    maxPrice: number;
-    maxY: number;
+    upperPrice: number;
+    upperY: number;
+    lowerPrice: number;
+    lowerY: number;
+    priceStep: number;
   } | null;
 }
 
@@ -86,8 +87,8 @@ export const VolumeProfile = ({
       g.append('line')
         .attr('x1', innerWidth - maxBarWidth - 20)
         .attr('x2', innerWidth)
-        .attr('y1', yScale(currentPrice)) //Corrected line to use yScale
-        .attr('y2', yScale(currentPrice)) //Corrected line to use yScale
+        .attr('y1', yScale(currentPrice))
+        .attr('y2', yScale(currentPrice))
         .attr('stroke', '#ffffff')
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '2,2');
@@ -95,7 +96,7 @@ export const VolumeProfile = ({
       // Etiqueta del precio actual
       g.append('text')
         .attr('x', innerWidth - maxBarWidth - 25)
-        .attr('y', yScale(currentPrice)) //Corrected line to use yScale
+        .attr('y', yScale(currentPrice))
         .attr('dy', '-4')
         .attr('text-anchor', 'end')
         .attr('fill', '#ffffff')
@@ -131,19 +132,13 @@ export const VolumeProfile = ({
   }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates]);
 
   return (
-    <div style={{
-      position: 'absolute',
-      right: 0,
-      top: `-${height / 2}px`,
-      width: `${width}px`,
-      height: `${height}px`,
-      borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      pointerEvents: 'none'
-    }}>
+    <div className="absolute right-[40px] h-full pointer-events-none flex items-center justify-center"
+      style={{
+        width: `${width}px`,
+        height: `${height}px`,
+        transform: `translateY(${priceCoordinate || 0}px)`,
+        transition: 'transform 0.1s ease-out'
+      }}>
       <svg
         ref={svgRef}
         style={{

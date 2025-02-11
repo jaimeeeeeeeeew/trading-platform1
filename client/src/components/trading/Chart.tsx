@@ -628,9 +628,7 @@ export default function Chart() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 100,
-            transform: priceCoordinate ? `translateY(${priceCoordinate}px)` : 'none',
-            transition: 'transform 0.1s ease-out'
+            zIndex: 100
           }}
         >
           <VolumeProfile
