@@ -392,45 +392,58 @@ export default function Chart() {
   const handleVisibleRangeChange = () => {
     if (!candlestickSeriesRef.current || !currentChartPrice || !chartRef.current) return;
 
-    const priceScale = candlestickSeriesRef.current.priceScale();
-    const stats = candlestickSeriesRef.current.priceScale().getSeriesStats();
+    try {
+      const series = candlestickSeriesRef.current;
+      const logicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
 
-    if (!stats) return;
+      if (!logicalRange) return;
 
-    const visibleMin = Math.floor(stats.min);
-    const visibleMax = Math.ceil(stats.max);
+      // Obtener las coordenadas Y min/max del área visible
+      const coords = chartRef.current.timeScale().getVisibleRange();
+      if (!coords) return;
 
-    setVisiblePriceRange({
-      min: visibleMin,
-      max: visibleMax
-    });
+      // Convertir coordenadas a precios
+      const currentY = series.priceToCoordinate(currentChartPrice);
+      if (currentY === null) return;
 
-    const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
-    const minY = candlestickSeriesRef.current.priceToCoordinate(visibleMin);
-    const maxY = candlestickSeriesRef.current.priceToCoordinate(visibleMax);
+      // Calcular el rango visible aproximado basado en el precio actual
+      const priceDelta = currentChartPrice * 0.02; // 2% del precio actual
+      const visibleMin = currentChartPrice - priceDelta;
+      const visibleMax = currentChartPrice + priceDelta;
 
-    if (currentY !== null && minY !== null && maxY !== null) {
-      setPriceCoordinate(currentY);
-      setPriceCoordinates({
-        currentPrice: currentChartPrice,
-        currentY,
-        minPrice: visibleMin,
-        minY,
-        maxPrice: visibleMax,
-        maxY
+      setVisiblePriceRange({
+        min: visibleMin,
+        max: visibleMax
       });
 
-      if (orderbookVolumeProfile.length > 0) {
-        const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
-        const normalizedData = orderbookVolumeProfile
-          .filter(data => data.price >= visibleMin && data.price <= visibleMax)
-          .map(data => ({
-            ...data,
-            normalizedVolume: data.volume / maxVolume
-          }));
+      const minY = series.priceToCoordinate(visibleMin);
+      const maxY = series.priceToCoordinate(visibleMax);
 
-        setVolumeProfileData(normalizedData);
+      if (minY !== null && maxY !== null) {
+        setPriceCoordinate(currentY);
+        setPriceCoordinates({
+          currentPrice: currentChartPrice,
+          currentY,
+          minPrice: visibleMin,
+          minY,
+          maxPrice: visibleMax,
+          maxY
+        });
+
+        if (orderbookVolumeProfile.length > 0) {
+          const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
+          const normalizedData = orderbookVolumeProfile
+            .filter(data => data.price >= visibleMin && data.price <= visibleMax)
+            .map(data => ({
+              ...data,
+              normalizedVolume: data.volume / maxVolume
+            }));
+
+          setVolumeProfileData(normalizedData);
+        }
       }
+    } catch (error) {
+      console.error('Error updating visible range:', error);
     }
   };
 
@@ -492,12 +505,12 @@ export default function Chart() {
 
     candlestickSeriesRef.current = candlestickSeries;
 
-    // Subscribe to price scale changes
+    // Subscribe to time scale changes
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
       handleVisibleRangeChange();
     });
 
-    // Subscribe to crosshair moves to update price coordinates
+    // Subscribe to crosshair moves
     chart.subscribeCrosshairMove((param) => {
       if (!param.point || !candlestickSeriesRef.current) return;
 
