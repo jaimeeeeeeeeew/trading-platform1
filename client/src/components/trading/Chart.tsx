@@ -74,8 +74,8 @@ export default function Chart() {
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [isLoading, setIsLoading] = useState(false);
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number; side: 'bid' | 'ask' }>>([]);
-  const [maxVisibleBars, setMaxVisibleBars] = useState<number>(200);
-  const [customBars, setCustomBars] = useState<string>("");
+  const [maxVisibleBars, setMaxVisibleBars] = useState<number>(10);
+  const [customBars, setCustomBars] = useState<string>("10");
   const [showCustomInput, setShowCustomInput] = useState(false);
 
   const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
@@ -667,48 +667,19 @@ export default function Chart() {
           </SelectContent>
         </Select>
 
-        <Select
-          value={showCustomInput ? "custom" : maxVisibleBars.toString()}
-          onValueChange={(value) => {
-            if (value === "custom") {
-              setShowCustomInput(true);
-              setCustomBars(maxVisibleBars.toString());
-            } else {
-              setShowCustomInput(false);
-              setMaxVisibleBars(Number(value));
-            }
+        <Input
+          type="number"
+          value={customBars}
+          className="w-24 bg-background"
+          onChange={(e) => {
+            const value = e.target.value;
+            setCustomBars(value);
+            const numValue = parseInt(value);
+            setMaxVisibleBars((!isNaN(numValue) && numValue > 0) ? numValue : 10);
           }}
-        >
-          <SelectTrigger className="w-24 bg-background">
-            <SelectValue placeholder="Bars" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="40">40 bars</SelectItem>
-            <SelectItem value="100">100 bars</SelectItem>
-            <SelectItem value="200">200 bars</SelectItem>
-            <SelectItem value="300">300 bars</SelectItem>
-            <SelectItem value="custom">Custom</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {showCustomInput && (
-          <Input
-            type="number"
-            value={customBars}
-            className="w-24 bg-background"
-            onChange={(e) => {
-              const value = e.target.value;
-              setCustomBars(value);
-              const numValue = parseInt(value);
-              if (!isNaN(numValue) && numValue > 0) {
-                setMaxVisibleBars(numValue);
-              }
-            }}
-            min="1"
-            placeholder="Bars"
-          />
-        )}
-
+          min="1"
+          placeholder="Bars (default: 10)"
+        />
       </div>
 
       {crosshairData && (
