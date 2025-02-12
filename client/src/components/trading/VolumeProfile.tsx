@@ -121,9 +121,9 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
-      console.log('VolumeProfile: Missing data or coordinates:', { 
-        data: data?.length, 
-        priceCoordinates: !!priceCoordinates 
+      console.log('VolumeProfile: Missing data or coordinates:', {
+        data: data?.length,
+        priceCoordinates: !!priceCoordinates
       });
       return;
     }
@@ -135,16 +135,18 @@ export const VolumeProfile = ({
 
     const { groupedData, groupFactor, totalVolume } = groupDataByBars(visibleData, maxVisibleBars);
 
-    console.log('Procesamiento de datos:', {
+    console.log('Datos del perfil de volumen:', {
       datosVisibles: visibleData.length,
       datosAgrupados: groupedData.length,
-      factorAgrupacion: groupFactor
+      factorAgrupacion: groupFactor,
+      volumenTotal: totalVolume
     });
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 25, right: 50, bottom: 25, left: 95 };
+    // Ajustamos los márgenes para dar más espacio a las barras
+    const margin = { top: 20, right: 30, bottom: 20, left: 70 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -154,14 +156,16 @@ export const VolumeProfile = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Ajustamos el ancho máximo de las barras y la escala
-    const maxBarWidth = innerWidth * 0.4; // Reducimos el factor para barras más cortas
+    // Aumentamos el ancho máximo de las barras al 70% del espacio disponible
+    const maxBarWidth = innerWidth * 0.7;
 
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([0, maxBarWidth]); // Cambiamos el rango para que vaya de 0 al ancho máximo
+      .range([0, maxBarWidth]);
 
     const priceToY = (price: number) => {
+      if (!priceCoordinates) return 0;
+
       if (price === currentPrice) {
         return priceCoordinates.currentY - margin.top;
       }
@@ -175,7 +179,8 @@ export const VolumeProfile = ({
       return priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
     };
 
-    const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (groupedData.length * 2));
+    // Aumentamos la altura mínima de las barras para hacerlas más visibles
+    const barHeight = Math.max(2, (priceCoordinates.minY - priceCoordinates.maxY) / (groupedData.length * 1.5));
 
     const asks = groupedData
       .filter(d => d.side === 'ask')
@@ -185,33 +190,33 @@ export const VolumeProfile = ({
       .filter(d => d.side === 'bid')
       .sort((a, b) => b.price - a.price);
 
-    // Etiquetas de precio con volumen total
+    // Debug de valores calculados
+    console.log('Dimensiones y escalas:', {
+      innerWidth,
+      innerHeight,
+      maxBarWidth,
+      barHeight,
+      bidsCount: bids.length,
+      asksCount: asks.length
+    });
+
+    // Etiquetas de precio
     const allPrices = [...bids, ...asks].sort((a, b) => a.price - b.price);
     allPrices.forEach((d, i) => {
       if (i % 2 === 0) {
         g.append('text')
           .attr('class', 'price-label')
-          .attr('x', -8)
+          .attr('x', -5)
           .attr('y', priceToY(d.price))
           .attr('dy', '0.32em')
           .attr('text-anchor', 'end')
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .text(`${d.price.toFixed(1)} (${d.volume.toFixed(3)} BTC)`);
-      } else {
-        g.append('text')
-          .attr('class', 'price-label')
-          .attr('x', -8)
-          .attr('y', priceToY(d.price))
-          .attr('dy', '0.32em')
-          .attr('text-anchor', 'end')
-          .attr('fill', '#666')
-          .attr('font-size', '10px')
           .text(`${d.price.toFixed(1)}`);
       }
     });
 
-    // Barras de volumen
+    // Barras de volumen con opacidad aumentada
     g.selectAll('.bid-bars')
       .data(bids)
       .join('rect')
@@ -221,10 +226,14 @@ export const VolumeProfile = ({
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => xScale(d.normalizedVolume))
+      .attr('width', d => {
+        const width = xScale(d.normalizedVolume);
+        console.log('Barra bid:', { precio: d.price, volumen: d.volume, ancho: width });
+        return width;
+      })
       .attr('height', barHeight)
       .attr('fill', '#26a69a')
-      .attr('opacity', 0.8);
+      .attr('opacity', 0.9);
 
     g.selectAll('.ask-bars')
       .data(asks)
@@ -235,12 +244,16 @@ export const VolumeProfile = ({
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => xScale(d.normalizedVolume))
+      .attr('width', d => {
+        const width = xScale(d.normalizedVolume);
+        console.log('Barra ask:', { precio: d.price, volumen: d.volume, ancho: width });
+        return width;
+      })
       .attr('height', barHeight)
       .attr('fill', '#ef5350')
-      .attr('opacity', 0.8);
+      .attr('opacity', 0.9);
 
-    // Línea de precio actual
+    // Línea de precio actual más visible
     if (priceCoordinates.currentPrice && priceCoordinates.currentY) {
       g.append('line')
         .attr('class', 'price-line')
@@ -249,17 +262,18 @@ export const VolumeProfile = ({
         .attr('y1', priceCoordinates.currentY - margin.top)
         .attr('y2', priceCoordinates.currentY - margin.top)
         .attr('stroke', '#ffffff')
-        .attr('stroke-width', 1)
+        .attr('stroke-width', 1.5)
         .attr('stroke-dasharray', '2,2');
 
       g.append('text')
-        .attr('class', 'price-label')
-        .attr('x', innerWidth + 8)
+        .attr('class', 'current-price-label')
+        .attr('x', innerWidth + 5)
         .attr('y', priceCoordinates.currentY - margin.top)
         .attr('dy', '0.32em')
         .attr('text-anchor', 'start')
         .attr('fill', '#ffffff')
-        .attr('font-size', '10px')
+        .attr('font-size', '11px')
+        .attr('font-weight', 'bold')
         .text(priceCoordinates.currentPrice.toFixed(1));
     }
 
