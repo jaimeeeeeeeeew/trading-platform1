@@ -53,15 +53,20 @@ export function useMarketData() {
           throw new Error('Invalid orderbook data structure');
         }
 
+        // Ordenar bids de mayor a menor precio
+        const sortedBids = [...newData.bids].sort((a, b) => parseFloat(b.Price) - parseFloat(a.Price));
+        // Ordenar asks de menor a mayor precio
+        const sortedAsks = [...newData.asks].sort((a, b) => parseFloat(a.Price) - parseFloat(b.Price));
+
         setData(prev => ({
           ...prev,
           orderbook: {
-            bids: newData.bids.slice(0, 100), // Limitar a 100 niveles para mejor rendimiento
-            asks: newData.asks.slice(0, 100),
+            bids: sortedBids.slice(0, 100), // Limitar a 100 niveles para mejor rendimiento
+            asks: sortedAsks.slice(0, 100),
             timestamp: newData.timestamp
           },
-          currentPrice: newData.bids[0] && newData.asks[0] 
-            ? (parseFloat(newData.bids[0].Price) + parseFloat(newData.asks[0].Price)) / 2 
+          currentPrice: sortedBids[0] && sortedAsks[0] 
+            ? (parseFloat(sortedBids[0].Price) + parseFloat(sortedAsks[0].Price)) / 2 
             : prev.currentPrice
         }));
         setError(false);
@@ -123,15 +128,16 @@ export function useMarketData() {
     });
 
     // Combinar y normalizar los volúmenes
-    const allPrices = new Set([
+    const allPrices = Array.from(new Set([
       ...Object.keys(bidVolumes).map(Number),
       ...Object.keys(askVolumes).map(Number)
-    ]);
+    ])).sort((a, b) => b - a); // Ordenar precios de mayor a menor
 
-    const volumes = Array.from(allPrices).map(price => ({
+    const volumes = allPrices.map(price => ({
       price,
       bidVolume: bidVolumes[price] || 0,
       askVolume: askVolumes[price] || 0,
+      // Asignar el lado según el volumen dominante
       side: bidVolumes[price] > (askVolumes[price] || 0) ? 'bid' as const : 'ask' as const
     }));
 
@@ -140,20 +146,20 @@ export function useMarketData() {
       ...volumes.map(v => Math.max(v.bidVolume, v.askVolume))
     );
 
-    // Normalizar volúmenes y ordenar por precio
-    const normalizedVolumes = volumes
-      .map(v => ({
-        ...v,
-        normalizedBidVolume: v.bidVolume / maxVolume,
-        normalizedAskVolume: v.askVolume / maxVolume,
-      }))
-      .sort((a, b) => b.price - a.price);
+    // Normalizar volúmenes
+    const normalizedVolumes = volumes.map(v => ({
+      ...v,
+      normalizedBidVolume: v.bidVolume / maxVolume,
+      normalizedAskVolume: v.askVolume / maxVolume,
+      volume: v.side === 'bid' ? v.bidVolume : v.askVolume,
+      normalizedVolume: v.side === 'bid' ? v.bidVolume / maxVolume : v.askVolume / maxVolume
+    }));
 
     console.log('📊 Volume Profile Updated:', {
       levels: normalizedVolumes.length,
       maxVolume,
-      sampleBid: normalizedVolumes.find(v => v.side === 'bid'),
-      sampleAsk: normalizedVolumes.find(v => v.side === 'ask')
+      firstBid: normalizedVolumes.find(v => v.side === 'bid'),
+      firstAsk: normalizedVolumes.find(v => v.side === 'ask')
     });
 
     return normalizedVolumes;
