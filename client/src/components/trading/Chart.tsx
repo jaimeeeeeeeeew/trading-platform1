@@ -388,6 +388,85 @@ export default function Chart() {
     return ((close - open) / open) * 100;
   };
 
+  const [priceScaleInfo, setPriceScaleInfo] = useState<{
+    visiblePrices: Array<{price: number, coordinate: number}>;
+    priceStep: number;
+    maxPrice: number;
+    minPrice: number;
+  }>({
+    visiblePrices: [],
+    priceStep: 200,
+    maxPrice: 0,
+    minPrice: 0
+  });
+
+  const updatePriceScaleInfo = () => {
+    if (!chartRef.current || !candlestickSeriesRef.current) return;
+
+    try {
+      const series = candlestickSeriesRef.current;
+      const priceScale = series.priceScale();
+      const logicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
+
+      if (!logicalRange) return;
+
+      // Get visible range
+      const visibleRange = priceScale.priceRange();
+      if (!visibleRange) return;
+
+      const minPrice = visibleRange.minValue();
+      const maxPrice = visibleRange.maxValue();
+      const range = maxPrice - minPrice;
+
+      // Calculate price step based on zoom level
+      // More zoomed in = smaller step
+      const zoomLevel = range / maxPrice; // normalized zoom level
+      let priceStep = 200; // default step
+
+      if (zoomLevel < 0.01) {
+        priceStep = 25;
+      } else if (zoomLevel < 0.05) {
+        priceStep = 50;
+      } else if (zoomLevel < 0.1) {
+        priceStep = 100;
+      }
+
+      // Generate price levels
+      const numSteps = Math.floor(range / priceStep);
+      const prices: Array<{price: number, coordinate: number}> = [];
+
+      for (let i = 0; i <= numSteps; i++) {
+        const price = minPrice + (i * priceStep);
+        const coordinate = series.priceToCoordinate(price);
+
+        if (coordinate !== null) {
+          prices.push({
+            price,
+            coordinate
+          });
+        }
+      }
+
+      setPriceScaleInfo({
+        visiblePrices: prices,
+        priceStep,
+        maxPrice,
+        minPrice
+      });
+
+      console.log('Price Scale Info Updated:', {
+        priceStep,
+        maxPrice,
+        minPrice,
+        visiblePrices: prices,
+        zoomLevel
+      });
+
+    } catch (error) {
+      console.error('Error updating price scale info:', error);
+    }
+  };
+
   const handleVisibleRangeChange = () => {
     if (!candlestickSeriesRef.current || !currentChartPrice || !container.current) return;
 
@@ -457,6 +536,7 @@ export default function Chart() {
           range: { min: minY, max: maxY }
         });
       }
+      updatePriceScaleInfo();
     } catch (error) {
       console.error('Error updating visible range:', error);
     }
@@ -537,7 +617,11 @@ export default function Chart() {
         }
       }
     });
-
+    // Add price scale change subscription
+    chart.priceScale('right').subscribeVisibleLogicalRangeChange(() => {
+      handleVisibleRangeChange();
+      updatePriceScaleInfo();
+    });
     loadInitialData(currentSymbol);
     handleResize();
     window.addEventListener('resize', handleResize);
