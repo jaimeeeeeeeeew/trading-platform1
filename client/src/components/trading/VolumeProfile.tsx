@@ -80,15 +80,16 @@ export const VolumeProfile = ({
       .filter(d => d.price >= (priceCoordinates.minPrice - padding) && 
                   d.price <= (priceCoordinates.maxPrice + padding))
       .sort((a, b) => {
-        // Ordenar asks por encima del precio actual y bids por debajo
-        if (a.side !== b.side) {
-          return a.side === 'ask' ? -1 : 1; // asks primero
+        // Si ambos son asks (por encima del precio actual)
+        if (a.side === 'ask' && b.side === 'ask') {
+          return a.price - b.price; // Ordenar de menor a mayor precio
         }
-        // Dentro del mismo side, ordenar por precio
-        if (a.side === 'ask') {
-          return b.price - a.price; // asks de mayor a menor precio
+        // Si ambos son bids (por debajo del precio actual)
+        if (a.side === 'bid' && b.side === 'bid') {
+          return b.price - a.price; // Ordenar de mayor a menor precio
         }
-        return a.price - b.price; // bids de menor a mayor precio
+        // Si son diferentes, asks primero
+        return a.side === 'ask' ? -1 : 1;
       });
 
     // Dibujar barras de volumen
