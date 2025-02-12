@@ -395,13 +395,24 @@ export default function Chart() {
       const series = candlestickSeriesRef.current;
       const containerHeight = container.current.clientHeight;
 
-      // Calcular el precio base redondeado a centenas
-      const basePrice = Math.round(currentChartPrice / 100) * 100;
+      // Calculate price range based on the priceScale
+      const priceScale = series.priceScale();
+      const logicalRange = chartRef.current?.timeScale().getVisibleLogicalRange();
 
-      // Usar un rango que cubra 600 puntos arriba y abajo del precio actual
-      const rangeSize = 600;
-      const visibleMin = basePrice - rangeSize;
-      const visibleMax = basePrice + rangeSize;
+      if (!logicalRange) return;
+
+      // Get the current coordinate range
+      const coordinate = series.priceToCoordinate(currentChartPrice);
+      if (coordinate === null) return;
+
+      // Calculate visible range based on container height
+      const pixelsPerPrice = containerHeight / (currentChartPrice * 0.1); // 10% of current price
+      const pricePerPixel = (currentChartPrice * 0.1) / containerHeight;
+
+      // Calculate visible price range centered on current price
+      const halfRange = (containerHeight / 2) * pricePerPixel;
+      const visibleMin = currentChartPrice - halfRange;
+      const visibleMax = currentChartPrice + halfRange;
 
       setVisiblePriceRange({
         min: visibleMin,
@@ -409,11 +420,11 @@ export default function Chart() {
       });
 
       // Get coordinates for all price levels
-      const currentY = series.priceToCoordinate(currentChartPrice);
+      const currentY = coordinate;
       const minY = series.priceToCoordinate(visibleMin);
       const maxY = series.priceToCoordinate(visibleMax);
 
-      if (minY !== null && maxY !== null && currentY !== null) {
+      if (minY !== null && maxY !== null) {
         setPriceCoordinate(currentY);
         setPriceCoordinates({
           currentPrice: currentChartPrice,
@@ -429,7 +440,7 @@ export default function Chart() {
           const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
           const normalizedData = orderbookVolumeProfile
             .filter(data => {
-              const padding = rangeSize * 0.1; // 10% de padding
+              const padding = (visibleMax - visibleMin) * 0.1;
               return data.price >= (visibleMin - padding) && data.price <= (visibleMax + padding);
             })
             .map(data => ({

@@ -119,17 +119,17 @@ export const VolumeProfile = ({
     }
 
     // Crear marcas de precio personalizadas
-    const currentPriceValue = Math.round(priceCoordinates.currentPrice / 100) * 100;
-    const priceStep = 200; // Paso fijo de 200 para tener números redondos
+    const currentPriceValue = priceCoordinates.currentPrice;
+    const priceStep = Math.round(priceRange / 8); // Dividir el rango en 8 partes
 
     const customPrices = [
-      currentPriceValue + (priceStep * 3), // +600
-      currentPriceValue + (priceStep * 2), // +400
-      currentPriceValue + priceStep,       // +200
-      currentPriceValue,                   // precio actual
-      currentPriceValue - priceStep,       // -200
-      currentPriceValue - (priceStep * 2), // -400
-      currentPriceValue - (priceStep * 3), // -600
+      Math.round(currentPriceValue + priceStep * 3),
+      Math.round(currentPriceValue + priceStep * 2),
+      Math.round(currentPriceValue + priceStep),
+      Math.round(currentPriceValue),
+      Math.round(currentPriceValue - priceStep),
+      Math.round(currentPriceValue - priceStep * 2),
+      Math.round(currentPriceValue - priceStep * 3),
     ];
 
     // Grupo para los ticks de precio
