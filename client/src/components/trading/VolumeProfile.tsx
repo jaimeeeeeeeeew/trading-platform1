@@ -211,7 +211,7 @@ export const VolumeProfile = ({
           .attr('text-anchor', 'end')
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .text(`${d.price}${groupSize > 1 ? `(${getGroupFactor(groupSize)})` : ''}`);
+          .text(`${d.price}${groupSize > GROUP_SIZES.SMALL ? ` (${getGroupFactor(groupSize)})` : ''}`);
       } else {
         g.append('text')
           .attr('class', 'price-label')
