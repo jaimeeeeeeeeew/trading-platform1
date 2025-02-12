@@ -28,17 +28,17 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-// Constantes para la agrupación de volumen basadas en el zoom
+// Constantes actualizadas para la agrupación dinámica
 const ZOOM_LEVELS = {
-  TIGHT: 100,    // Rango de $100 o menos
-  MEDIUM: 500,   // Rango de $500 o menos
-  WIDE: 1000     // Rango mayor a $1000
+  TIGHT: 100,    // Rango de $100 o menos - usar 1x
+  MEDIUM: 500,   // Rango de $500 o menos - usar 5x
+  WIDE: 1000     // Rango mayor a $1000 - usar 10x
 } as const;
 
 const GROUP_SIZES = {
-  SMALL: 1,    // Sin agrupación
-  MEDIUM: 5,   // Grupos de $5
-  LARGE: 10    // Grupos de $10
+  SMALL: 1,    // Sin agrupación (1:1)
+  MEDIUM: 5,   // Grupos de $5 (5:1)
+  LARGE: 10    // Grupos de $10 (10:1)
 } as const;
 
 const getGroupSize = (priceRange: number): number => {
