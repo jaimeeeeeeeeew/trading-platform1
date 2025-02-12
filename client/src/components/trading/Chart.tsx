@@ -632,14 +632,6 @@ export default function Chart() {
       }
     });
 
-    // Add price scale change subscription correctly
-    const priceScale = chart.priceScale('right');
-    if (priceScale) {
-      priceScale.subscribePriceScaleChange(() => {
-        handleVisibleRangeChange();
-        updatePriceScaleInfo();
-      });
-    }
 
     loadInitialData(currentSymbol);
     handleResize();
