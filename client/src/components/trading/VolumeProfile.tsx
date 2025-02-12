@@ -28,6 +28,34 @@ interface PriceCoordinates {
   maxY: number;
 }
 
+const getGroupSize = (priceRange: number): number => {
+  if (priceRange < 500) return 10;
+  if (priceRange < 2000) return 50;
+  return 100;
+};
+
+const groupData = (data: Props['data'], groupSize: number) => {
+  const groups = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
+
+  data.forEach(item => {
+    const groupPrice = Math.floor(item.price / groupSize) * groupSize;
+    const existing = groups.get(groupPrice) || { volume: 0, side: item.side };
+    groups.set(groupPrice, {
+      volume: existing.volume + item.volume,
+      side: item.side
+    });
+  });
+
+  const maxVolume = Math.max(...Array.from(groups.values()).map(g => g.volume));
+
+  return Array.from(groups.entries()).map(([price, { volume, side }]) => ({
+    price,
+    volume,
+    normalizedVolume: volume / maxVolume,
+    side
+  }));
+};
+
 export const VolumeProfile = ({
   data,
   width = 80,
@@ -48,11 +76,16 @@ export const VolumeProfile = ({
       return;
     }
 
+    const priceRange = visiblePriceRange.max - visiblePriceRange.min;
+    const groupSize = getGroupSize(priceRange);
+    const groupedData = groupData(data, groupSize);
+
     console.log('VolumeProfile Data:', {
-      totalItems: data.length,
-      bids: data.filter(d => d.side === 'bid').length,
-      asks: data.filter(d => d.side === 'ask').length,
-      priceRange: visiblePriceRange
+      totalItems: groupedData.length,
+      bids: groupedData.filter(d => d.side === 'bid').length,
+      asks: groupedData.filter(d => d.side === 'ask').length,
+      priceRange,
+      groupSize
     });
 
     const svg = d3.select(svgRef.current);
@@ -88,22 +121,15 @@ export const VolumeProfile = ({
       return priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
     };
 
-    const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (data.length * 2));
+    const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (groupedData.length * 2));
 
-    const asks = data
+    const asks = groupedData
       .filter(d => d.side === 'ask')
       .sort((a, b) => a.price - b.price);
 
-    const bids = data
+    const bids = groupedData
       .filter(d => d.side === 'bid')
       .sort((a, b) => b.price - a.price);
-
-    console.log('VolumeProfile Rendering:', {
-      asks: asks.length,
-      bids: bids.length,
-      sampleBid: bids[0],
-      sampleAsk: asks[0]
-    });
 
     g.selectAll('.bid-bars')
       .data(bids)
@@ -155,10 +181,9 @@ export const VolumeProfile = ({
         .text(priceCoordinates.currentPrice.toFixed(1));
     }
 
-    const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
     const numTicks = Math.min(10, Math.floor(innerHeight / 30));
     const tickPrices = d3.range(numTicks).map(i => {
-      const price = priceCoordinates.minPrice + (i * priceRange / (numTicks - 1));
+      const price = priceCoordinates.minPrice + (i * (priceCoordinates.maxPrice - priceCoordinates.minPrice) / (numTicks - 1));
       return {
         price,
         y: priceToY(price)
