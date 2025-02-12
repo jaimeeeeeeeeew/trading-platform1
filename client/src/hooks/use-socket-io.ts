@@ -19,7 +19,9 @@ export function useSocketIO({
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const socketRef = useRef<Socket | null>(null);
   const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
+  const maxReconnectAttempts = 10; // Aumentado de 5 a 10
+  const initialReconnectDelay = 1000;
+  const maxReconnectDelay = 30000;
 
   useEffect(() => {
     if (!enabled) {
@@ -32,12 +34,12 @@ export function useSocketIO({
 
     const socket = io(window.location.origin, {
       path: '/trading-socket',
-      transports: ['websocket', 'polling'],
-      timeout: 10000,
+      transports: ['websocket'],
+      timeout: 20000, // Aumentado de 10000 a 20000
       reconnection: true,
       reconnectionAttempts: maxReconnectAttempts,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnectionDelay: initialReconnectDelay,
+      reconnectionDelayMax: maxReconnectDelay,
       autoConnect: true,
       forceNew: true
     });
@@ -53,6 +55,11 @@ export function useSocketIO({
     socket.on('disconnect', (reason) => {
       console.log('🔴 Disconnected from server:', reason);
       setConnectionState('disconnected');
+
+      // Reconectar inmediatamente si la desconexión no fue intencional
+      if (reason === 'io server disconnect') {
+        socket.connect();
+      }
     });
 
     socket.on('error', (error) => {
@@ -71,31 +78,48 @@ export function useSocketIO({
         setConnectionState('error');
         onError?.();
       } else {
-        console.log(`🔄 Reconnecting... Attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+        const delay = Math.min(
+          initialReconnectDelay * Math.pow(2, reconnectAttempts.current),
+          maxReconnectDelay
+        );
+        console.log(`🔄 Reconnecting... Attempt ${reconnectAttempts.current}/${maxReconnectAttempts} in ${delay}ms`);
         setConnectionState('connecting');
+        setTimeout(() => socket.connect(), delay);
       }
     });
 
     socket.on('orderbook_update', (data) => {
-      if (onProfileData) {
-        const bids = data.bids.map((bid: any) => ({
-          price: parseFloat(bid.Price),
-          volume: parseFloat(bid.Quantity),
-          side: 'bid' as const
-        }));
-
-        const asks = data.asks.map((ask: any) => ({
-          price: parseFloat(ask.Price),
-          volume: parseFloat(ask.Quantity),
-          side: 'ask' as const
-        }));
-
-        const midPrice = (parseFloat(data.bids[0]?.Price || '0') + parseFloat(data.asks[0]?.Price || '0')) / 2;
-        if (midPrice && onPriceUpdate) {
-          onPriceUpdate(midPrice);
+      try {
+        if (!data || !data.bids || !data.asks) {
+          console.warn('Invalid orderbook data received:', data);
+          return;
         }
 
-        onProfileData([...bids, ...asks]);
+        if (onProfileData) {
+          const bids = data.bids.map((bid: any) => ({
+            price: parseFloat(bid.Price),
+            volume: parseFloat(bid.Quantity),
+            side: 'bid' as const
+          }));
+
+          const asks = data.asks.map((ask: any) => ({
+            price: parseFloat(ask.Price),
+            volume: parseFloat(ask.Quantity),
+            side: 'ask' as const
+          }));
+
+          // Calcular precio medio y notificar
+          if (bids.length > 0 && asks.length > 0) {
+            const midPrice = (bids[0].price + asks[0].price) / 2;
+            if (onPriceUpdate) {
+              onPriceUpdate(midPrice);
+            }
+          }
+
+          onProfileData([...bids, ...asks]);
+        }
+      } catch (error) {
+        console.error('Error processing orderbook data:', error);
       }
     });
 
