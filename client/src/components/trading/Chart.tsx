@@ -15,6 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import SecondaryIndicator from './SecondaryIndicator';
+import { Input } from "@/components/ui/input";
+import { useState as useState2, useEffect as useEffect2, useRef as useRef2 } from 'react';
 
 interface PriceCoordinates {
   currentPrice: number;
@@ -73,11 +75,11 @@ export default function Chart() {
   const [isLoading, setIsLoading] = useState(false);
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number; side: 'bid' | 'ask' }>>([]);
   const [maxVisibleBars, setMaxVisibleBars] = useState<number>(200);
+  const [customBars, setCustomBars] = useState<string>("");
+  const [showCustomInput, setShowCustomInput] = useState(false);
 
-  // Obtener los datos del mercado primero
   const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
 
-  // Inicializar estados que dependen de marketData
   const [currentChartPrice, setCurrentChartPrice] = useState<number>(0);
   const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>({
     min: 0,
@@ -420,15 +422,12 @@ export default function Chart() {
         const visibleBars = chartRef.current.timeScale().getVisibleRange();
         if (!visibleBars) return;
 
-        // Usar el rango de precios visible actual
         const { min: minPrice, max: maxPrice } = visiblePriceRange;
 
         const range = maxPrice - minPrice;
 
-        // Usar un priceStep fijo de $10
         const priceStep = 10;
 
-        // Generar niveles de precio cada $10
         const numSteps = Math.floor(range / priceStep);
         const prices: Array<{price: number, coordinate: number}> = [];
 
@@ -462,10 +461,9 @@ export default function Chart() {
     try {
         const series = candlestickSeriesRef.current;
 
-        // Calcular min/max de los precios visibles usando un rango fijo del 15%
         const currentPrice = currentChartPrice;
-        const minPrice = currentPrice * 0.85; // 15% por debajo
-        const maxPrice = currentPrice * 1.15; // 15% por arriba
+        const minPrice = currentPrice * 0.85; 
+        const maxPrice = currentPrice * 1.15; 
 
         console.log('Actualizando rango de precios:', {
           currentPrice,
@@ -478,7 +476,6 @@ export default function Chart() {
             max: maxPrice
         });
 
-        // Obtener coordenadas Y para los precios
         const currentY = series.priceToCoordinate(currentPrice);
         const minY = series.priceToCoordinate(minPrice);
         const maxY = series.priceToCoordinate(maxPrice);
@@ -500,14 +497,13 @@ export default function Chart() {
     }
   };
 
-  // Efecto para inicializar y actualizar el precio y rango cuando cambian los datos del mercado
   useEffect(() => {
     if (marketData?.currentPrice) {
       const price = marketData.currentPrice;
       setCurrentChartPrice(price);
       setVisiblePriceRange({
-        min: price * 0.85, // 15% por debajo
-        max: price * 1.15  // 15% por arriba
+        min: price * 0.85, 
+        max: price * 1.15  
       });
 
       console.log('Actualizando precio y rango:', {
@@ -576,13 +572,11 @@ export default function Chart() {
 
     candlestickSeriesRef.current = candlestickSeries;
 
-    // Subscribe to time scale changes
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
       handleVisibleRangeChange();
       updatePriceScaleInfo();
     });
 
-    // Subscribe to crosshair moves
     chart.subscribeCrosshairMove((param) => {
       if (!param.point || !candlestickSeriesRef.current) return;
 
@@ -595,7 +589,6 @@ export default function Chart() {
         }
       }
     });
-
 
     loadInitialData(currentSymbol);
     handleResize();
@@ -654,7 +647,6 @@ export default function Chart() {
     handleVolumeProfileUpdate();
   }, [orderbookVolumeProfile, visiblePriceRange]);
 
-
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
       <div className="absolute top-2 left-2 z-10 flex items-center gap-2">
@@ -676,8 +668,16 @@ export default function Chart() {
         </Select>
 
         <Select
-          value={maxVisibleBars.toString()}
-          onValueChange={(value) => setMaxVisibleBars(Number(value))}
+          value={showCustomInput ? "custom" : maxVisibleBars.toString()}
+          onValueChange={(value) => {
+            if (value === "custom") {
+              setShowCustomInput(true);
+              setCustomBars(maxVisibleBars.toString());
+            } else {
+              setShowCustomInput(false);
+              setMaxVisibleBars(Number(value));
+            }
+          }}
         >
           <SelectTrigger className="w-24 bg-background">
             <SelectValue placeholder="Bars" />
@@ -687,8 +687,28 @@ export default function Chart() {
             <SelectItem value="100">100 bars</SelectItem>
             <SelectItem value="200">200 bars</SelectItem>
             <SelectItem value="300">300 bars</SelectItem>
+            <SelectItem value="custom">Custom</SelectItem>
           </SelectContent>
         </Select>
+
+        {showCustomInput && (
+          <Input
+            type="number"
+            value={customBars}
+            className="w-24 bg-background"
+            onChange={(e) => {
+              const value = e.target.value;
+              setCustomBars(value);
+              const numValue = parseInt(value);
+              if (!isNaN(numValue) && numValue > 0) {
+                setMaxVisibleBars(numValue);
+              }
+            }}
+            min="1"
+            placeholder="Bars"
+          />
+        )}
+
       </div>
 
       {crosshairData && (
