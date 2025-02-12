@@ -341,75 +341,76 @@ export default function Chart() {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
     try {
-      // Obtener el rango de precios real del gráfico
-      const priceScale = candlestickSeriesRef.current.priceScale();
-      const currentVisibleRange = priceScale.getVisibleLogicalRange();
-      if (!currentVisibleRange) return;
-
-      const lastCandle = historicalDataRef.current[historicalDataRef.current.length - 1];
-      if (!lastCandle) return;
-
-      // Usar el precio actual como punto de referencia
-      const currentPrice = lastCandle.close;
-      const rangeSize = 5000; // Rango de ±5000 alrededor del precio actual
-
-      const minPrice = currentPrice - rangeSize;
-      const maxPrice = currentPrice + rangeSize;
+      const minPrice = 90000;
+      const maxPrice = 105000;
 
       // Solo mostrar información del rango visible
-      console.log('📊 Rango visible del gráfico:', {
+      console.log('📊 Rango visible de precios:', {
         min: { 
-          precio: minPrice.toFixed(1), 
+          precio: minPrice, 
           coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(minPrice) 
         },
         max: { 
-          precio: maxPrice.toFixed(1), 
+          precio: maxPrice, 
           coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(maxPrice) 
         },
-        rangoTotal: (maxPrice - minPrice).toFixed(1)
+        rangoTotal: maxPrice - minPrice
       });
 
-      // Actualizar el estado con el rango real
       setVisiblePriceRange({
         min: minPrice,
         max: maxPrice
       });
 
-      // Obtener el rango lógico visible para sincronización
       const timeScale = chartRef.current.timeScale();
       const visibleLogicalRange = timeScale.getVisibleLogicalRange();
       if (visibleLogicalRange) {
         setVisibleRange(visibleLogicalRange);
       }
 
-      // Actualizar el precio actual y sus coordenadas
-      const currentY = candlestickSeriesRef.current.priceToCoordinate(currentPrice);
-      if (currentY !== null) {
-        setCurrentChartPrice(currentPrice);
-        setPriceCoordinate(currentY);
+      const visibleRange = timeScale.getVisibleRange();
+      if (!visibleRange) return;
 
-        // Actualizar las coordenadas completas para sincronización
+      const allData = historicalDataRef.current;
+      if (!allData.length) return;
+
+      // Solo mostrar coordenadas de 2 velas aleatorias
+      const visibleCandles = allData.slice(-20);
+      const randomCandles = visibleCandles
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 2);
+
+      console.log('📈 Coordenadas de velas aleatorias:');
+      randomCandles.forEach((candle, i) => {
+        const coordinate = candlestickSeriesRef.current?.priceToCoordinate(candle.close);
+        console.log(`Vela ${i + 1}: Precio=${candle.close}, Y=${coordinate}`);
+      });
+
+
+      const lastPoint = allData[allData.length - 1];
+      if (!lastPoint) return;
+
+      setCurrentChartPrice(lastPoint.close);
+
+      if (candlestickSeriesRef.current) {
+        const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
         const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
         const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
 
-        if (minY !== null && maxY !== null) {
-          setPriceCoordinates({
-            currentPrice,
+        if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
+          const coordinates = {
+            currentPrice: lastPoint.close,
             currentY,
             minPrice,
             minY,
             maxPrice,
             maxY
-          });
+          };
+
+          setPriceCoordinates(coordinates);
+          setPriceCoordinate(currentY);
         }
       }
-
-      console.log('✅ Actualización de coordenadas exitosa:', {
-        precio_actual: currentPrice,
-        coordenada_Y: currentY,
-        rango_visible: { min: minPrice, max: maxPrice }
-      });
-
     } catch (error) {
       console.error('Error updating visible price range:', error);
     }
