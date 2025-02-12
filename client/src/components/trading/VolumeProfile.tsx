@@ -84,20 +84,17 @@ export const VolumeProfile = ({
 
     // Filtrar y ordenar datos dentro del rango visible
     const padding = (priceCoordinates.maxPrice - priceCoordinates.minPrice) * 0.05;
-    const visibleData = data
-      .filter(d => d.price >= (priceCoordinates.minPrice - padding) && 
-                  d.price <= (priceCoordinates.maxPrice + padding))
-      .sort((a, b) => {
-        // Si son del mismo lado (asks o bids)
-        if (a.side === b.side) {
-          if (a.side === 'ask') {
-            return b.price - a.price; // asks ordenados de mayor a menor
-          }
-          return a.price - b.price; // bids ordenados de menor a mayor
-        }
-        // Si son diferentes, asks primero
-        return a.side === 'ask' ? -1 : 1;
-      });
+
+    // Separar asks y bids
+    const asks = data
+      .filter(d => d.side === 'ask' && d.price >= currentPrice && d.price <= (priceCoordinates.maxPrice + padding))
+      .sort((a, b) => a.price - b.price); // asks ordenados de menor a mayor
+
+    const bids = data
+      .filter(d => d.side === 'bid' && d.price <= currentPrice && d.price >= (priceCoordinates.minPrice - padding))
+      .sort((a, b) => b.price - a.price); // bids ordenados de mayor a menor
+
+    const visibleData = [...asks, ...bids];
 
     // Dibujar barras de volumen
     g.selectAll('.volume-bar')
@@ -137,7 +134,7 @@ export const VolumeProfile = ({
 
     // Añadir escala de precios
     const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
-    const numTicks = Math.min(10, Math.floor(innerHeight / 30)); // Ajustar número de ticks según altura
+    const numTicks = Math.min(10, Math.floor(innerHeight / 30));
     const tickPrices = d3.range(numTicks).map(i => {
       const price = priceCoordinates.minPrice + (i * priceRange / (numTicks - 1));
       return {
