@@ -43,17 +43,10 @@ export const VolumeProfile = ({
     if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
       console.log('Volume Profile: Missing required data', {
         hasData: data?.length > 0,
-        hasCoordinates: !!priceCoordinates,
-        currentPrice
+        hasCoordinates: !!priceCoordinates
       });
       return;
     }
-
-    console.log('Volume Profile Update:', {
-      dataPoints: data.length,
-      priceRange: visiblePriceRange,
-      coordinates: priceCoordinates
-    });
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -70,16 +63,15 @@ export const VolumeProfile = ({
 
     const maxBarWidth = innerWidth * 0.7;
 
-    // Escala para el ancho de las barras (volumen)
+    // Escala para el volumen
     const xScale = d3.scaleLinear()
       .domain([0, 1])
       .range([maxBarWidth, 0]);
 
-    // Usar el mismo rango de precios que el gráfico principal
+    // Escala para los precios, usando el mismo rango que el gráfico principal
     const yScale = d3.scaleLinear()
       .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
       .range([innerHeight, 0]);
-
 
     // Filtrar datos dentro del rango visible
     const visibleData = data.filter(d =>
@@ -87,15 +79,8 @@ export const VolumeProfile = ({
       d.price <= priceCoordinates.maxPrice
     );
 
-    console.log('Visible Data:', {
-      total: data.length,
-      visible: visibleData.length,
-      minPrice: priceCoordinates.minPrice,
-      maxPrice: priceCoordinates.maxPrice
-    });
-
     // Dibujar barras de volumen
-    const bars = g.selectAll('.volume-bar')
+    g.selectAll('.volume-bar')
       .data(visibleData)
       .join('rect')
       .attr('class', 'volume-bar')
@@ -105,7 +90,7 @@ export const VolumeProfile = ({
         return Number.isFinite(y) ? y : 0;
       })
       .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
-      .attr('height', 2) // Altura fija de 2px para las barras
+      .attr('height', 2)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
@@ -152,15 +137,7 @@ export const VolumeProfile = ({
       .attr('fill', '#fff')
       .attr('font-size', '9px');
 
-    // Información del perfil
-    g.append('text')
-      .attr('x', innerWidth - maxBarWidth)
-      .attr('y', 15)
-      .attr('fill', '#fff')
-      .attr('font-size', '10px')
-      .text(`Vol Profile (${visibleData.length})`);
-
-  }, [data, width, height, priceCoordinates, currentPrice]);
+  }, [data, width, height, priceCoordinates]);
 
   return (
     <div

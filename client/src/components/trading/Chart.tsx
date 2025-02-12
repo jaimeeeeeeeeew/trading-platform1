@@ -341,55 +341,44 @@ export default function Chart() {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
     try {
-      // Get the visible time range
+      // Obtener el rango visible actual
       const timeScale = chartRef.current.timeScale();
       const visibleLogicalRange = timeScale.getVisibleLogicalRange();
       if (!visibleLogicalRange) return;
 
-      // Get the visible data points
-      const allData = historicalDataRef.current;
-      if (!allData.length) return;
-
-      // Get price range from candlestick series
-      const visibleRange = candlestickSeriesRef.current.priceToCoordinate(0);
-      if (!visibleRange) return;
-
-      // Calculate visible price range
+      // Calcular el rango de precios visible
       const topY = 0;
       const bottomY = chartRef.current.height();
 
       const maxPrice = candlestickSeriesRef.current.coordinateToPrice(topY);
       const minPrice = candlestickSeriesRef.current.coordinateToPrice(bottomY);
 
-      // Update price ranges
+      if (maxPrice === null || minPrice === null) return;
+
       setVisiblePriceRange({
         min: minPrice,
         max: maxPrice
       });
 
-      const lastPoint = allData[allData.length - 1];
+      const lastPoint = historicalDataRef.current[historicalDataRef.current.length - 1];
       if (!lastPoint) return;
 
       setCurrentChartPrice(lastPoint.close);
 
-      if (candlestickSeriesRef.current) {
-        const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
-        const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
-        const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
+      // Actualizar coordenadas de precio
+      const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
+      const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
+      const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
 
-        if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
-          const coordinates = {
-            currentPrice: lastPoint.close,
-            currentY,
-            minPrice,
-            minY,
-            maxPrice,
-            maxY
-          };
-
-          setPriceCoordinates(coordinates);
-          setPriceCoordinate(currentY);
-        }
+      if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
+        setPriceCoordinates({
+          currentPrice: lastPoint.close,
+          currentY,
+          minPrice,
+          minY,
+          maxPrice,
+          maxY
+        });
       }
     } catch (error) {
       console.error('Error updating visible price range:', error);
@@ -517,9 +506,9 @@ export default function Chart() {
       }
     });
 
-    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
-      updateVisiblePriceRange();
-      updatePriceCoordinate();
+    chart.timeScale().subscribeVisibleTimeRangeChange(() => {
+        updateVisiblePriceRange();
+        updatePriceCoordinate();
     });
 
     return () => {
@@ -560,20 +549,24 @@ export default function Chart() {
   useEffect(() => {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
-    // Subscribe to price scale changes
-    const priceScale = chartRef.current.priceScale('right');
-    const timeScale = chartRef.current.timeScale();
+    const chart = chartRef.current;
+    const timeScale = chart.timeScale();
 
     const handleScaleChanged = () => {
       updateVisiblePriceRange();
     };
 
-    priceScale.subscribeVisibleLogicalRangeChange(handleScaleChanged);
-    timeScale.subscribeVisibleLogicalRangeChange(handleScaleChanged);
+    // Suscribirse a cambios en el timeScale
+    timeScale.subscribeVisibleTimeRangeChange(handleScaleChanged);
+
+    // Suscribirse a cambios en el viewport
+    chart.subscribeClick(handleScaleChanged);
+    chart.subscribeCrosshairMove(handleScaleChanged);
 
     return () => {
-      priceScale.unsubscribeVisibleLogicalRangeChange(handleScaleChanged);
-      timeScale.unsubscribeVisibleLogicalRangeChange(handleScaleChanged);
+      timeScale.unsubscribeVisibleTimeRangeChange(handleScaleChanged);
+      chart.unsubscribeClick(handleScaleChanged);
+      chart.unsubscribeCrosshairMove(handleScaleChanged);
     };
   }, []);
 
