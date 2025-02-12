@@ -72,15 +72,17 @@ export default function Chart() {
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [isLoading, setIsLoading] = useState(false);
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number; side: 'bid' | 'ask' }>>([]);
-  const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>(() => {
-    // Inicialmente usamos un rango amplio hasta que tengamos el precio real
-    const defaultPrice = marketData?.currentPrice || 96000;
-    return {
-      min: defaultPrice * 0.85,
-      max: defaultPrice * 1.15
-    };
+
+  // Obtener los datos del mercado primero
+  const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
+
+  // Inicializar estados que dependen de marketData
+  const [currentChartPrice, setCurrentChartPrice] = useState<number>(0);
+  const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>({
+    min: 0,
+    max: 0
   });
-  const [currentChartPrice, setCurrentChartPrice] = useState<number>(marketData?.currentPrice || 96000);
+
   const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
   const [priceCoordinates, setPriceCoordinates] = useState<PriceCoordinates | null>(null);
   const [secondaryIndicators, setSecondaryIndicators] = useState<SecondaryIndicators>({
@@ -93,8 +95,6 @@ export default function Chart() {
   const [activeIndicator, setActiveIndicator] = useState<ActiveIndicator>('none');
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
   const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
-
-  const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
 
   const { socket } = useSocketIO({
     onProfileData: (profileData) => {
@@ -453,7 +453,7 @@ export default function Chart() {
     } catch (error) {
         console.error('Error updating price scale info:', error);
     }
-};
+  };
 
   const handleVisibleRangeChange = () => {
     if (!candlestickSeriesRef.current || !currentChartPrice || !container.current) return;
@@ -497,7 +497,25 @@ export default function Chart() {
     } catch (error) {
         console.error('Error updating visible range:', error);
     }
-};
+  };
+
+  // Efecto para inicializar y actualizar el precio y rango cuando cambian los datos del mercado
+  useEffect(() => {
+    if (marketData?.currentPrice) {
+      const price = marketData.currentPrice;
+      setCurrentChartPrice(price);
+      setVisiblePriceRange({
+        min: price * 0.85, // 15% por debajo
+        max: price * 1.15  // 15% por arriba
+      });
+
+      console.log('Actualizando precio y rango:', {
+        price,
+        min: price * 0.85,
+        max: price * 1.15
+      });
+    }
+  }, [marketData?.currentPrice]);
 
   useEffect(() => {
     if (!container.current || !currentSymbol) return;
@@ -635,15 +653,6 @@ export default function Chart() {
     handleVolumeProfileUpdate();
   }, [orderbookVolumeProfile, visiblePriceRange]);
 
-  useEffect(() => {
-    if (marketData?.currentPrice) {
-      setCurrentChartPrice(marketData.currentPrice);
-      // Actualizar el rango visible cuando cambie el precio actual
-      const newMin = marketData.currentPrice * 0.85;
-      const newMax = marketData.currentPrice * 1.15;
-      setVisiblePriceRange({ min: newMin, max: newMax });
-    }
-  }, [marketData?.currentPrice]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
