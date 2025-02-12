@@ -28,7 +28,7 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-const MAX_VISIBLE_BARS = 30;
+const MAX_VISIBLE_BARS = 10;
 
 const groupDataByBars = (data: Props['data']) => {
   let currentData = [...data];
