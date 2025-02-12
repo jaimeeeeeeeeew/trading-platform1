@@ -63,18 +63,20 @@ export const VolumeProfile = ({
       .range([0, maxBarWidth]);
 
     // Usar las coordenadas del gráfico principal para el eje Y
+    const yMin = Math.min(priceCoordinates.minPrice, currentPrice);
+    const yMax = Math.max(priceCoordinates.maxPrice, currentPrice);
+
     const yScale = d3.scaleLinear()
-      .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
-      .range([priceCoordinates.minY - margin.top, priceCoordinates.maxY - margin.top]);
+      .domain([yMin, yMax])
+      .range([height - margin.bottom, margin.top]);
 
     // Filtrar datos según el rango de precios visible
     const visibleData = data.filter(d => 
-      d.price >= priceCoordinates.minPrice && 
-      d.price <= priceCoordinates.maxPrice
+      d.price >= yMin && d.price <= yMax
     );
 
     // Altura dinámica de las barras basada en el rango de precios visible
-    const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
+    const priceRange = yMax - yMin;
     const barHeight = Math.max(1, innerHeight / (priceRange / 10));
 
     // Dibujar barras de volumen
@@ -82,7 +84,7 @@ export const VolumeProfile = ({
       .data(visibleData)
       .join('rect')
       .attr('class', 'volume-bar')
-      .attr('x', innerWidth - maxBarWidth)
+      .attr('x', 0)
       .attr('y', d => yScale(d.price) - barHeight / 2)
       .attr('width', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
@@ -90,8 +92,8 @@ export const VolumeProfile = ({
       .attr('opacity', 0.8);
 
     // Línea de precio actual
-    if (priceCoordinates.currentPrice) {
-      const currentY = yScale(priceCoordinates.currentPrice);
+    if (currentPrice) {
+      const currentY = yScale(currentPrice);
 
       g.append('line')
         .attr('x1', 0)
@@ -109,7 +111,7 @@ export const VolumeProfile = ({
         .attr('text-anchor', 'end')
         .attr('fill', '#ffffff')
         .attr('font-size', '10px')
-        .text(priceCoordinates.currentPrice.toFixed(1));
+        .text(currentPrice.toFixed(1));
     }
 
     // Etiquetas de precio en el eje Y
