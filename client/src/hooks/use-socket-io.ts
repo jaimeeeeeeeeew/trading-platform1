@@ -6,11 +6,15 @@ type ConnectionState = 'connected' | 'disconnected' | 'connecting' | 'error';
 interface UseSocketOptions {
   enabled?: boolean;
   onError?: () => void;
+  onProfileData?: (data: Array<{ price: number; volume: number; side: 'bid' | 'ask' }>) => void;
+  onPriceUpdate?: (price: number) => void;
 }
 
 export function useSocketIO({
   enabled = true,
-  onError
+  onError,
+  onProfileData,
+  onPriceUpdate
 }: UseSocketOptions = {}) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const socketRef = useRef<Socket | null>(null);
@@ -72,6 +76,29 @@ export function useSocketIO({
       }
     });
 
+    socket.on('orderbook_update', (data) => {
+      if (onProfileData) {
+        const bids = data.bids.map((bid: any) => ({
+          price: parseFloat(bid.Price),
+          volume: parseFloat(bid.Quantity),
+          side: 'bid' as const
+        }));
+
+        const asks = data.asks.map((ask: any) => ({
+          price: parseFloat(ask.Price),
+          volume: parseFloat(ask.Quantity),
+          side: 'ask' as const
+        }));
+
+        const midPrice = (parseFloat(data.bids[0]?.Price || '0') + parseFloat(data.asks[0]?.Price || '0')) / 2;
+        if (midPrice && onPriceUpdate) {
+          onPriceUpdate(midPrice);
+        }
+
+        onProfileData([...bids, ...asks]);
+      }
+    });
+
     return () => {
       console.log('🧹 Cleaning up socket connection');
       if (socket.connected) {
@@ -79,7 +106,7 @@ export function useSocketIO({
       }
       socketRef.current = null;
     };
-  }, [enabled, onError]);
+  }, [enabled, onError, onProfileData, onPriceUpdate]);
 
   const reconnect = () => {
     if (socketRef.current) {

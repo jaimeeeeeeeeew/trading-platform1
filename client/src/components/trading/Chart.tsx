@@ -56,6 +56,7 @@ type ActiveIndicator = 'none' | 'rsi' | 'funding' | 'longShort' | 'deltaCvd';
 
 interface UseSocketIOOptions {
   onProfileData?: (data: Array<{ price: number; volume: number; side: 'bid' | 'ask' }>) => void;
+  onPriceUpdate?: (price: number) => void;
 }
 
 export default function Chart() {
@@ -90,25 +91,22 @@ export default function Chart() {
   const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
 
   const { socket } = useSocketIO({
-    onProfileData: (data) => {
-      if (!data || data.length === 0) return;
+    onProfileData: (profileData) => {
+      if (!profileData || profileData.length === 0) return;
 
-      const maxVolume = Math.max(...data.map(item => item.volume));
-
-      const normalizedData = data.map(item => ({
+      const maxVolume = Math.max(...profileData.map(item => item.volume));
+      const normalizedData = profileData.map(item => ({
         price: item.price,
         volume: item.volume,
         normalizedVolume: item.volume / maxVolume,
         side: item.side
       }));
 
-      console.log('Normalized Volume Profile:', {
-        dataPoints: normalizedData.length,
-        maxVolume,
-        sampleData: normalizedData.slice(0, 3)
-      });
-
       setVolumeProfileData(normalizedData);
+    },
+    onPriceUpdate: (newPrice) => {
+      setCurrentChartPrice(newPrice);
+      updatePriceCoordinate();
     }
   });
 
@@ -320,28 +318,28 @@ export default function Chart() {
   };
 
   const updatePriceCoordinate = () => {
-    if (candlestickSeriesRef.current && currentChartPrice) {
-      const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
-      const minY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.min);
-      const maxY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.max);
+    if (!candlestickSeriesRef.current || !currentChartPrice) return;
 
-      if (currentY !== null && minY !== null && maxY !== null) {
-        setPriceCoordinate(currentY);
-        setPriceCoordinates({
-          currentPrice: currentChartPrice,
-          currentY,
-          minPrice: visiblePriceRange.min,
-          minY,
-          maxPrice: visiblePriceRange.max,
-          maxY
-        });
+    const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
+    const minY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.min);
+    const maxY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.max);
 
-        console.log('Price coordinates updated:', {
-          price: currentChartPrice,
-          y: currentY,
-          range: { min: minY, max: maxY }
-        });
-      }
+    if (currentY !== null && minY !== null && maxY !== null) {
+      setPriceCoordinate(currentY);
+      setPriceCoordinates({
+        currentPrice: currentChartPrice,
+        currentY,
+        minPrice: visiblePriceRange.min,
+        minY,
+        maxPrice: visiblePriceRange.max,
+        maxY
+      });
+
+      console.log('Price coordinates updated:', {
+        price: currentChartPrice,
+        y: currentY,
+        range: { min: minY, max: maxY }
+      });
     }
   };
 
@@ -539,7 +537,7 @@ export default function Chart() {
 
   useEffect(() => {
     updatePriceCoordinate();
-  }, [currentChartPrice]);
+  }, [currentChartPrice, visiblePriceRange]);
 
   useEffect(() => {
     if (!orderbookVolumeProfile.length) {
