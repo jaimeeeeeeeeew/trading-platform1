@@ -93,7 +93,12 @@ export const VolumeProfile = ({
 
     const priceRange = visiblePriceRange.max - visiblePriceRange.min;
     const groupSize = getGroupSize(priceRange);
-    const groupFactor = getGroupFactor(groupSize);
+    console.log('Actualizando precio y rango:', {
+      price: currentPrice,
+      min: visiblePriceRange.min,
+      max: visiblePriceRange.max
+    });
+
     const groupedData = groupData(data, groupSize);
 
     console.log('VolumeProfile Data:', {
@@ -101,7 +106,10 @@ export const VolumeProfile = ({
       bids: groupedData.filter(d => d.side === 'bid').length,
       asks: groupedData.filter(d => d.side === 'ask').length,
       priceRange,
-      groupSize
+      groupSize,
+      originalDataLength: data.length,
+      sampleOriginalData: data[0],
+      sampleGroupedData: groupedData[0]
     });
 
     const svg = d3.select(svgRef.current);
@@ -159,7 +167,7 @@ export const VolumeProfile = ({
           .attr('text-anchor', 'end')
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .text(`${d.price}${groupFactor ? `(${groupFactor})` : ''}`);
+          .text(`${d.price}${groupSize > 1 ? `(x${groupSize/10})` : ''}`);
       } else {
         g.append('text')
           .attr('class', 'price-label')
