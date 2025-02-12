@@ -40,42 +40,56 @@ const groupDataByBars = (data: Props['data'], maxBars: number) => {
 
   // Calcular volumen total original para verificación
   const originalTotalVolume = data.reduce((sum, d) => sum + d.volume, 0);
-  const originalBidVolume = bids.reduce((sum, d) => sum + d.volume, 0);
-  const originalAskVolume = asks.reduce((sum, d) => sum + d.volume, 0);
 
   // Función para agrupar un lado del libro
   const groupSide = (orders: Props['data']) => {
-    if (orders.length <= effectiveMaxBars / 2) {
-      return { groupedData: orders, groupFactor: 1 };
-    }
+    if (orders.length === 0) return { groupedData: [], groupFactor: 1 };
 
-    let currentData = [...orders];
-    let groupFactor = 1;
+    // Ordenar por precio
+    const sortedOrders = [...orders].sort((a, b) => a.price - b.price);
 
-    while (currentData.length > effectiveMaxBars / 2) {
-      const newData: Props['data'] = [];
-      for (let i = 0; i < currentData.length; i += 2) {
-        if (i + 1 < currentData.length) {
-          newData.push({
-            price: (currentData[i].price + currentData[i + 1].price) / 2,
-            volume: currentData[i].volume + currentData[i + 1].volume,
-            normalizedVolume: 0,
-            side: currentData[i].side
-          });
-        } else {
-          newData.push(currentData[i]);
-        }
+    // Calcular el rango de precios
+    const minPrice = sortedOrders[0].price;
+    const maxPrice = sortedOrders[sortedOrders.length - 1].price;
+    const priceRange = maxPrice - minPrice;
+
+    // Calcular el tamaño del grupo basado en el rango de precios y el número deseado de barras
+    const groupSize = priceRange / (effectiveMaxBars / 2);
+
+    // Inicializar grupos
+    const groups: Map<number, Props['data'][0]> = new Map();
+
+    // Agrupar órdenes por niveles de precio
+    sortedOrders.forEach(order => {
+      // Calcular el índice del grupo basado en el precio
+      const groupIndex = Math.floor((order.price - minPrice) / groupSize);
+      const groupPrice = minPrice + (groupIndex * groupSize) + (groupSize / 2);
+
+      if (groups.has(groupIndex)) {
+        const existingGroup = groups.get(groupIndex)!;
+        existingGroup.volume += order.volume;
+        // Actualizar el precio como un promedio ponderado
+        existingGroup.price = (existingGroup.price * (existingGroup.volume - order.volume) + 
+                             order.price * order.volume) / existingGroup.volume;
+      } else {
+        groups.set(groupIndex, {
+          price: order.price,
+          volume: order.volume,
+          normalizedVolume: 0,
+          side: order.side
+        });
       }
-      currentData = newData;
-      groupFactor *= 2;
-    }
+    });
 
-    return { groupedData: currentData, groupFactor };
+    return {
+      groupedData: Array.from(groups.values()),
+      groupFactor: Math.ceil(orders.length / (effectiveMaxBars / 2))
+    };
   };
 
   // Agrupar cada lado por separado
-  const { groupedData: groupedBids, groupFactor: bidGroupFactor } = groupSide(bids);
-  const { groupedData: groupedAsks, groupFactor: askGroupFactor } = groupSide(asks);
+  const { groupedData: groupedBids } = groupSide(bids);
+  const { groupedData: groupedAsks } = groupSide(asks);
 
   // Combinar resultados
   const combinedData = [...groupedBids, ...groupedAsks];
@@ -87,9 +101,18 @@ const groupDataByBars = (data: Props['data'], maxBars: number) => {
     normalizedVolume: d.volume / maxVolume
   }));
 
+  console.log('Datos procesados:', {
+    bidsBefore: bids.length,
+    asksBefore: asks.length,
+    bidsAfter: groupedBids.length,
+    asksAfter: groupedAsks.length,
+    totalVolumeBefore: originalTotalVolume,
+    totalVolumeAfter: combinedData.reduce((sum, d) => sum + d.volume, 0)
+  });
+
   return {
     groupedData: normalizedData,
-    groupFactor: Math.max(bidGroupFactor, askGroupFactor),
+    groupFactor: Math.max(bids.length, asks.length) / (effectiveMaxBars / 2),
     totalVolume: originalTotalVolume
   };
 };
