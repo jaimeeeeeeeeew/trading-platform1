@@ -73,13 +73,14 @@ export default function Chart() {
   const [isLoading, setIsLoading] = useState(false);
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number; side: 'bid' | 'ask' }>>([]);
   const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>(() => {
-    const initialPrice = 96000; // Precio base inicial
+    // Inicialmente usamos un rango amplio hasta que tengamos el precio real
+    const defaultPrice = marketData?.currentPrice || 96000;
     return {
-      min: initialPrice * 0.85, // 15% por debajo
-      max: initialPrice * 1.15  // 15% por arriba
+      min: defaultPrice * 0.85,
+      max: defaultPrice * 1.15
     };
   });
-  const [currentChartPrice, setCurrentChartPrice] = useState<number>(96000);
+  const [currentChartPrice, setCurrentChartPrice] = useState<number>(marketData?.currentPrice || 96000);
   const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
   const [priceCoordinates, setPriceCoordinates] = useState<PriceCoordinates | null>(null);
   const [secondaryIndicators, setSecondaryIndicators] = useState<SecondaryIndicators>({
@@ -634,6 +635,15 @@ export default function Chart() {
     handleVolumeProfileUpdate();
   }, [orderbookVolumeProfile, visiblePriceRange]);
 
+  useEffect(() => {
+    if (marketData?.currentPrice) {
+      setCurrentChartPrice(marketData.currentPrice);
+      // Actualizar el rango visible cuando cambie el precio actual
+      const newMin = marketData.currentPrice * 0.85;
+      const newMax = marketData.currentPrice * 1.15;
+      setVisiblePriceRange({ min: newMin, max: newMax });
+    }
+  }, [marketData?.currentPrice]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
