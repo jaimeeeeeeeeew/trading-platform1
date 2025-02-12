@@ -103,13 +103,14 @@ const groupDataByBars = (data: Props['data']) => {
 
   return {
     groupedData: normalizedData,
-    groupFactor: Math.max(bidGroupFactor, askGroupFactor)
+    groupFactor: Math.max(bidGroupFactor, askGroupFactor),
+    totalVolume: originalTotalVolume
   };
 };
 
 export const VolumeProfile = ({
   data,
-  width = 120,
+  width = 150,
   height,
   visiblePriceRange,
   currentPrice,
@@ -132,7 +133,7 @@ export const VolumeProfile = ({
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
     );
 
-    const { groupedData, groupFactor } = groupDataByBars(visibleData);
+    const { groupedData, groupFactor, totalVolume } = groupDataByBars(visibleData);
 
     console.log('Procesamiento de datos:', {
       datosVisibles: visibleData.length,
@@ -143,7 +144,7 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 25, right: 50, bottom: 25, left: 55 };
+    const margin = { top: 25, right: 50, bottom: 25, left: 95 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -183,7 +184,7 @@ export const VolumeProfile = ({
       .filter(d => d.side === 'bid')
       .sort((a, b) => b.price - a.price);
 
-    // Etiquetas de precio con indicador de agrupación
+    // Etiquetas de precio con volumen total
     const allPrices = [...bids, ...asks].sort((a, b) => a.price - b.price);
     allPrices.forEach((d, i) => {
       if (i % 2 === 0) {
@@ -195,7 +196,7 @@ export const VolumeProfile = ({
           .attr('text-anchor', 'end')
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .text(`${d.price}${groupFactor > 1 ? ` (x${groupFactor})` : ''}`);
+          .text(`${d.price.toFixed(1)} (${d.volume.toFixed(3)} BTC)`);
       } else {
         g.append('text')
           .attr('class', 'price-label')
@@ -205,7 +206,7 @@ export const VolumeProfile = ({
           .attr('text-anchor', 'end')
           .attr('fill', '#666')
           .attr('font-size', '10px')
-          .text(`${d.price}`);
+          .text(`${d.price.toFixed(1)}`);
       }
     });
 
