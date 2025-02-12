@@ -28,11 +28,11 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-// Constantes para la agrupación de volumen
-const PRICE_RANGES = {
-  TIGHT: 0.0025, // 0.25% del precio actual
-  MEDIUM: 0.01,  // 1% del precio actual
-  WIDE: 0.02     // 2% del precio actual
+// Constantes para la agrupación de volumen basadas en el zoom
+const ZOOM_LEVELS = {
+  TIGHT: 100,    // Rango de $100 o menos
+  MEDIUM: 500,   // Rango de $500 o menos
+  WIDE: 1000     // Rango mayor a $1000
 } as const;
 
 const GROUP_SIZES = {
@@ -41,40 +41,28 @@ const GROUP_SIZES = {
   LARGE: 10    // Grupos de $10
 } as const;
 
-const getGroupSize = (priceRange: number, currentPrice: number): number => {
-  // Calcular los rangos dinámicamente basados en el precio actual
-  const tightRange = currentPrice * PRICE_RANGES.TIGHT;   // ~240 para BTC a 96000
-  const mediumRange = currentPrice * PRICE_RANGES.MEDIUM; // ~960 para BTC a 96000
-  const wideRange = currentPrice * PRICE_RANGES.WIDE;     // ~1920 para BTC a 96000
+const getGroupSize = (priceRange: number): number => {
+  console.log('Calculating group size for price range:', priceRange);
 
-  // Usar un rango más pequeño para la agrupación, basado en la ventana visible
-  const effectiveRange = priceRange * 0.1; // Solo considerar 10% del rango visible
-
-  console.log('Calculating group size:', {
-    priceRange,
-    effectiveRange,
-    currentPrice,
-    tightRange,
-    mediumRange,
-    wideRange
-  });
-
-  if (effectiveRange <= tightRange) {
-    return GROUP_SIZES.SMALL;  // Sin agrupación para zoom cercano
-  } else if (effectiveRange <= mediumRange) {
-    return GROUP_SIZES.MEDIUM; // Grupos de $5 para zoom medio
+  if (priceRange <= ZOOM_LEVELS.TIGHT) {
+    console.log('Using SMALL grouping (1x) for tight zoom');
+    return GROUP_SIZES.SMALL;
+  } else if (priceRange <= ZOOM_LEVELS.MEDIUM) {
+    console.log('Using MEDIUM grouping (5x) for medium zoom');
+    return GROUP_SIZES.MEDIUM;
   }
-  return GROUP_SIZES.LARGE;    // Grupos de $10 para zoom amplio
+  console.log('Using LARGE grouping (10x) for wide zoom');
+  return GROUP_SIZES.LARGE;
 };
 
 const getGroupFactor = (groupSize: number): string => {
   switch (groupSize) {
     case GROUP_SIZES.SMALL:
-      return '';           // Sin indicador para datos individuales
+      return '';        // Sin indicador para datos individuales
     case GROUP_SIZES.MEDIUM:
-      return 'x5';        // Indicador para grupos de $5
+      return 'x5';     // Indicador para grupos de $5
     case GROUP_SIZES.LARGE:
-      return 'x10';       // Indicador para grupos de $10
+      return 'x10';    // Indicador para grupos de $10
     default:
       return `x${groupSize}`;
   }
@@ -131,16 +119,26 @@ export const VolumeProfile = ({
       return;
     }
 
-    const priceRange = visiblePriceRange.max - visiblePriceRange.min;
-    const groupSize = getGroupSize(priceRange, currentPrice);
+    // Calcular el rango de precios visible actual
+    const visibleRange = visiblePriceRange.max - visiblePriceRange.min;
 
-    console.log('Volume Profile Configuration:', {
+    // Usar una ventana móvil alrededor del precio actual para determinar el zoom
+    const zoomWindow = Math.min(visibleRange, 2000); // Limitar la ventana a 2000 para evitar grupos muy grandes
+
+    console.log('Volume Profile Range Analysis:', {
+      fullRange: visibleRange,
+      zoomWindow,
       currentPrice,
-      priceRange,
-      visibleRange: {
+      visiblePrices: {
         min: visiblePriceRange.min,
         max: visiblePriceRange.max
-      },
+      }
+    });
+
+    const groupSize = getGroupSize(zoomWindow);
+
+    console.log('Selected grouping configuration:', {
+      zoomWindow,
       groupSize,
       groupFactor: getGroupFactor(groupSize)
     });
@@ -151,7 +149,7 @@ export const VolumeProfile = ({
       totalItems: groupedData.length,
       bids: groupedData.filter(d => d.side === 'bid').length,
       asks: groupedData.filter(d => d.side === 'ask').length,
-      priceRange,
+      priceRange: visibleRange,
       groupSize,
       originalDataLength: data.length,
       sampleOriginalData: data[0],
