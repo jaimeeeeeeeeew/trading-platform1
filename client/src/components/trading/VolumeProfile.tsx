@@ -64,19 +64,18 @@ export const VolumeProfile = ({
       .domain([0, 1])
       .range([maxBarWidth, 0]);
 
-    // Usar el mismo rango de precios que el gráfico principal
-    const yScale = d3.scaleLinear()
-      .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
-      .range([innerHeight, 0]);
-
-    // Altura mínima de las barras basada en el rango visible
-    const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
-    const barHeight = Math.max(2, (innerHeight / (priceRange / 10)));
-
     // Filtrar datos dentro del rango visible y ordenar por precio
     const visibleData = data
       .filter(d => d.price >= priceCoordinates.minPrice && d.price <= priceCoordinates.maxPrice)
       .sort((a, b) => b.price - a.price);
+
+    // Calcular la altura de las barras basada en el rango visible de precios
+    const verticalScale = d3.scaleLinear()
+      .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
+      .range([priceCoordinates.minY - margin.top, priceCoordinates.maxY - margin.top]);
+
+    // Altura mínima de las barras
+    const barHeight = Math.max(2, (innerHeight / data.length) * 0.8);
 
     // Dibujar barras de volumen
     g.selectAll('.volume-bar')
@@ -85,7 +84,7 @@ export const VolumeProfile = ({
       .attr('class', 'volume-bar')
       .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
       .attr('y', d => {
-        const y = yScale(d.price);
+        const y = verticalScale(d.price);
         return Number.isFinite(y) ? y - barHeight / 2 : 0;
       })
       .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
@@ -93,43 +92,35 @@ export const VolumeProfile = ({
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
-    // Línea de precio actual con animación suave
-    if (priceCoordinates.currentPrice && Number.isFinite(yScale(priceCoordinates.currentPrice))) {
+    // Línea de precio actual
+    if (priceCoordinates.currentPrice && Number.isFinite(verticalScale(priceCoordinates.currentPrice))) {
+      const currentY = verticalScale(priceCoordinates.currentPrice);
+
+      // Línea de precio actual
       const priceLine = g.append('line')
         .attr('class', 'price-line')
         .attr('x1', 0)
         .attr('x2', innerWidth)
-        .attr('y1', yScale(priceCoordinates.currentPrice))
-        .attr('y2', yScale(priceCoordinates.currentPrice))
+        .attr('y1', currentY)
+        .attr('y2', currentY)
         .attr('stroke', '#ffffff')
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '2,2');
 
-      // Transición suave al actualizar la posición
-      priceLine.transition()
-        .duration(300)
-        .attr('y1', yScale(priceCoordinates.currentPrice))
-        .attr('y2', yScale(priceCoordinates.currentPrice));
-
       // Etiqueta de precio actual
-      const priceLabel = g.append('text')
+      g.append('text')
         .attr('class', 'price-label')
         .attr('x', innerWidth - maxBarWidth - 5)
-        .attr('y', yScale(priceCoordinates.currentPrice))
+        .attr('y', currentY)
         .attr('dy', '-4')
         .attr('text-anchor', 'end')
         .attr('fill', '#ffffff')
         .attr('font-size', '10px')
         .text(priceCoordinates.currentPrice.toFixed(1));
-
-      // Transición suave para la etiqueta
-      priceLabel.transition()
-        .duration(300)
-        .attr('y', yScale(priceCoordinates.currentPrice));
     }
 
     // Eje de precios adaptativo
-    const priceAxis = d3.axisRight(yScale)
+    const priceAxis = d3.axisRight(verticalScale)
       .ticks(10)
       .tickFormat((d: any) => {
         if (typeof d === 'number' && Number.isFinite(d)) {
