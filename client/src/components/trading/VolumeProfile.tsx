@@ -40,7 +40,20 @@ export const VolumeProfile = ({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
+    console.log('VolumeProfile Data:', {
+      hasData: data && data.length > 0,
+      dataLength: data?.length,
+      visiblePriceRange,
+      currentPrice
+    });
+
     if (!svgRef.current || !data || data.length === 0 || !visiblePriceRange) {
+      console.log('VolumeProfile early return:', {
+        hasSvgRef: !!svgRef.current,
+        hasData: !!data,
+        dataLength: data?.length,
+        hasVisiblePriceRange: !!visiblePriceRange
+      });
       return;
     }
 
