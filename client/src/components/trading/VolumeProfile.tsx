@@ -28,94 +28,50 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-const MIN_BAR_HEIGHT = 4; // Altura mínima en píxeles
-const MAX_BAR_HEIGHT = 15; // Altura máxima en píxeles
-const PRICE_STEP = 10; // Incremento base de precio
+const MAX_VISIBLE_BARS = 30;
 
-const groupDataByBars = (
-  data: Props['data'],
-  visiblePriceRange: { min: number; max: number },
-  height: number
-) => {
-  if (!data.length) return { groupedData: [], groupFactor: 1 };
-
-  // Calcular el rango de precios visible
-  const visibleRange = visiblePriceRange.max - visiblePriceRange.min;
-  const numPriceLevels = Math.ceil(visibleRange / PRICE_STEP);
-
-  // Calcular altura inicial por barra
-  const initialBarHeight = height / numPriceLevels;
-
-  // Determinar factor de agrupación basado en la altura de barra deseada
+const groupDataByBars = (data: Props['data']) => {
+  let currentData = [...data];
   let groupFactor = 1;
-  if (initialBarHeight < MIN_BAR_HEIGHT) {
-    // Calcular cuántas barras necesitamos agrupar para alcanzar la altura mínima
-    groupFactor = Math.ceil(MIN_BAR_HEIGHT / initialBarHeight);
-    // Redondear al siguiente múltiplo de PRICE_STEP
-    groupFactor = Math.ceil(groupFactor / PRICE_STEP) * PRICE_STEP;
+
+  while (currentData.length > MAX_VISIBLE_BARS) {
+    // Agrupar de 2 en 2
+    const newData: Props['data'] = [];
+    for (let i = 0; i < currentData.length; i += 2) {
+      if (i + 1 < currentData.length) {
+        // Si hay un par completo, promediar precio y sumar volúmenes
+        newData.push({
+          price: (currentData[i].price + currentData[i + 1].price) / 2,
+          volume: currentData[i].volume + currentData[i + 1].volume,
+          normalizedVolume: 0, // Se calculará después
+          side: currentData[i].side
+        });
+      } else {
+        // Si queda uno solo, mantenerlo
+        newData.push(currentData[i]);
+      }
+    }
+    currentData = newData;
+    groupFactor *= 2;
   }
 
-  console.log('Calculando agrupación:', {
-    visibleRange,
-    numPriceLevels,
-    initialBarHeight,
-    groupFactor,
-    datosOriginales: data.length,
-    alturaFinalEstimada: initialBarHeight * groupFactor
-  });
+  // Normalizar volúmenes después de la agrupación
+  const maxVolume = Math.max(...currentData.map(d => d.volume));
+  const normalizedData = currentData.map(d => ({
+    ...d,
+    normalizedVolume: d.volume / maxVolume
+  }));
 
-  // Crear buckets de precio basados en el factor de agrupación
-  const priceBuckets: Record<number, {
-    totalVolume: number;
-    totalPrice: number;
-    count: number;
-    side: 'bid' | 'ask';
-  }> = {};
-
-  // Agrupar datos en buckets
-  data.forEach(item => {
-    // Redondear el precio al nivel más cercano basado en el factor de agrupación
-    const bucketPrice = Math.floor(item.price / groupFactor) * groupFactor;
-
-    if (!priceBuckets[bucketPrice]) {
-      priceBuckets[bucketPrice] = {
-        totalVolume: 0,
-        totalPrice: 0,
-        count: 0,
-        side: item.side
-      };
-    }
-
-    const bucket = priceBuckets[bucketPrice];
-    bucket.totalVolume += item.volume;
-    bucket.totalPrice += item.price * item.volume; // Precio promedio ponderado por volumen
-    bucket.count++;
-  });
-
-  // Convertir buckets a array con precio promedio ponderado
-  const groupedData = Object.entries(priceBuckets)
-    .map(([price, data]) => ({
-      price: data.totalPrice / data.totalVolume, // Precio promedio ponderado por volumen
-      volume: data.totalVolume,
-      normalizedVolume: 0, // Se calculará después
-      side: data.side
-    }))
-    .sort((a, b) => b.price - a.price); // Ordenar por precio
-
-  // Normalizar volúmenes
-  const maxVolume = Math.max(...groupedData.map(level => level.volume));
-  groupedData.forEach(d => {
-    d.normalizedVolume = d.volume / maxVolume;
-  });
-
-  console.log('Agrupación completada:', {
+  console.log('Agrupación final:', {
     barrasOriginales: data.length,
-    barrasAgrupadas: groupedData.length,
-    factorAgrupacion: groupFactor,
-    alturaBarraFinal: height / groupedData.length
+    barrasAgrupadas: normalizedData.length,
+    factorAgrupacion: groupFactor
   });
 
-  return { groupedData, groupFactor };
+  return {
+    groupedData: normalizedData,
+    groupFactor
+  };
 };
 
 export const VolumeProfile = ({
@@ -138,12 +94,18 @@ export const VolumeProfile = ({
       return;
     }
 
-    // Filtrar datos por rango visible
+    // Filtrar datos por rango visible y agrupar si es necesario
     const visibleData = data.filter(
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
     );
 
-    const { groupedData, groupFactor } = groupDataByBars(visibleData, visiblePriceRange, height);
+    const { groupedData, groupFactor } = groupDataByBars(visibleData);
+
+    console.log('Procesamiento de datos:', {
+      datosVisibles: visibleData.length,
+      datosAgrupados: groupedData.length,
+      factorAgrupacion: groupFactor
+    });
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -164,31 +126,34 @@ export const VolumeProfile = ({
       .domain([0, 1])
       .range([maxBarWidth/2, 0]);
 
-    // Función mejorada para calcular la posición Y
     const priceToY = (price: number) => {
       if (price === currentPrice) {
         return priceCoordinates.currentY - margin.top;
       }
 
-      const range = priceCoordinates.maxPrice - priceCoordinates.minPrice;
-      const normalizedPrice = (price - priceCoordinates.minPrice) / range;
-      return priceCoordinates.minY - margin.top - 
-             (normalizedPrice * (priceCoordinates.minY - priceCoordinates.maxY));
+      if (price > currentPrice) {
+        const askRatio = (price - currentPrice) / (priceCoordinates.maxPrice - currentPrice);
+        return priceCoordinates.currentY - margin.top - (askRatio * (priceCoordinates.currentY - priceCoordinates.maxY));
+      }
+
+      const bidRatio = (currentPrice - price) / (currentPrice - priceCoordinates.minPrice);
+      return priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
     };
 
-    // Calcular altura de barra basada en el rango de precios visible
-    const barHeight = Math.min(MAX_BAR_HEIGHT, Math.max(MIN_BAR_HEIGHT, innerHeight / groupedData.length));
+    const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (groupedData.length * 2));
 
-    // Separar bids y asks
-    const asks = groupedData.filter(d => d.side === 'ask').sort((a, b) => a.price - b.price);
-    const bids = groupedData.filter(d => d.side === 'bid').sort((a, b) => b.price - a.price);
+    const asks = groupedData
+      .filter(d => d.side === 'ask')
+      .sort((a, b) => a.price - b.price);
 
-    // Etiquetas de precio
+    const bids = groupedData
+      .filter(d => d.side === 'bid')
+      .sort((a, b) => b.price - a.price);
+
+    // Etiquetas de precio con indicador de agrupación
     const allPrices = [...bids, ...asks].sort((a, b) => a.price - b.price);
-
-    // Mostrar etiquetas alternadas para evitar solapamiento
     allPrices.forEach((d, i) => {
-      if (i % Math.ceil(groupedData.length / 20) === 0) { // Mostrar menos etiquetas cuando hay muchas barras
+      if (i % 2 === 0) {
         g.append('text')
           .attr('class', 'price-label')
           .attr('x', -8)
@@ -197,19 +162,32 @@ export const VolumeProfile = ({
           .attr('text-anchor', 'end')
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .text(`${d.price.toFixed(0)}${groupFactor > 1 ? ` (x${groupFactor})` : ''}`);
+          .text(`${d.price}${groupFactor > 1 ? ` (x${groupFactor})` : ''}`);
+      } else {
+        g.append('text')
+          .attr('class', 'price-label')
+          .attr('x', -8)
+          .attr('y', priceToY(d.price))
+          .attr('dy', '0.32em')
+          .attr('text-anchor', 'end')
+          .attr('fill', '#666')
+          .attr('font-size', '10px')
+          .text(`${d.price}`);
       }
     });
 
-    // Dibujar barras de volumen
+    // Barras de volumen
     g.selectAll('.bid-bars')
       .data(bids)
       .join('rect')
       .attr('class', 'volume-bar bid')
       .attr('x', d => xScale(d.normalizedVolume))
-      .attr('y', d => priceToY(d.price) - barHeight/2)
+      .attr('y', d => {
+        const y = priceToY(d.price);
+        return isNaN(y) ? 0 : y - barHeight / 2;
+      })
       .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume))
-      .attr('height', barHeight * 0.9) // Reducir ligeramente la altura para dar espacio
+      .attr('height', barHeight)
       .attr('fill', '#26a69a')
       .attr('opacity', 0.8);
 
@@ -218,9 +196,12 @@ export const VolumeProfile = ({
       .join('rect')
       .attr('class', 'volume-bar ask')
       .attr('x', d => xScale(d.normalizedVolume))
-      .attr('y', d => priceToY(d.price) - barHeight/2)
+      .attr('y', d => {
+        const y = priceToY(d.price);
+        return isNaN(y) ? 0 : y - barHeight / 2;
+      })
       .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume))
-      .attr('height', barHeight * 0.9) // Reducir ligeramente la altura para dar espacio
+      .attr('height', barHeight)
       .attr('fill', '#ef5350')
       .attr('opacity', 0.8);
 
@@ -237,7 +218,7 @@ export const VolumeProfile = ({
         .attr('stroke-dasharray', '2,2');
 
       g.append('text')
-        .attr('class', 'current-price-label')
+        .attr('class', 'price-label')
         .attr('x', innerWidth + 8)
         .attr('y', priceCoordinates.currentY - margin.top)
         .attr('dy', '0.32em')
