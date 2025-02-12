@@ -72,8 +72,8 @@ export function useMarketData() {
             asks: sortedAsks,
             timestamp: newData.timestamp
           },
-          currentPrice: sortedBids[0] && sortedAsks[0] 
-            ? (parseFloat(sortedBids[0].Price) + parseFloat(sortedAsks[0].Price)) / 2 
+          currentPrice: sortedBids[0] && sortedAsks[0]
+            ? (parseFloat(sortedBids[0].Price) + parseFloat(sortedAsks[0].Price)) / 2
             : prev.currentPrice
         }));
         setError(false);
@@ -131,17 +131,21 @@ export function useMarketData() {
       askLevels: normalizedLevels.filter(v => v.side === 'ask').length,
       sampleBid: normalizedLevels.find(v => v.side === 'bid'),
       sampleAsk: normalizedLevels.find(v => v.side === 'ask'),
-      maxVolume
+      maxVolume,
+      priceRange: {
+        min: Math.min(...normalizedLevels.map(v => v.price)),
+        max: Math.max(...normalizedLevels.map(v => v.price))
+      }
     });
 
     return normalizedLevels;
   }, [data.orderbook]);
 
-  return { 
-    data, 
-    volumeProfile, 
-    error, 
+  return {
+    data,
+    volumeProfile,
+    error,
     connectionState,
-    reconnect 
+    reconnect
   };
 }

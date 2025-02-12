@@ -491,12 +491,17 @@ export default function Chart() {
       for (let i = visibleBars.from; i <= visibleBars.to; i++) {
         if (i >= 0 && i < data.length) {
           const bar = data[i];
-          minPrice = Math.min(minPrice, bar.low);
-          maxPrice = Math.max(maxPrice, bar.high);
+          if (bar) {
+            minPrice = Math.min(minPrice, bar.low || Infinity);
+            maxPrice = Math.max(maxPrice, bar.high || -Infinity);
+          }
         }
       }
 
-      if (minPrice === Infinity || maxPrice === -Infinity) return;
+      if (minPrice === Infinity || maxPrice === -Infinity) {
+        minPrice = currentChartPrice * 0.99;
+        maxPrice = currentChartPrice * 1.01;
+      }
 
       // Ajustar el rango para incluir el precio actual
       minPrice = Math.min(minPrice, currentChartPrice);
@@ -527,23 +532,8 @@ export default function Chart() {
           maxPrice,
           maxY
         });
-
-        // Actualizar el perfil de volumen con el nuevo rango
-        if (orderbookVolumeProfile.length > 0) {
-          const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
-          const normalizedData = orderbookVolumeProfile
-            .filter(data => {
-              const padding = (maxPrice - minPrice) * 0.1;
-              return data.price >= (minPrice - padding) && data.price <= (maxPrice + padding);
-            })
-            .map(data => ({
-              ...data,
-              normalizedVolume: data.volume / maxVolume
-            }));
-
-          setVolumeProfileData(normalizedData);
-        }
       }
+
     } catch (error) {
       console.error('Error updating visible range:', error);
     }
