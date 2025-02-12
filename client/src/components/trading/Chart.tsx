@@ -88,7 +88,9 @@ export default function Chart() {
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
   const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
 
-  const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
+  const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData({
+    visiblePriceRange: visiblePriceRange
+  });
 
   const { socket } = useSocketIO({
     onProfileData: (profileData) => {
@@ -357,8 +359,18 @@ export default function Chart() {
       const visibleLogicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
       if (!visibleLogicalRange) return;
 
-      const minPrice = 90000;
-      const maxPrice = 105000;
+      const visibleCandlesticks = historicalDataRef.current.slice(
+        Math.max(0, Math.floor(visibleLogicalRange.from)),
+        Math.min(historicalDataRef.current.length, Math.ceil(visibleLogicalRange.to) + 1)
+      );
+
+      if (visibleCandlesticks.length === 0) return;
+
+      const prices = visibleCandlesticks.map(c => c.close);
+      const minPrice = Math.min(...prices) * 0.995; // Add 0.5% margin
+      const maxPrice = Math.max(...prices) * 1.005; // Add 0.5% margin
+
+      console.log('Updating visible price range:', { minPrice, maxPrice });
 
       setVisiblePriceRange({
         min: minPrice,
@@ -367,10 +379,7 @@ export default function Chart() {
 
       setVisibleRange(visibleLogicalRange);
 
-      const allData = historicalDataRef.current;
-      if (!allData.length) return;
-
-      const lastPoint = allData[allData.length - 1];
+      const lastPoint = historicalDataRef.current[historicalDataRef.current.length - 1];
       if (!lastPoint) return;
 
       setCurrentChartPrice(lastPoint.close);

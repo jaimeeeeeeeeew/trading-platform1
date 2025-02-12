@@ -19,7 +19,11 @@ interface MarketData {
   currentPrice: number;
 }
 
-export function useMarketData() {
+interface UseMarketDataProps {
+  visiblePriceRange?: { min: number; max: number };
+}
+
+export function useMarketData({ visiblePriceRange }: UseMarketDataProps = {}) {
   const [data, setData] = useState<MarketData>({
     orderbook: {
       bids: [],
@@ -42,9 +46,7 @@ export function useMarketData() {
       console.log('📊 Received orderbook data:', {
         timestamp: newData.timestamp,
         bids_count: newData.bids.length,
-        asks_count: newData.asks.length,
-        first_bid: newData.bids[0],
-        first_ask: newData.asks[0]
+        asks_count: newData.asks.length
       });
 
       try {
@@ -75,10 +77,7 @@ export function useMarketData() {
   // Calculate volume profile data from orderbook with price buckets
   const volumeProfile = useMemo(() => {
     if (!data.orderbook.bids.length && !data.orderbook.asks.length) {
-      console.log('No orderbook data available for volume profile:', {
-        bids: data.orderbook.bids.length,
-        asks: data.orderbook.asks.length
-      });
+      console.log('No orderbook data available for volume profile');
       return [];
     }
 
@@ -88,12 +87,20 @@ export function useMarketData() {
     const getPriceBucket = (price: number) => 
       Math.floor(price / PRICE_BUCKET_SIZE) * PRICE_BUCKET_SIZE;
 
+    // Filtrar y procesar solo los datos dentro del rango visible
+    const filterByRange = (price: number) => {
+      if (!visiblePriceRange) return true;
+      return price >= visiblePriceRange.min && price <= visiblePriceRange.max;
+    };
+
     // Objeto para acumular volúmenes por nivel de precio
     const volumeByPrice: Record<number, { volume: number; side: 'bid' | 'ask' }> = {};
 
     // Procesar bids
     data.orderbook.bids.forEach(bid => {
       const price = parseFloat(bid.Price);
+      if (!filterByRange(price)) return;
+
       const volume = parseFloat(bid.Quantity);
       const bucket = getPriceBucket(price);
 
@@ -106,6 +113,8 @@ export function useMarketData() {
     // Procesar asks
     data.orderbook.asks.forEach(ask => {
       const price = parseFloat(ask.Price);
+      if (!filterByRange(price)) return;
+
       const volume = parseFloat(ask.Quantity);
       const bucket = getPriceBucket(price);
 
@@ -124,17 +133,8 @@ export function useMarketData() {
       }))
       .sort((a, b) => b.price - a.price);
 
-    console.log('Volume Profile Calculation:', {
-      inputData: {
-        bids: data.orderbook.bids.length,
-        asks: data.orderbook.asks.length
-      },
-      processedLevels: groupedLevels.length,
-      sampleLevel: groupedLevels[0]
-    });
-
     if (groupedLevels.length === 0) {
-      console.log('No grouped levels available');
+      console.log('No grouped levels available in visible range');
       return [];
     }
 
@@ -148,13 +148,14 @@ export function useMarketData() {
     }));
 
     console.log('📊 Volume Profile Data:', {
+      visibleRange: visiblePriceRange,
       levels: normalizedLevels.length,
       maxVolume,
       sampleData: normalizedLevels.slice(0, 3)
     });
 
     return normalizedLevels;
-  }, [data.orderbook]);
+  }, [data.orderbook, visiblePriceRange]); // Añadido visiblePriceRange como dependencia
 
   return { 
     data, 
