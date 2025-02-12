@@ -69,25 +69,18 @@ const mergeOverlappingBars = (bars: Props['data'], getY: (price: number) => numb
 
   // Convertir el Map a array
   const mergedArray = Array.from(merged.values());
-
-  // Verificar volumen total después de la fusión
-  const finalTotalVolume = mergedArray.reduce((sum, bar) => sum + bar.volume, 0);
-
-  // Verificar que el volumen total se mantiene
-  if (Math.abs(finalTotalVolume - initialTotalVolume) > 0.0001) {
-    console.warn('Diferencia en volumen detectada:', {
-      inicial: initialTotalVolume,
-      final: finalTotalVolume,
-      diferencia: finalTotalVolume - initialTotalVolume
-    });
-  }
-
-  // Normalizar volúmenes
   const maxVolume = Math.max(...mergedArray.map(b => b.volume));
-  return mergedArray.map(bar => ({
-    ...bar,
-    normalizedVolume: bar.volume / maxVolume
-  }));
+
+  return {
+    bars: mergedArray.map(bar => ({
+      ...bar,
+      normalizedVolume: bar.volume / maxVolume
+    })),
+    maxVolumeBar: mergedArray.reduce((max, bar) => 
+      bar.volume > (max?.volume || 0) ? bar : max, 
+      mergedArray[0]
+    )
+  };
 };
 
 export const VolumeProfile = ({
@@ -142,7 +135,6 @@ export const VolumeProfile = ({
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      // Ajustados los márgenes ahora que no necesitamos espacio para las etiquetas
       const margin = { top: 20, right: 30, bottom: 20, left: 10 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
@@ -179,16 +171,11 @@ export const VolumeProfile = ({
       const barHeight = Math.max(3, visibleRange / (asks.length + bids.length) * 0.8);
 
       // Combinar barras que se solapan
-      const mergedAsks = mergeOverlappingBars(asks, priceToY, barHeight);
-      const mergedBids = mergeOverlappingBars(bids, priceToY, barHeight);
+      const { bars: mergedAsks, maxVolumeBar: maxAskBar } = mergeOverlappingBars(asks, priceToY, barHeight);
+      const { bars: mergedBids, maxVolumeBar: maxBidBar } = mergeOverlappingBars(bids, priceToY, barHeight);
 
-      // Verificar volúmenes después de la fusión
-      console.log('Volúmenes después de fusionar:', {
-        asks: mergedAsks.reduce((sum, d) => sum + d.volume, 0),
-        bids: mergedBids.reduce((sum, d) => sum + d.volume, 0),
-        total: [...mergedAsks, ...mergedBids].reduce((sum, d) => sum + d.volume, 0)
-      });
-
+      // Determinar la barra con el volumen máximo total
+      const maxVolumeBar = maxAskBar.volume > maxBidBar.volume ? maxAskBar : maxBidBar;
 
       // Barras de volumen con espaciado garantizado
       g.selectAll('.bid-bars')
@@ -218,6 +205,21 @@ export const VolumeProfile = ({
         .attr('height', barHeight * 0.9)
         .attr('fill', '#ef5350')
         .attr('opacity', 0.9);
+
+      // Añadir etiqueta de volumen máximo
+      const maxVolumeY = priceToY(maxVolumeBar.price);
+      if (maxVolumeY !== null) {
+        g.append('text')
+          .attr('class', 'max-volume-label')
+          .attr('x', -5)
+          .attr('y', maxVolumeY)
+          .attr('dy', '0.32em')
+          .attr('text-anchor', 'end')
+          .attr('fill', '#ffffff')
+          .attr('font-size', '11px')
+          .attr('font-weight', 'bold')
+          .text(`${maxVolumeBar.volume.toFixed(3)} BTC`);
+      }
 
       // Línea de precio actual
       if (priceCoordinates.currentPrice && priceCoordinates.currentY) {
