@@ -76,7 +76,7 @@ const groupDataByBars = (data: Props['data']) => {
 
 export const VolumeProfile = ({
   data,
-  width = 80,
+  width = 120,
   height,
   visiblePriceRange,
   currentPrice,
@@ -110,7 +110,7 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 25, right: 50, bottom: 25, left: 55 };
+    const margin = { top: 25, right: 50, bottom: 25, left: 75 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
