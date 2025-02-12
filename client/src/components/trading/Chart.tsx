@@ -93,10 +93,8 @@ export default function Chart() {
     onProfileData: (data) => {
       if (!data || data.length === 0) return;
 
-      // Encontrar el volumen máximo para normalización
       const maxVolume = Math.max(...data.map(item => item.volume));
 
-      // Normalizar los volúmenes manteniendo el lado (bid/ask)
       const normalizedData = data.map(item => ({
         price: item.price,
         volume: item.volume,
@@ -323,9 +321,26 @@ export default function Chart() {
 
   const updatePriceCoordinate = () => {
     if (candlestickSeriesRef.current && currentChartPrice) {
-      const coordinate = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
-      if (coordinate !== null) {
-        setPriceCoordinate(coordinate);
+      const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
+      const minY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.min);
+      const maxY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.max);
+
+      if (currentY !== null && minY !== null && maxY !== null) {
+        setPriceCoordinate(currentY);
+        setPriceCoordinates({
+          currentPrice: currentChartPrice,
+          currentY,
+          minPrice: visiblePriceRange.min,
+          minY,
+          maxPrice: visiblePriceRange.max,
+          maxY
+        });
+
+        console.log('Price coordinates updated:', {
+          price: currentChartPrice,
+          y: currentY,
+          range: { min: minY, max: maxY }
+        });
       }
     }
   };
@@ -341,76 +356,27 @@ export default function Chart() {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
     try {
+      const visibleLogicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
+      if (!visibleLogicalRange) return;
+
       const minPrice = 90000;
       const maxPrice = 105000;
-
-      // Solo mostrar información del rango visible
-      console.log('📊 Rango visible de precios:', {
-        min: { 
-          precio: minPrice, 
-          coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(minPrice) 
-        },
-        max: { 
-          precio: maxPrice, 
-          coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(maxPrice) 
-        },
-        rangoTotal: maxPrice - minPrice
-      });
 
       setVisiblePriceRange({
         min: minPrice,
         max: maxPrice
       });
 
-      const timeScale = chartRef.current.timeScale();
-      const visibleLogicalRange = timeScale.getVisibleLogicalRange();
-      if (visibleLogicalRange) {
-        setVisibleRange(visibleLogicalRange);
-      }
-
-      const visibleRange = timeScale.getVisibleRange();
-      if (!visibleRange) return;
+      setVisibleRange(visibleLogicalRange);
 
       const allData = historicalDataRef.current;
       if (!allData.length) return;
-
-      // Solo mostrar coordenadas de 2 velas aleatorias
-      const visibleCandles = allData.slice(-20);
-      const randomCandles = visibleCandles
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 2);
-
-      console.log('📈 Coordenadas de velas aleatorias:');
-      randomCandles.forEach((candle, i) => {
-        const coordinate = candlestickSeriesRef.current?.priceToCoordinate(candle.close);
-        console.log(`Vela ${i + 1}: Precio=${candle.close}, Y=${coordinate}`);
-      });
-
 
       const lastPoint = allData[allData.length - 1];
       if (!lastPoint) return;
 
       setCurrentChartPrice(lastPoint.close);
-
-      if (candlestickSeriesRef.current) {
-        const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
-        const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
-        const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
-
-        if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
-          const coordinates = {
-            currentPrice: lastPoint.close,
-            currentY,
-            minPrice,
-            minY,
-            maxPrice,
-            maxY
-          };
-
-          setPriceCoordinates(coordinates);
-          setPriceCoordinate(currentY);
-        }
-      }
+      updatePriceCoordinate();
     } catch (error) {
       console.error('Error updating visible price range:', error);
     }
@@ -555,6 +521,25 @@ export default function Chart() {
   useEffect(() => {
     handleResize();
   }, [activeIndicator]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handlePriceUpdate = (newPrice: number) => {
+      setCurrentChartPrice(newPrice);
+      updatePriceCoordinate();
+    };
+
+    socket.on('price_update', handlePriceUpdate);
+
+    return () => {
+      socket.off('price_update', handlePriceUpdate);
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    updatePriceCoordinate();
+  }, [currentChartPrice]);
 
   useEffect(() => {
     if (!orderbookVolumeProfile.length) {

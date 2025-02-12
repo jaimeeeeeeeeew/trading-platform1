@@ -41,19 +41,8 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
-      console.log('Volume Profile: Missing required data', {
-        hasData: data?.length > 0,
-        hasCoordinates: !!priceCoordinates,
-        currentPrice
-      });
       return;
     }
-
-    console.log('Volume Profile Update:', {
-      dataPoints: data.length,
-      priceRange: visiblePriceRange,
-      coordinates: priceCoordinates
-    });
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -84,21 +73,13 @@ export const VolumeProfile = ({
     const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
     const barHeight = Math.max(2, (innerHeight / (priceRange / 10)));
 
-    // Filtrar datos dentro del rango visible
-    const visibleData = data.filter(d => 
-      d.price >= priceCoordinates.minPrice && 
-      d.price <= priceCoordinates.maxPrice
-    );
-
-    console.log('Visible Data:', {
-      total: data.length,
-      visible: visibleData.length,
-      minPrice: priceCoordinates.minPrice,
-      maxPrice: priceCoordinates.maxPrice
-    });
+    // Filtrar datos dentro del rango visible y ordenar por precio
+    const visibleData = data
+      .filter(d => d.price >= priceCoordinates.minPrice && d.price <= priceCoordinates.maxPrice)
+      .sort((a, b) => b.price - a.price);
 
     // Dibujar barras de volumen
-    const bars = g.selectAll('.volume-bar')
+    g.selectAll('.volume-bar')
       .data(visibleData)
       .join('rect')
       .attr('class', 'volume-bar')
@@ -112,9 +93,10 @@ export const VolumeProfile = ({
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
-    // Línea de precio actual
+    // Línea de precio actual con animación suave
     if (priceCoordinates.currentPrice && Number.isFinite(yScale(priceCoordinates.currentPrice))) {
-      g.append('line')
+      const priceLine = g.append('line')
+        .attr('class', 'price-line')
         .attr('x1', 0)
         .attr('x2', innerWidth)
         .attr('y1', yScale(priceCoordinates.currentPrice))
@@ -123,7 +105,15 @@ export const VolumeProfile = ({
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '2,2');
 
-      g.append('text')
+      // Transición suave al actualizar la posición
+      priceLine.transition()
+        .duration(300)
+        .attr('y1', yScale(priceCoordinates.currentPrice))
+        .attr('y2', yScale(priceCoordinates.currentPrice));
+
+      // Etiqueta de precio actual
+      const priceLabel = g.append('text')
+        .attr('class', 'price-label')
         .attr('x', innerWidth - maxBarWidth - 5)
         .attr('y', yScale(priceCoordinates.currentPrice))
         .attr('dy', '-4')
@@ -131,6 +121,11 @@ export const VolumeProfile = ({
         .attr('fill', '#ffffff')
         .attr('font-size', '10px')
         .text(priceCoordinates.currentPrice.toFixed(1));
+
+      // Transición suave para la etiqueta
+      priceLabel.transition()
+        .duration(300)
+        .attr('y', yScale(priceCoordinates.currentPrice));
     }
 
     // Eje de precios adaptativo
