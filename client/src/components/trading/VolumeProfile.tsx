@@ -41,6 +41,7 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
+      console.log('No data or coordinates available:', { data, priceCoordinates });
       return;
     }
 
@@ -83,19 +84,24 @@ export const VolumeProfile = ({
     const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (data.length * 2));
 
     // Filtrar y ordenar datos dentro del rango visible
-    //const padding = (priceCoordinates.maxPrice - priceCoordinates.minPrice) * 0.05;
-
-    // Separar y ordenar asks y bids
     const asks = data
-      .filter(d => d.side === 'ask' && d.price >= currentPrice)
+      .filter(d => d.side === 'ask' && d.price > currentPrice)
       .sort((a, b) => a.price - b.price); // asks ordenados de menor a mayor
 
     const bids = data
-      .filter(d => d.side === 'bid' && d.price <= currentPrice)
+      .filter(d => d.side === 'bid' && d.price < currentPrice)
       .sort((a, b) => b.price - a.price); // bids ordenados de mayor a menor
 
+    console.log('Datos filtrados:', {
+      asks: asks.length,
+      bids: bids.length,
+      currentPrice,
+      sampleAsk: asks[0],
+      sampleBid: bids[0]
+    });
+
     // Concatenar asks y bids manteniendo el orden correcto
-    const visibleData = [...asks.reverse(), ...bids];
+    const visibleData = [...asks, ...bids];
 
     // Dibujar barras de volumen
     g.selectAll('.volume-bar')
@@ -103,7 +109,11 @@ export const VolumeProfile = ({
       .join('rect')
       .attr('class', 'volume-bar')
       .attr('x', 0)
-      .attr('y', d => priceToY(d.price) - barHeight / 2)
+      .attr('y', d => {
+        const y = priceToY(d.price);
+        console.log('Bar position:', { price: d.price, side: d.side, y });
+        return y - barHeight / 2;
+      })
       .attr('width', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
