@@ -342,11 +342,19 @@ export default function Chart() {
 
     try {
       // Obtener el rango de precios real del gráfico
-      const priceRange = candlestickSeriesRef.current.priceScale().priceRange();
-      if (!priceRange) return;
+      const priceScale = candlestickSeriesRef.current.priceScale();
+      const currentVisibleRange = priceScale.getVisibleLogicalRange();
+      if (!currentVisibleRange) return;
 
-      const minPrice = priceRange.minValue();
-      const maxPrice = priceRange.maxValue();
+      const lastCandle = historicalDataRef.current[historicalDataRef.current.length - 1];
+      if (!lastCandle) return;
+
+      // Usar el precio actual como punto de referencia
+      const currentPrice = lastCandle.close;
+      const rangeSize = 5000; // Rango de ±5000 alrededor del precio actual
+
+      const minPrice = currentPrice - rangeSize;
+      const maxPrice = currentPrice + rangeSize;
 
       // Solo mostrar información del rango visible
       console.log('📊 Rango visible del gráfico:', {
@@ -375,24 +383,33 @@ export default function Chart() {
       }
 
       // Actualizar el precio actual y sus coordenadas
-      const lastCandle = historicalDataRef.current[historicalDataRef.current.length - 1];
-      if (lastCandle?.close) {
-        const currentY = candlestickSeriesRef.current.priceToCoordinate(lastCandle.close);
-        if (currentY !== null) {
-          setCurrentChartPrice(lastCandle.close);
-          setPriceCoordinate(currentY);
+      const currentY = candlestickSeriesRef.current.priceToCoordinate(currentPrice);
+      if (currentY !== null) {
+        setCurrentChartPrice(currentPrice);
+        setPriceCoordinate(currentY);
 
-          // Actualizar las coordenadas completas para sincronización
+        // Actualizar las coordenadas completas para sincronización
+        const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
+        const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
+
+        if (minY !== null && maxY !== null) {
           setPriceCoordinates({
-            currentPrice: lastCandle.close,
+            currentPrice,
             currentY,
             minPrice,
-            minY: candlestickSeriesRef.current.priceToCoordinate(minPrice),
+            minY,
             maxPrice,
-            maxY: candlestickSeriesRef.current.priceToCoordinate(maxPrice)
+            maxY
           });
         }
       }
+
+      console.log('✅ Actualización de coordenadas exitosa:', {
+        precio_actual: currentPrice,
+        coordenada_Y: currentY,
+        rango_visible: { min: minPrice, max: maxPrice }
+      });
+
     } catch (error) {
       console.error('Error updating visible price range:', error);
     }
