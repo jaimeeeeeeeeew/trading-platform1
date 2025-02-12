@@ -394,19 +394,8 @@ export default function Chart() {
 
     try {
       const series = candlestickSeriesRef.current;
-      const logicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
 
-      if (!logicalRange) return;
-
-      // Obtener las coordenadas Y min/max del área visible
-      const coords = chartRef.current.timeScale().getVisibleRange();
-      if (!coords) return;
-
-      // Convertir coordenadas a precios
-      const currentY = series.priceToCoordinate(currentChartPrice);
-      if (currentY === null) return;
-
-      // Calcular el rango visible aproximado basado en el precio actual
+      // Calcular el rango visible basado en un porcentaje del precio actual
       const priceDelta = currentChartPrice * 0.02; // 2% del precio actual
       const visibleMin = currentChartPrice - priceDelta;
       const visibleMax = currentChartPrice + priceDelta;
@@ -416,10 +405,12 @@ export default function Chart() {
         max: visibleMax
       });
 
+      // Obtener las coordenadas Y para los precios
+      const currentY = series.priceToCoordinate(currentChartPrice);
       const minY = series.priceToCoordinate(visibleMin);
       const maxY = series.priceToCoordinate(visibleMax);
 
-      if (minY !== null && maxY !== null) {
+      if (currentY !== null && minY !== null && maxY !== null) {
         setPriceCoordinate(currentY);
         setPriceCoordinates({
           currentPrice: currentChartPrice,
@@ -430,6 +421,7 @@ export default function Chart() {
           maxY
         });
 
+        // Actualizar el perfil de volumen si hay datos disponibles
         if (orderbookVolumeProfile.length > 0) {
           const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
           const normalizedData = orderbookVolumeProfile
