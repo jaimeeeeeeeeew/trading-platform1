@@ -640,26 +640,12 @@ export default function Chart() {
         <div ref={container} className="w-full h-full" />
 
         {container.current && volumeProfileData.length > 0 && currentChartPrice && (
-          <div
-            className="absolute right-0 top-0 h-full pointer-events-none"
-            style={{
-              width: '180px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 100
-            }}
-          >
-            <VolumeProfile
-              data={volumeProfileData}
-              width={180}
-              height={container.current.clientHeight}
-              visiblePriceRange={visiblePriceRange}
-              currentPrice={currentChartPrice}
-              priceCoordinate={priceCoordinate}
-              priceCoordinates={priceCoordinates}
-            />
-          </div>
+          <VolumeProfile
+            data={volumeProfileData}
+            visiblePriceRange={visiblePriceRange}
+            currentPrice={currentChartPrice}
+            height={container.current.clientHeight}
+          />
         )}
 
         {activeIndicator !== 'none' && (
