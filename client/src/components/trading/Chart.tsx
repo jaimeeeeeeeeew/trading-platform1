@@ -389,6 +389,51 @@ export default function Chart() {
     return ((close - open) / open) * 100;
   };
 
+  const handleVisibleRangeChange = () => {
+    if (!candlestickSeriesRef.current || !currentChartPrice || !chartRef.current) return;
+
+    const priceScale = candlestickSeriesRef.current.priceScale();
+    const visiblePriceRange = priceScale.getVisibleRange();
+
+    if (!visiblePriceRange) return;
+
+    const visibleMin = Math.floor(visiblePriceRange.from);
+    const visibleMax = Math.ceil(visiblePriceRange.to);
+
+    setVisiblePriceRange({
+      min: visibleMin,
+      max: visibleMax
+    });
+
+    const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
+    const minY = candlestickSeriesRef.current.priceToCoordinate(visibleMin);
+    const maxY = candlestickSeriesRef.current.priceToCoordinate(visibleMax);
+
+    if (currentY !== null && minY !== null && maxY !== null) {
+      setPriceCoordinate(currentY);
+      setPriceCoordinates({
+        currentPrice: currentChartPrice,
+        currentY,
+        minPrice: visibleMin,
+        minY,
+        maxPrice: visibleMax,
+        maxY
+      });
+
+      if (orderbookVolumeProfile.length > 0) {
+        const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
+        const normalizedData = orderbookVolumeProfile
+          .filter(data => data.price >= visibleMin && data.price <= visibleMax)
+          .map(data => ({
+            ...data,
+            normalizedVolume: data.volume / maxVolume
+          }));
+
+        setVolumeProfileData(normalizedData);
+      }
+    }
+  };
+
   useEffect(() => {
     if (!container.current || !currentSymbol) return;
 
@@ -447,82 +492,31 @@ export default function Chart() {
 
     candlestickSeriesRef.current = candlestickSeries;
 
-    const handleVisibleRangeChange = () => {
-      if (!candlestickSeriesRef.current || !currentChartPrice) return;
-
-      const priceRange = candlestickSeriesRef.current.priceScale().getVisibleRange();
-      if (!priceRange) return;
-
-      const visibleMin = Math.floor(priceRange.from);
-      const visibleMax = Math.ceil(priceRange.to);
-
-      setVisiblePriceRange({
-        min: visibleMin,
-        max: visibleMax
-      });
-
-      const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
-      const minY = candlestickSeriesRef.current.priceToCoordinate(visibleMin);
-      const maxY = candlestickSeriesRef.current.priceToCoordinate(visibleMax);
-
-      if (currentY !== null && minY !== null && maxY !== null) {
-        setPriceCoordinate(currentY);
-        setPriceCoordinates({
-          currentPrice: currentChartPrice,
-          currentY,
-          minPrice: visibleMin,
-          minY,
-          maxPrice: visibleMax,
-          maxY
-        });
-
-        if (orderbookVolumeProfile.length > 0) {
-          const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
-          const normalizedData = orderbookVolumeProfile
-            .filter(data => data.price >= visibleMin && data.price <= visibleMax)
-            .map(data => ({
-              ...data,
-              normalizedVolume: data.volume / maxVolume
-            }));
-
-          setVolumeProfileData(normalizedData);
-        }
-      }
-    };
-
+    // Subscribe to price scale changes
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
       handleVisibleRangeChange();
     });
 
-    candlestickSeries.subscribeVisiblePriceRangeChange(() => {
-      handleVisibleRangeChange();
+    // Subscribe to crosshair moves to update price coordinates
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.point || !candlestickSeriesRef.current) return;
+
+      const price = candlestickSeriesRef.current.coordinateToPrice(param.point.y);
+      if (price !== null) {
+        handleVisibleRangeChange();
+      }
+
+      if (param.time) {
+        const data = param.seriesData.get(candlestickSeries) as CandlestickData;
+        if (data) {
+          setCrosshairData(data as any);
+        }
+      }
     });
 
     loadInitialData(currentSymbol);
     handleResize();
     window.addEventListener('resize', handleResize);
-
-    chart.subscribeCrosshairMove(param => {
-      if (
-        param.point === undefined ||
-        !param.time ||
-        param.point.x < 0 ||
-        param.point.y < 0
-      ) {
-        setCrosshairData(null);
-        setCrosshairPrice(null);
-        return;
-      }
-
-      const price = candlestickSeries.coordinateToPrice(param.point.y);
-      setCrosshairPrice(price);
-
-      const data = param.seriesData.get(candlestickSeries) as OHLCVData;
-      if (data) {
-        setCrosshairData(data);
-      }
-    });
-
 
     return () => {
       window.removeEventListener('resize', handleResize);
