@@ -48,7 +48,6 @@ export function useMarketData() {
       });
 
       try {
-        // Validar que los datos sean arrays antes de procesarlos
         if (!Array.isArray(newData.bids) || !Array.isArray(newData.asks)) {
           throw new Error('Invalid orderbook data structure');
         }
@@ -61,7 +60,7 @@ export function useMarketData() {
         setData(prev => ({
           ...prev,
           orderbook: {
-            bids: sortedBids.slice(0, 100), // Limitar a 100 niveles para mejor rendimiento
+            bids: sortedBids.slice(0, 100),
             asks: sortedAsks.slice(0, 100),
             timestamp: newData.timestamp
           },
@@ -86,83 +85,77 @@ export function useMarketData() {
     };
   }, [socket, toast]);
 
-  // Calculate volume profile data from orderbook with price buckets
   const volumeProfile = useMemo(() => {
     if (!data.orderbook.bids.length && !data.orderbook.asks.length) {
       console.log('No orderbook data available for volume profile');
       return [];
     }
 
-    const PRICE_BUCKET_SIZE = 10; // Agrupar precios cada $10
+    const PRICE_BUCKET_SIZE = 10;
 
     // Función para agrupar precios en buckets
     const getPriceBucket = (price: number) => 
       Math.floor(price / PRICE_BUCKET_SIZE) * PRICE_BUCKET_SIZE;
 
-    // Procesar bids y asks por separado para mantener la información del lado
-    const bidVolumes: Record<number, number> = {};
-    const askVolumes: Record<number, number> = {};
+    // Procesar bids y asks por separado
+    const bidVolumes: Record<number, { volume: number; side: 'bid' }> = {};
+    const askVolumes: Record<number, { volume: number; side: 'ask' }> = {};
 
-    // Procesar bids
+    // Procesar bids - mantener el lado 'bid' independientemente del volumen
     data.orderbook.bids.forEach(bid => {
       const price = parseFloat(bid.Price);
       const volume = parseFloat(bid.Quantity);
       const bucket = getPriceBucket(price);
 
       if (!bidVolumes[bucket]) {
-        bidVolumes[bucket] = 0;
+        bidVolumes[bucket] = { volume: 0, side: 'bid' };
       }
-      bidVolumes[bucket] += volume;
+      bidVolumes[bucket].volume += volume;
     });
 
-    // Procesar asks
+    // Procesar asks - mantener el lado 'ask' independientemente del volumen
     data.orderbook.asks.forEach(ask => {
       const price = parseFloat(ask.Price);
       const volume = parseFloat(ask.Quantity);
       const bucket = getPriceBucket(price);
 
       if (!askVolumes[bucket]) {
-        askVolumes[bucket] = 0;
+        askVolumes[bucket] = { volume: 0, side: 'ask' };
       }
-      askVolumes[bucket] += volume;
+      askVolumes[bucket].volume += volume;
     });
 
-    // Combinar y normalizar los volúmenes
-    const allPrices = Array.from(new Set([
-      ...Object.keys(bidVolumes).map(Number),
-      ...Object.keys(askVolumes).map(Number)
-    ])).sort((a, b) => b - a); // Ordenar precios de mayor a menor
-
-    const volumes = allPrices.map(price => ({
-      price,
-      bidVolume: bidVolumes[price] || 0,
-      askVolume: askVolumes[price] || 0,
-      // Asignar el lado según el volumen dominante
-      side: bidVolumes[price] > (askVolumes[price] || 0) ? 'bid' as const : 'ask' as const
-    }));
+    // Combinar los volúmenes manteniendo la separación de sides
+    const allLevels = [
+      ...Object.entries(bidVolumes).map(([price, data]) => ({
+        price: Number(price),
+        volume: data.volume,
+        side: data.side
+      })),
+      ...Object.entries(askVolumes).map(([price, data]) => ({
+        price: Number(price),
+        volume: data.volume,
+        side: data.side
+      }))
+    ];
 
     // Encontrar el volumen máximo para normalización
-    const maxVolume = Math.max(
-      ...volumes.map(v => Math.max(v.bidVolume, v.askVolume))
-    );
+    const maxVolume = Math.max(...allLevels.map(level => level.volume));
 
-    // Normalizar volúmenes
-    const normalizedVolumes = volumes.map(v => ({
-      ...v,
-      normalizedBidVolume: v.bidVolume / maxVolume,
-      normalizedAskVolume: v.askVolume / maxVolume,
-      volume: v.side === 'bid' ? v.bidVolume : v.askVolume,
-      normalizedVolume: v.side === 'bid' ? v.bidVolume / maxVolume : v.askVolume / maxVolume
-    }));
+    // Normalizar volúmenes manteniendo los sides originales
+    const normalizedLevels = allLevels.map(level => ({
+      ...level,
+      normalizedVolume: level.volume / maxVolume
+    })).sort((a, b) => b.price - a.price);
 
     console.log('📊 Volume Profile Updated:', {
-      levels: normalizedVolumes.length,
+      levels: normalizedLevels.length,
       maxVolume,
-      firstBid: normalizedVolumes.find(v => v.side === 'bid'),
-      firstAsk: normalizedVolumes.find(v => v.side === 'ask')
+      bidLevels: normalizedLevels.filter(v => v.side === 'bid').length,
+      askLevels: normalizedLevels.filter(v => v.side === 'ask').length
     });
 
-    return normalizedVolumes;
+    return normalizedLevels;
   }, [data.orderbook]);
 
   return { 
