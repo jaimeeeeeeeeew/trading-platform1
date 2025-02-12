@@ -106,7 +106,7 @@ export const VolumeProfile = ({
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '2,2');
 
-      // Etiqueta de precio
+      // Etiqueta de precio actual
       g.append('text')
         .attr('class', 'price-label')
         .attr('x', -5)
@@ -120,7 +120,7 @@ export const VolumeProfile = ({
 
     // Crear marcas de precio personalizadas
     const currentPriceValue = priceCoordinates.currentPrice;
-    const priceStep = Math.round(priceRange / 6); // Dividir el rango en 6 partes
+    const priceStep = Math.round(priceRange / 8); // Dividir el rango en 8 partes
 
     const customPrices = [
       Math.round(currentPriceValue + priceStep * 3),
@@ -132,12 +132,17 @@ export const VolumeProfile = ({
       Math.round(currentPriceValue - priceStep * 3),
     ];
 
-    // Eje de precios personalizado
-    g.selectAll('.custom-tick')
+    // Grupo para los ticks de precio
+    const priceAxisGroup = g.append('g')
+      .attr('class', 'price-axis')
+      .attr('transform', `translate(${-10}, 0)`);
+
+    // Agregar ticks personalizados
+    priceAxisGroup.selectAll('.custom-tick')
       .data(customPrices)
       .join('g')
       .attr('class', 'custom-tick')
-      .attr('transform', d => `translate(${innerWidth}, ${yScale(d)})`)
+      .attr('transform', d => `translate(0, ${yScale(d)})`)
       .call(g => {
         // Línea del tick
         g.append('line')
@@ -150,11 +155,12 @@ export const VolumeProfile = ({
 
         // Texto del precio
         g.append('text')
-          .attr('x', 5)
+          .attr('x', -5)
           .attr('y', 0)
           .attr('dy', '0.32em')
+          .attr('text-anchor', 'end')
           .attr('fill', '#fff')
-          .attr('font-size', '9px')
+          .attr('font-size', '10px')
           .text(d => d.toFixed(0));
       });
 
