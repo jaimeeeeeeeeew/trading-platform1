@@ -118,28 +118,45 @@ export const VolumeProfile = ({
         .text(priceCoordinates.currentPrice.toFixed(1));
     }
 
-    // Eje de precios adaptativo
-    const priceAxis = d3.axisRight(yScale)
-      .ticks(10)
-      .tickFormat((d: any) => {
-        if (typeof d === 'number' && Number.isFinite(d)) {
-          return d.toFixed(0);
-        }
-        return '';
-      })
-      .tickSize(3);
+    // Crear marcas de precio personalizadas
+    const currentPriceValue = priceCoordinates.currentPrice;
+    const priceStep = Math.round(priceRange / 6); // Dividir el rango en 6 partes
 
-    const priceAxisGroup = g.append('g')
-      .attr('transform', `translate(${innerWidth},0)`)
-      .call(priceAxis);
+    const customPrices = [
+      Math.round(currentPriceValue + priceStep * 3),
+      Math.round(currentPriceValue + priceStep * 2),
+      Math.round(currentPriceValue + priceStep),
+      Math.round(currentPriceValue),
+      Math.round(currentPriceValue - priceStep),
+      Math.round(currentPriceValue - priceStep * 2),
+      Math.round(currentPriceValue - priceStep * 3),
+    ];
 
-    priceAxisGroup.select('.domain').remove();
-    priceAxisGroup.selectAll('.tick line')
-      .attr('stroke', '#666')
-      .attr('stroke-width', 0.5);
-    priceAxisGroup.selectAll('.tick text')
-      .attr('fill', '#fff')
-      .attr('font-size', '9px');
+    // Eje de precios personalizado
+    g.selectAll('.custom-tick')
+      .data(customPrices)
+      .join('g')
+      .attr('class', 'custom-tick')
+      .attr('transform', d => `translate(${innerWidth}, ${yScale(d)})`)
+      .call(g => {
+        // Línea del tick
+        g.append('line')
+          .attr('x1', 0)
+          .attr('x2', 3)
+          .attr('y1', 0)
+          .attr('y2', 0)
+          .attr('stroke', '#666')
+          .attr('stroke-width', 0.5);
+
+        // Texto del precio
+        g.append('text')
+          .attr('x', 5)
+          .attr('y', 0)
+          .attr('dy', '0.32em')
+          .attr('fill', '#fff')
+          .attr('font-size', '9px')
+          .text(d => d.toFixed(0));
+      });
 
   }, [data, width, height, currentPrice, priceCoordinates]);
 
