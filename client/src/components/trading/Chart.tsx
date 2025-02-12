@@ -393,12 +393,12 @@ export default function Chart() {
     if (!candlestickSeriesRef.current || !currentChartPrice || !chartRef.current) return;
 
     const priceScale = candlestickSeriesRef.current.priceScale();
-    const visiblePriceRange = priceScale.getVisibleRange();
+    const stats = candlestickSeriesRef.current.priceScale().getSeriesStats();
 
-    if (!visiblePriceRange) return;
+    if (!stats) return;
 
-    const visibleMin = Math.floor(visiblePriceRange.from);
-    const visibleMax = Math.ceil(visiblePriceRange.to);
+    const visibleMin = Math.floor(stats.min);
+    const visibleMax = Math.ceil(stats.max);
 
     setVisiblePriceRange({
       min: visibleMin,
@@ -501,15 +501,11 @@ export default function Chart() {
     chart.subscribeCrosshairMove((param) => {
       if (!param.point || !candlestickSeriesRef.current) return;
 
-      const price = candlestickSeriesRef.current.coordinateToPrice(param.point.y);
-      if (price !== null) {
-        handleVisibleRangeChange();
-      }
-
       if (param.time) {
         const data = param.seriesData.get(candlestickSeries) as CandlestickData;
         if (data) {
           setCrosshairData(data as any);
+          handleVisibleRangeChange();
         }
       }
     });
