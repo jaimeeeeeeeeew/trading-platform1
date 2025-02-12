@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, Time, ISeriesApi, CandlestickData, LogicalRange } from 'lightweight-charts';
+import { createChart, Time, ISeriesApi, CandlestickData } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -84,7 +84,6 @@ export default function Chart() {
     timestamps: []
   });
   const [activeIndicator, setActiveIndicator] = useState<ActiveIndicator>('none');
-  const [visibleRange, setVisibleRange] = useState<{from: number; to: number} | null>(null);
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
   const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
 
@@ -390,22 +389,26 @@ export default function Chart() {
   };
 
   const handleVisibleRangeChange = () => {
-    if (!candlestickSeriesRef.current || !currentChartPrice || !chartRef.current) return;
+    if (!candlestickSeriesRef.current || !currentChartPrice || !container.current) return;
 
     try {
       const series = candlestickSeriesRef.current;
+      const containerHeight = container.current.clientHeight;
 
-      // Calcular el rango visible basado en un porcentaje del precio actual
-      const priceDelta = currentChartPrice * 0.02; // 2% del precio actual
-      const visibleMin = currentChartPrice - priceDelta;
-      const visibleMax = currentChartPrice + priceDelta;
+      // Calculate visible range based on container dimensions and current price
+      const pricePerPixel = currentChartPrice * 0.0001; // 0.01% per pixel
+      const totalPixels = containerHeight;
+      const totalPriceRange = pricePerPixel * totalPixels;
+
+      const visibleMin = currentChartPrice - (totalPriceRange / 2);
+      const visibleMax = currentChartPrice + (totalPriceRange / 2);
 
       setVisiblePriceRange({
         min: visibleMin,
         max: visibleMax
       });
 
-      // Obtener las coordenadas Y para los precios
+      // Get Y coordinates for the price levels
       const currentY = series.priceToCoordinate(currentChartPrice);
       const minY = series.priceToCoordinate(visibleMin);
       const maxY = series.priceToCoordinate(visibleMax);
@@ -421,7 +424,7 @@ export default function Chart() {
           maxY
         });
 
-        // Actualizar el perfil de volumen si hay datos disponibles
+        // Update volume profile if available
         if (orderbookVolumeProfile.length > 0) {
           const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
           const normalizedData = orderbookVolumeProfile
@@ -558,12 +561,9 @@ export default function Chart() {
     const handleVolumeProfileUpdate = () => {
       if (!candlestickSeriesRef.current) return;
 
-      const priceRange = candlestickSeriesRef.current.priceScale().getVisibleRange();
-      if (!priceRange) return;
-
       const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
       const normalizedData = orderbookVolumeProfile
-        .filter(data => data.price >= priceRange.from && data.price <= priceRange.to)
+        .filter(data => data.price >= visiblePriceRange.min && data.price <= visiblePriceRange.max)
         .map(data => ({
           ...data,
           normalizedVolume: data.volume / maxVolume
@@ -573,7 +573,7 @@ export default function Chart() {
     };
 
     handleVolumeProfileUpdate();
-  }, [orderbookVolumeProfile, currentChartPrice]);
+  }, [orderbookVolumeProfile, visiblePriceRange]);
 
 
   return (
