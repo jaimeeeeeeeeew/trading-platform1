@@ -700,11 +700,11 @@ export default function Chart() {
               const value = e.target.value;
               setCustomBars(value);
               const numValue = parseInt(value);
-              if (!isNaN(numValue) && numValue > 0) {
+              if (!isNaN(numValue) && numValue >= 40) { // Establecemos un mínimo de 40 barras
                 setMaxVisibleBars(numValue);
               }
             }}
-            min="1"
+            min="40" // Establecemos un mínimo de 40 barras
             placeholder="Bars"
           />
         )}

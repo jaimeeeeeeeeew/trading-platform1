@@ -30,6 +30,10 @@ interface PriceCoordinates {
 }
 
 const groupDataByBars = (data: Props['data'], maxBars: number) => {
+  // Aseguramos un mínimo de barras para cada lado
+  const minBarsPerSide = 20;
+  const effectiveMaxBars = Math.max(maxBars, minBarsPerSide * 2);
+
   // Separar bids y asks
   const bids = data.filter(d => d.side === 'bid');
   const asks = data.filter(d => d.side === 'ask');
@@ -39,30 +43,26 @@ const groupDataByBars = (data: Props['data'], maxBars: number) => {
   const originalBidVolume = bids.reduce((sum, d) => sum + d.volume, 0);
   const originalAskVolume = asks.reduce((sum, d) => sum + d.volume, 0);
 
-  console.log('Volúmenes originales:', {
-    total: originalTotalVolume,
-    bids: originalBidVolume,
-    asks: originalAskVolume
-  });
-
   // Función para agrupar un lado del libro
   const groupSide = (orders: Props['data']) => {
+    if (orders.length <= effectiveMaxBars / 2) {
+      return { groupedData: orders, groupFactor: 1 };
+    }
+
     let currentData = [...orders];
     let groupFactor = 1;
 
-    while (currentData.length > maxBars / 2) { // Dividir maxBars entre bids y asks
+    while (currentData.length > effectiveMaxBars / 2) {
       const newData: Props['data'] = [];
       for (let i = 0; i < currentData.length; i += 2) {
         if (i + 1 < currentData.length) {
-          // Sumar volúmenes y promediar precios
           newData.push({
             price: (currentData[i].price + currentData[i + 1].price) / 2,
             volume: currentData[i].volume + currentData[i + 1].volume,
-            normalizedVolume: 0, // Se calculará después
+            normalizedVolume: 0,
             side: currentData[i].side
           });
         } else {
-          // Si queda uno solo, mantenerlo
           newData.push(currentData[i]);
         }
       }
@@ -79,19 +79,6 @@ const groupDataByBars = (data: Props['data'], maxBars: number) => {
 
   // Combinar resultados
   const combinedData = [...groupedBids, ...groupedAsks];
-
-  // Verificar volumen total después de agrupar
-  const groupedTotalVolume = combinedData.reduce((sum, d) => sum + d.volume, 0);
-  const groupedBidVolume = groupedBids.reduce((sum, d) => sum + d.volume, 0);
-  const groupedAskVolume = groupedAsks.reduce((sum, d) => sum + d.volume, 0);
-
-  console.log('Volúmenes después de agrupar:', {
-    total: groupedTotalVolume,
-    bids: groupedBidVolume,
-    asks: groupedAskVolume,
-    diferenciaBids: originalBidVolume - groupedBidVolume,
-    diferenciaAsks: originalAskVolume - groupedAskVolume
-  });
 
   // Normalizar volúmenes
   const maxVolume = Math.max(...combinedData.map(d => d.volume));
