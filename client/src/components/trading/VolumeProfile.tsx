@@ -30,47 +30,40 @@ interface PriceCoordinates {
 
 // Constantes para la agrupación de volumen basadas en el zoom
 const ZOOM_LEVELS = {
-  TIGHT: 100,    // Rango de $100 o menos
-  MEDIUM: 500,   // Rango de $500 o menos
-  WIDE: 1000     // Rango mayor a $1000
+  TIGHT: 50,     // Rango de $50 o menos - sin agrupación (1:1)
+  MEDIUM: 200,   // Rango de $200 o menos - agrupación media (5:1)
+  WIDE: 500      // Rango mayor a $500 - agrupación máxima (10:1)
 } as const;
 
-const GROUP_SIZES = {
-  SMALL: 1,    // Sin agrupación
-  MEDIUM: 5,   // Grupos de $5
-  LARGE: 10    // Grupos de $10
+const GROUP_RATIOS = {
+  NONE: 1,     // Sin agrupación (1:1)
+  MEDIUM: 5,   // Agrupación media (5:1)
+  LARGE: 10    // Agrupación máxima (10:1)
 } as const;
 
-const getGroupSize = (priceRange: number): number => {
-  console.log('Calculating group size for price range:', priceRange);
+const getGroupRatio = (priceRange: number): number => {
+  console.log('Analyzing price range for grouping:', priceRange);
 
   if (priceRange <= ZOOM_LEVELS.TIGHT) {
-    console.log('Using SMALL grouping (1x) for tight zoom');
-    return GROUP_SIZES.SMALL;
+    console.log('Using 1:1 ratio - No grouping');
+    return GROUP_RATIOS.NONE;
   } else if (priceRange <= ZOOM_LEVELS.MEDIUM) {
-    console.log('Using MEDIUM grouping (5x) for medium zoom');
-    return GROUP_SIZES.MEDIUM;
+    console.log('Using 5:1 ratio - Medium grouping');
+    return GROUP_RATIOS.MEDIUM;
   }
-  console.log('Using LARGE grouping (10x) for wide zoom');
-  return GROUP_SIZES.LARGE;
+  console.log('Using 10:1 ratio - Large grouping');
+  return GROUP_RATIOS.LARGE;
 };
 
-const getGroupFactor = (groupSize: number): string => {
-  switch (groupSize) {
-    case GROUP_SIZES.SMALL:
-      return '';        // Sin indicador para datos individuales
-    case GROUP_SIZES.MEDIUM:
-      return 'x5';     // Indicador para grupos de $5
-    case GROUP_SIZES.LARGE:
-      return 'x10';    // Indicador para grupos de $10
-    default:
-      return `x${groupSize}`;
-  }
+const getGroupFactor = (ratio: number): string => {
+  if (ratio === GROUP_RATIOS.NONE) return '';
+  return `${ratio}x`;
 };
 
-const groupData = (data: Props['data'], groupSize: number) => {
+const groupData = (data: Props['data'], ratio: number) => {
   // Si no hay agrupación, normalizar los volúmenes directamente
-  if (groupSize === 1) {
+  if (ratio === GROUP_RATIOS.NONE) {
+    console.log('No grouping applied - Using raw data');
     const maxVolume = Math.max(...data.map(d => d.volume));
     return data.map(item => ({
       ...item,
@@ -78,16 +71,31 @@ const groupData = (data: Props['data'], groupSize: number) => {
     }));
   }
 
+  console.log(`Applying ${ratio}:1 grouping ratio`);
   const groups = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
 
-  data.forEach(item => {
-    const groupPrice = Math.floor(item.price / groupSize) * groupSize;
-    const existing = groups.get(groupPrice) || { volume: 0, side: item.side };
-    groups.set(groupPrice, {
-      volume: existing.volume + item.volume,
-      side: item.side
+  // Ordenar los datos por precio para asegurar grupos contiguos
+  const sortedData = [...data].sort((a, b) => a.price - b.price);
+
+  // Agrupar datos en lotes según el ratio
+  for (let i = 0; i < sortedData.length; i += ratio) {
+    const batch = sortedData.slice(i, i + ratio);
+    if (batch.length === 0) continue;
+
+    // Usar el precio promedio del grupo como key
+    const avgPrice = Math.round(batch.reduce((sum, item) => sum + item.price, 0) / batch.length);
+    const totalVolume = batch.reduce((sum, item) => sum + item.volume, 0);
+    // Usar el side más frecuente en el grupo
+    const dominantSide = batch.reduce((acc, item) => {
+      acc[item.side] = (acc[item.side] || 0) + 1;
+      return acc;
+    }, {} as Record<'bid' | 'ask', number>);
+
+    groups.set(avgPrice, {
+      volume: totalVolume,
+      side: dominantSide.bid > dominantSide.ask ? 'bid' : 'ask'
     });
-  });
+  }
 
   const maxVolume = Math.max(...Array.from(groups.values()).map(g => g.volume));
 
@@ -121,36 +129,26 @@ export const VolumeProfile = ({
 
     // Calcular el rango de precios visible actual
     const visibleRange = visiblePriceRange.max - visiblePriceRange.min;
-
-    // Usar una ventana móvil alrededor del precio actual para determinar el zoom
-    const zoomWindow = Math.min(visibleRange, 2000); // Limitar la ventana a 2000 para evitar grupos muy grandes
-
-    console.log('Volume Profile Range Analysis:', {
-      fullRange: visibleRange,
-      zoomWindow,
-      currentPrice,
-      visiblePrices: {
-        min: visiblePriceRange.min,
-        max: visiblePriceRange.max
-      }
+    console.log('Price range analysis:', {
+      visibleRange,
+      min: visiblePriceRange.min,
+      max: visiblePriceRange.max
     });
 
-    const groupSize = getGroupSize(zoomWindow);
-
-    console.log('Selected grouping configuration:', {
-      zoomWindow,
-      groupSize,
-      groupFactor: getGroupFactor(groupSize)
+    const groupRatio = getGroupRatio(visibleRange);
+    console.log('Selected grouping:', {
+      ratio: groupRatio,
+      label: getGroupFactor(groupRatio)
     });
 
-    const groupedData = groupData(data, groupSize);
+    const groupedData = groupData(data, groupRatio);
 
     console.log('VolumeProfile Data:', {
       totalItems: groupedData.length,
       bids: groupedData.filter(d => d.side === 'bid').length,
       asks: groupedData.filter(d => d.side === 'ask').length,
       priceRange: visibleRange,
-      groupSize,
+      groupSize: groupRatio,
       originalDataLength: data.length,
       sampleOriginalData: data[0],
       sampleGroupedData: groupedData[0]
@@ -211,7 +209,7 @@ export const VolumeProfile = ({
           .attr('text-anchor', 'end')
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .text(`${d.price}${groupSize > GROUP_SIZES.SMALL ? ` (${getGroupFactor(groupSize)})` : ''}`);
+          .text(`${d.price}${groupRatio > GROUP_RATIOS.NONE ? ` (${getGroupFactor(groupRatio)})` : ''}`);
       } else {
         g.append('text')
           .attr('class', 'price-label')
