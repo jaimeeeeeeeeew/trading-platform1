@@ -83,18 +83,19 @@ export const VolumeProfile = ({
     const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (data.length * 2));
 
     // Filtrar y ordenar datos dentro del rango visible
-    const padding = (priceCoordinates.maxPrice - priceCoordinates.minPrice) * 0.05;
+    //const padding = (priceCoordinates.maxPrice - priceCoordinates.minPrice) * 0.05;
 
-    // Separar asks y bids
+    // Separar y ordenar asks y bids
     const asks = data
-      .filter(d => d.side === 'ask' && d.price >= currentPrice && d.price <= (priceCoordinates.maxPrice + padding))
+      .filter(d => d.side === 'ask' && d.price >= currentPrice)
       .sort((a, b) => a.price - b.price); // asks ordenados de menor a mayor
 
     const bids = data
-      .filter(d => d.side === 'bid' && d.price <= currentPrice && d.price >= (priceCoordinates.minPrice - padding))
+      .filter(d => d.side === 'bid' && d.price <= currentPrice)
       .sort((a, b) => b.price - a.price); // bids ordenados de mayor a menor
 
-    const visibleData = [...asks, ...bids];
+    // Concatenar asks y bids manteniendo el orden correcto
+    const visibleData = [...asks.reverse(), ...bids];
 
     // Dibujar barras de volumen
     g.selectAll('.volume-bar')
