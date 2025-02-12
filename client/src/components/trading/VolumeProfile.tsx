@@ -40,16 +40,23 @@ const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], 
   });
 };
 
-const mergeOverlappingBars = (bars: Props['data'], getY: (price: number) => number, tolerance: number = 1) => {
+const mergeOverlappingBars = (bars: Props['data'], getY: (price: number) => number, tolerance: number = 2) => {
+  // Aumentamos la tolerancia a 2 pixels para asegurar que no haya solapamientos
   const merged = new Map<number, Props['data'][0]>();
 
-  bars.forEach(bar => {
+  // Ordenamos las barras por precio para asegurar un procesamiento consistente
+  const sortedBars = [...bars].sort((a, b) => a.price - b.price);
+
+  sortedBars.forEach(bar => {
     const y = Math.round(getY(bar.price));
+    // Buscamos si hay alguna barra cercana en el rango de tolerancia
     const key = Math.floor(y / tolerance) * tolerance;
 
     if (merged.has(key)) {
       const existing = merged.get(key)!;
+      // Sumamos volúmenes
       existing.volume += bar.volume;
+      // Actualizamos el precio como promedio ponderado por volumen
       existing.price = (existing.price * (existing.volume - bar.volume) + 
                        bar.price * bar.volume) / existing.volume;
     } else {
@@ -57,6 +64,7 @@ const mergeOverlappingBars = (bars: Props['data'], getY: (price: number) => numb
     }
   });
 
+  // Convertimos el Map a array y recalculamos volúmenes normalizados
   const mergedArray = Array.from(merged.values());
   const maxVolume = Math.max(...mergedArray.map(b => b.volume));
 
@@ -111,7 +119,7 @@ export const VolumeProfile = ({
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      const margin = { top: 20, right: 30, bottom: 20, left: 70 };
+      const margin = { top: 20, right: -60, bottom: 20, left: 0 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
@@ -142,7 +150,7 @@ export const VolumeProfile = ({
         return priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
       };
 
-      const barHeight = Math.max(2, (priceCoordinates.minY - priceCoordinates.maxY) / (newData.length * 1.5));
+      const barHeight = Math.max(3, (priceCoordinates.minY - priceCoordinates.maxY) / (newData.length * 1.5));
 
       // Combinar barras que se solapan
       const mergedAsks = mergeOverlappingBars(asks, priceToY, barHeight);

@@ -668,15 +668,9 @@ export default function Chart() {
         </Select>
 
         <Select
-          value={showCustomInput ? "custom" : maxVisibleBars.toString()}
+          value={maxVisibleBars.toString()}
           onValueChange={(value) => {
-            if (value === "custom") {
-              setShowCustomInput(true);
-              setCustomBars(maxVisibleBars.toString());
-            } else {
-              setShowCustomInput(false);
-              setMaxVisibleBars(Number(value));
-            }
+            setMaxVisibleBars(Number(value));
           }}
         >
           <SelectTrigger className="w-24 bg-background">
@@ -687,27 +681,8 @@ export default function Chart() {
             <SelectItem value="100">100 bars</SelectItem>
             <SelectItem value="200">200 bars</SelectItem>
             <SelectItem value="300">300 bars</SelectItem>
-            <SelectItem value="custom">Custom</SelectItem>
           </SelectContent>
         </Select>
-
-        {showCustomInput && (
-          <Input
-            type="number"
-            value={customBars}
-            className="w-24 bg-background"
-            onChange={(e) => {
-              const value = e.target.value;
-              setCustomBars(value);
-              const numValue = parseInt(value);
-              if (!isNaN(numValue) && numValue >= 40) { // Establecemos un mínimo de 40 barras
-                setMaxVisibleBars(numValue);
-              }
-            }}
-            min="40" // Establecemos un mínimo de 40 barras
-            placeholder="Bars"
-          />
-        )}
 
       </div>
 
