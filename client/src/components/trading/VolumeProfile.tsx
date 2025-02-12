@@ -40,12 +40,15 @@ const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], 
   });
 };
 
-const mergeOverlappingBars = (bars: Props['data'], getY: (price: number) => number, tolerance: number = 2) => {
-  // Aumentamos la tolerancia a 2 pixels para asegurar que no haya solapamientos
-  const merged = new Map<number, Props['data'][0]>();
+const mergeOverlappingBars = (bars: Props['data'], getY: (price: number) => number, tolerance: number = 3) => {
+  // Verificar volumen total antes de la fusión
+  const initialTotalVolume = bars.reduce((sum, bar) => sum + bar.volume, 0);
 
-  // Ordenamos las barras por precio para asegurar un procesamiento consistente
+  // Ordenar las barras por precio para asegurar un procesamiento consistente
   const sortedBars = [...bars].sort((a, b) => a.price - b.price);
+
+  // Usar Map para agrupar barras por coordenada Y
+  const merged = new Map<number, Props['data'][0]>();
 
   sortedBars.forEach(bar => {
     const y = Math.round(getY(bar.price));
@@ -54,20 +57,33 @@ const mergeOverlappingBars = (bars: Props['data'], getY: (price: number) => numb
 
     if (merged.has(key)) {
       const existing = merged.get(key)!;
-      // Sumamos volúmenes
-      existing.volume += bar.volume;
-      // Actualizamos el precio como promedio ponderado por volumen
-      existing.price = (existing.price * (existing.volume - bar.volume) + 
-                       bar.price * bar.volume) / existing.volume;
+      const totalVolume = existing.volume + bar.volume;
+      // Actualizar precio como promedio ponderado por volumen
+      existing.price = (existing.price * existing.volume + bar.price * bar.volume) / totalVolume;
+      // Sumar volúmenes
+      existing.volume = totalVolume;
     } else {
       merged.set(key, { ...bar });
     }
   });
 
-  // Convertimos el Map a array y recalculamos volúmenes normalizados
+  // Convertir el Map a array
   const mergedArray = Array.from(merged.values());
-  const maxVolume = Math.max(...mergedArray.map(b => b.volume));
 
+  // Verificar volumen total después de la fusión
+  const finalTotalVolume = mergedArray.reduce((sum, bar) => sum + bar.volume, 0);
+
+  // Verificar que el volumen total se mantiene
+  if (Math.abs(finalTotalVolume - initialTotalVolume) > 0.0001) {
+    console.warn('Diferencia en volumen detectada:', {
+      inicial: initialTotalVolume,
+      final: finalTotalVolume,
+      diferencia: finalTotalVolume - initialTotalVolume
+    });
+  }
+
+  // Normalizar volúmenes
+  const maxVolume = Math.max(...mergedArray.map(b => b.volume));
   return mergedArray.map(bar => ({
     ...bar,
     normalizedVolume: bar.volume / maxVolume
@@ -97,6 +113,13 @@ export const VolumeProfile = ({
     const asks = visibleData.filter(d => d.side === 'ask').sort((a, b) => a.price - b.price);
     const bids = visibleData.filter(d => d.side === 'bid').sort((a, b) => b.price - a.price);
 
+    // Verificar volúmenes totales
+    console.log('Volúmenes antes de procesar:', {
+      asks: asks.reduce((sum, d) => sum + d.volume, 0),
+      bids: bids.reduce((sum, d) => sum + d.volume, 0),
+      total: visibleData.reduce((sum, d) => sum + d.volume, 0)
+    });
+
     return { asks, bids };
   }, [data, visiblePriceRange]);
 
@@ -119,7 +142,7 @@ export const VolumeProfile = ({
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      const margin = { top: 20, right: -60, bottom: 20, left: 0 };
+      const margin = { top: 20, right: 30, bottom: 20, left: 70 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
@@ -150,11 +173,20 @@ export const VolumeProfile = ({
         return priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
       };
 
-      const barHeight = Math.max(3, (priceCoordinates.minY - priceCoordinates.maxY) / (newData.length * 1.5));
+      // Calcular altura de barra basada en el rango visible
+      const visibleRange = priceCoordinates.minY - priceCoordinates.maxY;
+      const barHeight = Math.max(3, visibleRange / (asks.length + bids.length) * 0.8);
 
       // Combinar barras que se solapan
       const mergedAsks = mergeOverlappingBars(asks, priceToY, barHeight);
       const mergedBids = mergeOverlappingBars(bids, priceToY, barHeight);
+
+      // Verificar volúmenes después de la fusión
+      console.log('Volúmenes después de fusionar:', {
+        asks: mergedAsks.reduce((sum, d) => sum + d.volume, 0),
+        bids: mergedBids.reduce((sum, d) => sum + d.volume, 0),
+        total: [...mergedAsks, ...mergedBids].reduce((sum, d) => sum + d.volume, 0)
+      });
 
       // Etiquetas de precio
       const allPrices = [...mergedBids, ...mergedAsks].sort((a, b) => a.price - b.price);
@@ -172,7 +204,7 @@ export const VolumeProfile = ({
         }
       });
 
-      // Barras de volumen
+      // Barras de volumen con espaciado garantizado
       g.selectAll('.bid-bars')
         .data(mergedBids)
         .join('rect')
@@ -183,7 +215,7 @@ export const VolumeProfile = ({
           return isNaN(y) ? 0 : y - barHeight / 2;
         })
         .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
-        .attr('height', barHeight)
+        .attr('height', barHeight * 0.9) // Reducir ligeramente la altura para garantizar espacio
         .attr('fill', '#26a69a')
         .attr('opacity', 0.9);
 
@@ -197,7 +229,7 @@ export const VolumeProfile = ({
           return isNaN(y) ? 0 : y - barHeight / 2;
         })
         .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
-        .attr('height', barHeight)
+        .attr('height', barHeight * 0.9) // Reducir ligeramente la altura para garantizar espacio
         .attr('fill', '#ef5350')
         .attr('opacity', 0.9);
 
