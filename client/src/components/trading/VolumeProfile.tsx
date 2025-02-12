@@ -45,7 +45,6 @@ export const VolumeProfile = ({
       return;
     }
 
-    console.log('Current price coordinates:', priceCoordinates);
     console.log('Data received:', data.length, 'items');
 
     const svg = d3.select(svgRef.current);
@@ -83,7 +82,7 @@ export const VolumeProfile = ({
 
     const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (data.length * 2));
 
-    // Filtrar y ordenar los datos sin restricción de precio
+    // No filtrar por precio, solo por tipo
     const asks = data
       .filter(d => d.side === 'ask')
       .sort((a, b) => a.price - b.price);
@@ -100,12 +99,9 @@ export const VolumeProfile = ({
       sampleBid: bids[0]
     });
 
-    // Combinar los datos manteniendo el orden
-    const visibleData = [...asks, ...bids];
-
     // Dibujar barras de volumen
     g.selectAll('.volume-bar')
-      .data(visibleData)
+      .data([...asks, ...bids])
       .join('rect')
       .attr('class', 'volume-bar')
       .attr('x', 0)

@@ -57,6 +57,16 @@ export function useMarketData() {
         // Ordenar asks de menor a mayor precio
         const sortedAsks = [...newData.asks].sort((a, b) => parseFloat(a.Price) - parseFloat(b.Price));
 
+        console.log('📗 Top 5 Bids:', sortedBids.slice(0, 5).map(bid => ({
+          Price: parseFloat(bid.Price),
+          Volume: parseFloat(bid.Quantity)
+        })));
+
+        console.log('📕 Top 5 Asks:', sortedAsks.slice(0, 5).map(ask => ({
+          Price: parseFloat(ask.Price),
+          Volume: parseFloat(ask.Quantity)
+        })));
+
         setData(prev => ({
           ...prev,
           orderbook: {
