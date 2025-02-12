@@ -431,7 +431,6 @@ export default function Chart() {
       const range = maxPrice - minPrice;
 
       // Calculate price step based on zoom level
-      // More zoomed in = smaller step
       const zoomLevel = range / maxPrice; // normalized zoom level
       let priceStep = 200; // default step
 
@@ -466,14 +465,6 @@ export default function Chart() {
         minPrice
       });
 
-      console.log('Price Scale Info Updated:', {
-        priceStep,
-        maxPrice,
-        minPrice,
-        visiblePrices: prices,
-        zoomLevel
-      });
-
     } catch (error) {
       console.error('Error updating price scale info:', error);
     }
@@ -485,16 +476,6 @@ export default function Chart() {
     try {
       const series = candlestickSeriesRef.current;
       const containerHeight = container.current.clientHeight;
-
-      // Calculate price range based on the priceScale
-      const priceScale = series.priceScale();
-      const logicalRange = chartRef.current?.timeScale().getVisibleLogicalRange();
-
-      if (!logicalRange) return;
-
-      // Get the current coordinate range
-      const coordinate = series.priceToCoordinate(currentChartPrice);
-      if (coordinate === null) return;
 
       // Calculate visible range based on container height
       const pixelsPerPrice = containerHeight / (currentChartPrice * 0.1); // 10% of current price
@@ -511,11 +492,11 @@ export default function Chart() {
       });
 
       // Get coordinates for all price levels
-      const currentY = coordinate;
+      const currentY = series.priceToCoordinate(currentChartPrice);
       const minY = series.priceToCoordinate(visibleMin);
       const maxY = series.priceToCoordinate(visibleMax);
 
-      if (minY !== null && maxY !== null) {
+      if (minY !== null && maxY !== null && currentY !== null) {
         setPriceCoordinate(currentY);
         setPriceCoordinates({
           currentPrice: currentChartPrice,
@@ -541,12 +522,6 @@ export default function Chart() {
 
           setVolumeProfileData(normalizedData);
         }
-
-        console.log('Price coordinates updated:', {
-          price: currentChartPrice,
-          coordinate: currentY,
-          range: { min: minY, max: maxY }
-        });
       }
       updatePriceScaleInfo();
     } catch (error) {

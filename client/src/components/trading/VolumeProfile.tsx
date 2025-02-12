@@ -64,10 +64,10 @@ export const VolumeProfile = ({
       .domain([0, 1])
       .range([0, maxBarWidth]);
 
-    // Usar el mismo rango y sistema de coordenadas que el gráfico principal
+    // Usar el mismo sistema de coordenadas que el gráfico principal
     const yScale = d3.scaleLinear()
-      .domain([priceCoordinates.maxPrice, priceCoordinates.minPrice]) // Invertido para coincidir con lightweight-charts
-      .range([0, innerHeight]);
+      .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
+      .range([innerHeight, 0]); // Invertimos el rango para que coincida con el gráfico
 
     // Altura mínima de las barras basada en el rango visible
     const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
@@ -76,7 +76,7 @@ export const VolumeProfile = ({
     // Filtrar datos dentro del rango visible y ordenar por precio
     const visibleData = data
       .filter(d => d.price >= priceCoordinates.minPrice && d.price <= priceCoordinates.maxPrice)
-      .sort((a, b) => b.price - a.price);
+      .sort((a, b) => a.price - b.price);
 
     // Dibujar barras de volumen
     g.selectAll('.volume-bar')
@@ -118,10 +118,10 @@ export const VolumeProfile = ({
         .text(priceCoordinates.currentPrice.toFixed(1));
     }
 
-    // Crear marcas de precio personalizadas
+    // Crear escala de precios
     const priceStep = Math.round(priceRange / 8); // Dividir el rango en 8 partes
-    const customPrices = Array.from({ length: 7 }, (_, i) => 
-      Math.round(priceCoordinates.currentPrice + priceStep * (3 - i))
+    const customPrices = Array.from({ length: 9 }, (_, i) => 
+      Math.round(priceCoordinates.minPrice + (i * priceStep))
     );
 
     // Grupo para los ticks de precio
