@@ -40,7 +40,7 @@ export const VolumeProfile = ({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data || data.length === 0) return;
+    if (!svgRef.current || !data || data.length === 0 || !currentPrice) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -61,20 +61,24 @@ export const VolumeProfile = ({
       .domain([0, 1])
       .range([maxBarWidth, 0]);
 
-    // Asegurar que los valores del dominio sean números válidos
-    const yMin = Number.isFinite(visiblePriceRange.min) ? visiblePriceRange.min : 0;
-    const yMax = Number.isFinite(visiblePriceRange.max) ? visiblePriceRange.max : 100000;
+    // Calcular el rango de precios centrado alrededor del precio actual
+    const priceRange = 1000; // Rango de ±$1000 alrededor del precio actual
+    const yMin = currentPrice - priceRange;
+    const yMax = currentPrice + priceRange;
 
     const yScale = d3.scaleLinear()
       .domain([yMin, yMax])
       .range([innerHeight, 0]);
 
-    // Altura fija para las barras, ajustada para incrementos de $10
+    // Altura fija para las barras, ajustada para el nuevo rango de precios
     const barHeight = Math.max(2, (innerHeight / ((yMax - yMin) / 10)));
+
+    // Filtrar datos para mostrar solo los precios dentro del rango visible
+    const visibleData = data.filter(d => d.price >= yMin && d.price <= yMax);
 
     // Dibujar barras de volumen
     const bars = g.selectAll('.volume-bar')
-      .data(data)
+      .data(visibleData)
       .join('rect')
       .attr('class', 'volume-bar')
       .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
@@ -89,7 +93,7 @@ export const VolumeProfile = ({
 
     // Agregar etiquetas de precio
     g.selectAll('.price-label')
-      .data(data)
+      .data(visibleData)
       .join('text')
       .attr('class', 'price-label')
       .attr('x', -5)
@@ -104,7 +108,7 @@ export const VolumeProfile = ({
       .text(d => d.price.toFixed(0));
 
     // Línea de precio actual
-    if (currentPrice && Number.isFinite(yScale(currentPrice))) {
+    if (Number.isFinite(yScale(currentPrice))) {
       g.append('line')
         .attr('x1', 0)
         .attr('x2', innerWidth)
@@ -124,9 +128,9 @@ export const VolumeProfile = ({
         .text(currentPrice.toFixed(1));
     }
 
-    // Eje de precios con incrementos de $10
+    // Eje de precios con incrementos adaptados al rango visible
     const priceAxis = d3.axisRight(yScale)
-      .ticks((yMax - yMin) / 10)
+      .ticks(10)
       .tickFormat((d: any) => {
         if (typeof d === 'number' && Number.isFinite(d)) {
           return `${d.toFixed(0)}`;
@@ -153,20 +157,9 @@ export const VolumeProfile = ({
       .attr('y', 15)
       .attr('fill', '#fff')
       .attr('font-size', '10px')
-      .text(`Vol Profile (${data.length})`);
+      .text(`Vol Profile (${visibleData.length})`);
 
-    // Solo mostrar coordenadas de 2 barras aleatorias
-    const randomBars = data
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 2);
-
-    console.log('📊 Coordenadas de barras de volumen:');
-    randomBars.forEach((bar, i) => {
-      const y = yScale(bar.price);
-      console.log(`Barra ${i + 1}: Precio=${bar.price}, Y=${y}`);
-    });
-
-  }, [data, width, height, visiblePriceRange, currentPrice]);
+  }, [data, width, height, currentPrice]);
 
   return (
     <div
