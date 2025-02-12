@@ -74,12 +74,22 @@ export const VolumeProfile = ({
     // Calcular altura de las barras
     const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (data.length * 2));
 
-    // Filtrar datos dentro del rango visible
+    // Filtrar y ordenar datos dentro del rango visible
     const padding = (priceCoordinates.maxPrice - priceCoordinates.minPrice) * 0.05;
     const visibleData = data
       .filter(d => d.price >= (priceCoordinates.minPrice - padding) && 
-                   d.price <= (priceCoordinates.maxPrice + padding))
-      .sort((a, b) => a.price - b.price);
+                  d.price <= (priceCoordinates.maxPrice + padding))
+      .sort((a, b) => {
+        // Ordenar asks por encima del precio actual y bids por debajo
+        if (a.side !== b.side) {
+          return a.side === 'ask' ? -1 : 1; // asks primero
+        }
+        // Dentro del mismo side, ordenar por precio
+        if (a.side === 'ask') {
+          return b.price - a.price; // asks de mayor a menor precio
+        }
+        return a.price - b.price; // bids de menor a mayor precio
+      });
 
     // Dibujar barras de volumen
     g.selectAll('.volume-bar')
