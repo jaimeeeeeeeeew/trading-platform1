@@ -30,56 +30,72 @@ interface PriceCoordinates {
 }
 
 const groupDataByBars = (data: Props['data'], maxBars: number) => {
-  // Aseguramos un mínimo de barras para cada lado
-  const minBarsPerSide = 20;
-  const effectiveMaxBars = Math.max(maxBars, minBarsPerSide * 2);
-
   // Separar bids y asks
   const bids = data.filter(d => d.side === 'bid');
   const asks = data.filter(d => d.side === 'ask');
 
-  // Calcular volumen total original para verificación
-  const originalTotalVolume = data.reduce((sum, d) => sum + d.volume, 0);
-
   // Función para agrupar un lado del libro
   const groupSide = (orders: Props['data']) => {
-    if (orders.length <= effectiveMaxBars / 2) {
-      return { groupedData: orders, groupFactor: 1 };
-    }
+    if (orders.length === 0) return { groupedData: [], groupFactor: 1 };
 
-    let currentData = [...orders];
-    let groupFactor = 1;
+    // Paso 1: Agrupar por precio exacto primero
+    const priceGroups = new Map<number, Props['data'][0]>();
+    orders.forEach(order => {
+      if (priceGroups.has(order.price)) {
+        const existing = priceGroups.get(order.price)!;
+        existing.volume += order.volume;
+      } else {
+        priceGroups.set(order.price, { ...order });
+      }
+    });
 
-    while (currentData.length > effectiveMaxBars / 2) {
+    let currentData = Array.from(priceGroups.values());
+
+    // Paso 2: Si hay demasiadas barras, combinar adyacentes
+    while (currentData.length > maxBars / 2) {
       const newData: Props['data'] = [];
+
+      // Ordenar por precio para asegurar combinación correcta
+      currentData.sort((a, b) => a.price - b.price);
+
       for (let i = 0; i < currentData.length; i += 2) {
         if (i + 1 < currentData.length) {
+          // Combinar dos barras adyacentes
+          const volumeSum = currentData[i].volume + currentData[i + 1].volume;
+          // Precio ponderado por volumen
+          const weightedPrice = 
+            (currentData[i].price * currentData[i].volume + 
+             currentData[i + 1].price * currentData[i + 1].volume) / volumeSum;
+
           newData.push({
-            price: (currentData[i].price + currentData[i + 1].price) / 2,
-            volume: currentData[i].volume + currentData[i + 1].volume,
-            normalizedVolume: 0,
+            price: weightedPrice,
+            volume: volumeSum,
+            normalizedVolume: 0, // Se calculará después
             side: currentData[i].side
           });
         } else {
+          // Si queda una barra sin par, mantenerla
           newData.push(currentData[i]);
         }
       }
+
       currentData = newData;
-      groupFactor *= 2;
     }
 
-    return { groupedData: currentData, groupFactor };
+    return {
+      groupedData: currentData,
+      groupFactor: Math.ceil(orders.length / (maxBars / 2))
+    };
   };
 
   // Agrupar cada lado por separado
   const { groupedData: groupedBids, groupFactor: bidGroupFactor } = groupSide(bids);
   const { groupedData: groupedAsks, groupFactor: askGroupFactor } = groupSide(asks);
 
-  // Combinar resultados
+  // Combinar resultados y normalizar volúmenes
   const combinedData = [...groupedBids, ...groupedAsks];
-
-  // Normalizar volúmenes
   const maxVolume = Math.max(...combinedData.map(d => d.volume));
+
   const normalizedData = combinedData.map(d => ({
     ...d,
     normalizedVolume: d.volume / maxVolume
@@ -88,7 +104,7 @@ const groupDataByBars = (data: Props['data'], maxBars: number) => {
   return {
     groupedData: normalizedData,
     groupFactor: Math.max(bidGroupFactor, askGroupFactor),
-    totalVolume: originalTotalVolume
+    totalVolume: data.reduce((sum, d) => sum + d.volume, 0)
   };
 };
 
