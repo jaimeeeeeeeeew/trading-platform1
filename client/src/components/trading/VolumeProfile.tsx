@@ -148,7 +148,7 @@ export const VolumeProfile = ({
 
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([0, maxBarWidth]);
+      .range([maxBarWidth, 0]); // Invertimos el rango para que vaya de derecha a izquierda
 
     const priceToY = (price: number) => {
       if (!priceCoordinates) return 0;
@@ -208,16 +208,12 @@ export const VolumeProfile = ({
       .data(bids)
       .join('rect')
       .attr('class', 'volume-bar bid')
-      .attr('x', 0)
+      .attr('x', d => xScale(d.normalizedVolume)) // La x ahora es el punto final de la barra
       .attr('y', d => {
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => {
-        const width = xScale(d.normalizedVolume);
-        console.log('Barra bid:', { precio: d.price, volumen: d.volume, ancho: width });
-        return width;
-      })
+      .attr('width', d => maxBarWidth - xScale(d.normalizedVolume)) // El ancho es la diferencia
       .attr('height', barHeight)
       .attr('fill', '#26a69a')
       .attr('opacity', 0.9);
@@ -226,16 +222,12 @@ export const VolumeProfile = ({
       .data(asks)
       .join('rect')
       .attr('class', 'volume-bar ask')
-      .attr('x', 0)
+      .attr('x', d => xScale(d.normalizedVolume)) // La x ahora es el punto final de la barra
       .attr('y', d => {
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => {
-        const width = xScale(d.normalizedVolume);
-        console.log('Barra ask:', { precio: d.price, volumen: d.volume, ancho: width });
-        return width;
-      })
+      .attr('width', d => maxBarWidth - xScale(d.normalizedVolume)) // El ancho es la diferencia
       .attr('height', barHeight)
       .attr('fill', '#ef5350')
       .attr('opacity', 0.9);
