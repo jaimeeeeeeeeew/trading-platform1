@@ -18,53 +18,66 @@ export function useSocketIO({
 }: UseSocketOptions = {}) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const socketRef = useRef<Socket | null>(null);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 5;
 
   useEffect(() => {
     if (!enabled) {
-      console.log('Socket connection disabled');
+      console.log('WebSocket disabled');
       return;
     }
 
-    console.log('Initializing socket connection...');
+    console.log('🎧 Initializing socket connection...');
     setConnectionState('connecting');
 
     const socket = io(window.location.origin, {
       path: '/trading-socket',
       transports: ['websocket', 'polling'],
+      timeout: 10000,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000
+      reconnectionDelayMax: 5000,
+      autoConnect: true,
+      forceNew: true
     });
 
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('Connected to server');
+      console.log('🟢 Connected to server');
       setConnectionState('connected');
+      reconnectAttempts.current = 0;
     });
 
-    socket.on('disconnect', () => {
-      console.log('Disconnected from server');
+    socket.on('disconnect', (reason) => {
+      console.log('🔴 Disconnected from server:', reason);
       setConnectionState('disconnected');
     });
 
     socket.on('error', (error) => {
-      console.error('Socket Error:', error);
+      console.error('❌ Socket Error:', error);
       setConnectionState('error');
       onError?.();
     });
 
     socket.on('connect_error', (error) => {
-      console.error('Connection error:', error);
-      setConnectionState('error');
-      onError?.();
+      console.log('⚠️ Connection error:', error.message);
+      reconnectAttempts.current++;
+
+      if (reconnectAttempts.current >= maxReconnectAttempts) {
+        console.log('🔄 Max reconnection attempts reached, stopping...');
+        socket.disconnect();
+        setConnectionState('error');
+        onError?.();
+      } else {
+        console.log(`🔄 Reconnecting... Attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+        setConnectionState('connecting');
+      }
     });
 
     socket.on('orderbook_update', (data) => {
-      try {
-        if (!data || !data.bids || !data.asks) return;
-
+      if (onProfileData) {
         const bids = data.bids.map((bid: any) => ({
           price: parseFloat(bid.Price),
           volume: parseFloat(bid.Quantity),
@@ -77,19 +90,17 @@ export function useSocketIO({
           side: 'ask' as const
         }));
 
-        if (bids.length > 0 && asks.length > 0) {
-          const midPrice = (bids[0].price + asks[0].price) / 2;
-          onPriceUpdate?.(midPrice);
+        const midPrice = (parseFloat(data.bids[0]?.Price || '0') + parseFloat(data.asks[0]?.Price || '0')) / 2;
+        if (midPrice && onPriceUpdate) {
+          onPriceUpdate(midPrice);
         }
 
-        onProfileData?.([...bids, ...asks]);
-      } catch (error) {
-        console.error('Error processing orderbook data:', error);
+        onProfileData([...bids, ...asks]);
       }
     });
 
     return () => {
-      console.log('Cleaning up socket connection');
+      console.log('🧹 Cleaning up socket connection');
       if (socket.connected) {
         socket.disconnect();
       }
@@ -99,14 +110,15 @@ export function useSocketIO({
 
   const reconnect = () => {
     if (socketRef.current) {
-      console.log('Forcing reconnection...');
+      console.log('🔄 Forcing reconnection...');
+      reconnectAttempts.current = 0;
       socketRef.current.connect();
     }
   };
 
   return {
-    socket: socketRef.current,
     connectionState,
+    socket: socketRef.current,
     reconnect
   };
 }
