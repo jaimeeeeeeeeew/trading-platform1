@@ -375,12 +375,22 @@ export default function Chart() {
       }
 
       // Actualizar el precio actual y sus coordenadas
-      const lastPrice = historicalDataRef.current[historicalDataRef.current.length - 1]?.close;
-      if (lastPrice) {
-        setCurrentChartPrice(lastPrice);
-        const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPrice);
+      const lastCandle = historicalDataRef.current[historicalDataRef.current.length - 1];
+      if (lastCandle?.close) {
+        const currentY = candlestickSeriesRef.current.priceToCoordinate(lastCandle.close);
         if (currentY !== null) {
+          setCurrentChartPrice(lastCandle.close);
           setPriceCoordinate(currentY);
+
+          // Actualizar las coordenadas completas para sincronización
+          setPriceCoordinates({
+            currentPrice: lastCandle.close,
+            currentY,
+            minPrice,
+            minY: candlestickSeriesRef.current.priceToCoordinate(minPrice),
+            maxPrice,
+            maxY: candlestickSeriesRef.current.priceToCoordinate(maxPrice)
+          });
         }
       }
     } catch (error) {
