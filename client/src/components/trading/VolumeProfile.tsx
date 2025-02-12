@@ -64,11 +64,19 @@ export const VolumeProfile = ({
       .domain([0, 1])
       .range([0, maxBarWidth]);
 
-    // Función para convertir precio a coordenada Y usando las coordenadas del gráfico principal
+    // Usar directamente las coordenadas Y del gráfico principal
     const priceToY = (price: number) => {
-      const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
-      const ratio = (price - priceCoordinates.minPrice) / priceRange;
-      return priceCoordinates.maxY + (priceCoordinates.minY - priceCoordinates.maxY) * ratio;
+      if (price === currentPrice) return priceCoordinates.currentY - margin.top;
+
+      // Para asks (por encima del precio actual)
+      if (price > currentPrice) {
+        const ratio = (price - currentPrice) / (priceCoordinates.maxPrice - currentPrice);
+        return priceCoordinates.currentY - margin.top - (ratio * (priceCoordinates.currentY - priceCoordinates.maxY));
+      }
+
+      // Para bids (por debajo del precio actual)
+      const ratio = (currentPrice - price) / (currentPrice - priceCoordinates.minPrice);
+      return priceCoordinates.currentY - margin.top + (ratio * (priceCoordinates.minY - priceCoordinates.currentY));
     };
 
     // Calcular altura de las barras
@@ -80,13 +88,12 @@ export const VolumeProfile = ({
       .filter(d => d.price >= (priceCoordinates.minPrice - padding) && 
                   d.price <= (priceCoordinates.maxPrice + padding))
       .sort((a, b) => {
-        // Si ambos son asks (por encima del precio actual)
-        if (a.side === 'ask' && b.side === 'ask') {
-          return a.price - b.price; // Ordenar de menor a mayor precio
-        }
-        // Si ambos son bids (por debajo del precio actual)
-        if (a.side === 'bid' && b.side === 'bid') {
-          return b.price - a.price; // Ordenar de mayor a menor precio
+        // Si son del mismo lado (asks o bids)
+        if (a.side === b.side) {
+          if (a.side === 'ask') {
+            return b.price - a.price; // asks ordenados de mayor a menor
+          }
+          return a.price - b.price; // bids ordenados de menor a mayor
         }
         // Si son diferentes, asks primero
         return a.side === 'ask' ? -1 : 1;
@@ -104,7 +111,7 @@ export const VolumeProfile = ({
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
-    // Dibujar línea de precio actual usando las coordenadas exactas del gráfico principal
+    // Dibujar línea de precio actual
     if (priceCoordinates.currentPrice && priceCoordinates.currentY) {
       g.append('line')
         .attr('class', 'price-line')
@@ -129,10 +136,10 @@ export const VolumeProfile = ({
     }
 
     // Añadir escala de precios
-    const numTicks = 6;
-    const tickPrices = d3.range(numTicks + 1).map(i => {
-      const price = priceCoordinates.minPrice + 
-        (i * (priceCoordinates.maxPrice - priceCoordinates.minPrice) / numTicks);
+    const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
+    const numTicks = Math.min(10, Math.floor(innerHeight / 30)); // Ajustar número de ticks según altura
+    const tickPrices = d3.range(numTicks).map(i => {
+      const price = priceCoordinates.minPrice + (i * priceRange / (numTicks - 1));
       return {
         price,
         y: priceToY(price)
@@ -148,14 +155,14 @@ export const VolumeProfile = ({
         priceAxis.append('line')
           .attr('x1', 0)
           .attr('x2', 3)
-          .attr('y1', y - margin.top)
-          .attr('y2', y - margin.top)
+          .attr('y1', y)
+          .attr('y2', y)
           .attr('stroke', '#666')
           .attr('stroke-width', 0.5);
 
         priceAxis.append('text')
           .attr('x', -5)
-          .attr('y', y - margin.top)
+          .attr('y', y)
           .attr('dy', '0.32em')
           .attr('text-anchor', 'end')
           .attr('fill', '#fff')
