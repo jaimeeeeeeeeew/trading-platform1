@@ -142,7 +142,8 @@ export const VolumeProfile = ({
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      const margin = { top: 20, right: 30, bottom: 20, left: 70 };
+      // Ajustados los márgenes ahora que no necesitamos espacio para las etiquetas
+      const margin = { top: 20, right: 30, bottom: 20, left: 10 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
@@ -188,21 +189,6 @@ export const VolumeProfile = ({
         total: [...mergedAsks, ...mergedBids].reduce((sum, d) => sum + d.volume, 0)
       });
 
-      // Etiquetas de precio
-      const allPrices = [...mergedBids, ...mergedAsks].sort((a, b) => a.price - b.price);
-      allPrices.forEach((d, i) => {
-        if (i % 2 === 0) {
-          g.append('text')
-            .attr('class', 'price-label')
-            .attr('x', -5)
-            .attr('y', priceToY(d.price))
-            .attr('dy', '0.32em')
-            .attr('text-anchor', 'end')
-            .attr('fill', '#ffffff')
-            .attr('font-size', '10px')
-            .text(`${d.price.toFixed(1)}`);
-        }
-      });
 
       // Barras de volumen con espaciado garantizado
       g.selectAll('.bid-bars')
@@ -215,7 +201,7 @@ export const VolumeProfile = ({
           return isNaN(y) ? 0 : y - barHeight / 2;
         })
         .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
-        .attr('height', barHeight * 0.9) // Reducir ligeramente la altura para garantizar espacio
+        .attr('height', barHeight * 0.9)
         .attr('fill', '#26a69a')
         .attr('opacity', 0.9);
 
@@ -229,7 +215,7 @@ export const VolumeProfile = ({
           return isNaN(y) ? 0 : y - barHeight / 2;
         })
         .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
-        .attr('height', barHeight * 0.9) // Reducir ligeramente la altura para garantizar espacio
+        .attr('height', barHeight * 0.9)
         .attr('fill', '#ef5350')
         .attr('opacity', 0.9);
 
@@ -245,6 +231,7 @@ export const VolumeProfile = ({
           .attr('stroke-width', 1.5)
           .attr('stroke-dasharray', '2,2');
 
+        // Solo mantener la etiqueta del precio actual
         g.append('text')
           .attr('class', 'current-price-label')
           .attr('x', innerWidth + 5)
