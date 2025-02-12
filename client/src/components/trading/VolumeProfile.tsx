@@ -30,7 +30,7 @@ interface PriceCoordinates {
 
 export const VolumeProfile = ({
   data,
-  width = 160,
+  width = 270, // Aumentado de 180 a 270 (50% más ancho)
   height,
   visiblePriceRange,
   currentPrice,
@@ -58,7 +58,7 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 25, right: 50, bottom: 25, left: 10 };
+    const margin = { top: 25, right: 50, bottom: 25, left: -120 }; // Modificado left de -30 a -120 para expandir hacia la izquierda
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 

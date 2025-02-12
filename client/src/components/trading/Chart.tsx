@@ -724,7 +724,7 @@ export default function Chart() {
           <div
             className="absolute right-0 top-0 h-full pointer-events-none"
             style={{
-              width: '180px',
+              width: '270px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -733,7 +733,7 @@ export default function Chart() {
           >
             <VolumeProfile
               data={volumeProfileData}
-              width={180}
+              width={270}
               height={container.current.clientHeight}
               visiblePriceRange={visiblePriceRange}
               currentPrice={currentChartPrice}
