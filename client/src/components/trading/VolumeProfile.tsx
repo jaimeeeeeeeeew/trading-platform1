@@ -74,6 +74,7 @@ const groupDataByBars = (
 
   // Agrupar datos en buckets
   data.forEach(item => {
+    // Redondear el precio al nivel más cercano basado en el factor de agrupación
     const bucketPrice = Math.floor(item.price / groupFactor) * groupFactor;
 
     if (!priceBuckets[bucketPrice]) {
@@ -87,7 +88,7 @@ const groupDataByBars = (
 
     const bucket = priceBuckets[bucketPrice];
     bucket.totalVolume += item.volume;
-    bucket.totalPrice += item.price * item.volume; // Precio ponderado por volumen
+    bucket.totalPrice += item.price * item.volume; // Precio promedio ponderado por volumen
     bucket.count++;
   });
 
