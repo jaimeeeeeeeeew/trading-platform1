@@ -29,9 +29,9 @@ export const VolumeProfile = ({
   });
 
   // Filtrar datos dentro del rango visible
-  const visibleData = data.filter(
+  const visibleData = data?.filter(
     d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
-  );
+  ) || [];
 
   console.log('Visible data:', {
     length: visibleData.length,
@@ -40,13 +40,14 @@ export const VolumeProfile = ({
 
   // Función para calcular la posición vertical
   const calculatePosition = (price: number) => {
+    if (!visiblePriceRange) return 0;
     const range = visiblePriceRange.max - visiblePriceRange.min;
     const position = ((visiblePriceRange.max - price) / range) * height;
     return Math.max(0, Math.min(height, position));
   };
 
   // Calcular altura de cada barra
-  const barHeight = Math.max(2, height / (visibleData.length * 1.2));
+  const barHeight = Math.max(2, height / ((visibleData.length || 1) * 1.2));
 
   return (
     <div 

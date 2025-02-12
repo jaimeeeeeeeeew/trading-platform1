@@ -558,25 +558,13 @@ export default function Chart() {
       return;
     }
 
-    console.log('Processing Volume Profile Data:', orderbookVolumeProfile);
+    console.log('Processing Volume Profile Data:', orderbookVolumeProfile.slice(0, 5));
 
-    const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
-    const normalizedData = orderbookVolumeProfile.map(data => ({
-      ...data,
-      price: parseFloat(data.price.toFixed(1)),
-      volume: data.volume,
-      side: data.side,
-      normalizedVolume: maxVolume > 0 ? data.volume / maxVolume : 0
-    }));
-
-    console.log('Normalized Volume Profile Data:', {
-      count: normalizedData.length,
-      sample: normalizedData.slice(0, 3),
-      maxVolume
-    });
-
-    setVolumeProfileData(normalizedData);
-  }, [orderbookVolumeProfile]);
+    setVolumeProfileData(orderbookVolumeProfile.filter(data => 
+      data.price >= visiblePriceRange.min && 
+      data.price <= visiblePriceRange.max
+    ));
+  }, [orderbookVolumeProfile, visiblePriceRange]);
 
 
   return (
