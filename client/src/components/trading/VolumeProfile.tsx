@@ -154,11 +154,12 @@ export const VolumeProfile = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    const maxBarWidth = innerWidth * 1.6;
+    // Ajustamos el ancho máximo de las barras y la escala
+    const maxBarWidth = innerWidth * 0.4; // Reducimos el factor para barras más cortas
 
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([maxBarWidth/2, 0]);
+      .range([0, maxBarWidth]); // Cambiamos el rango para que vaya de 0 al ancho máximo
 
     const priceToY = (price: number) => {
       if (price === currentPrice) {
@@ -215,12 +216,12 @@ export const VolumeProfile = ({
       .data(bids)
       .join('rect')
       .attr('class', 'volume-bar bid')
-      .attr('x', d => xScale(d.normalizedVolume))
+      .attr('x', 0)
       .attr('y', d => {
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume))
+      .attr('width', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('fill', '#26a69a')
       .attr('opacity', 0.8);
@@ -229,12 +230,12 @@ export const VolumeProfile = ({
       .data(asks)
       .join('rect')
       .attr('class', 'volume-bar ask')
-      .attr('x', d => xScale(d.normalizedVolume))
+      .attr('x', 0)
       .attr('y', d => {
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume))
+      .attr('width', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('fill', '#ef5350')
       .attr('opacity', 0.8);
