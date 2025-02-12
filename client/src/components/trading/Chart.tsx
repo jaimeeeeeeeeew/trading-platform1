@@ -435,12 +435,12 @@ export default function Chart() {
           maxY: maxY
         });
 
-        // Update volume profile with matched coordinates
+        // Actualizar el perfil de volumen con las coordenadas coincidentes
         if (orderbookVolumeProfile.length > 0) {
           const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
           const normalizedData = orderbookVolumeProfile
             .filter(data => {
-              const padding = (visibleMax - visibleMin) * 0.1;
+              const padding = (visibleMax - visibleMin) * 0.1; // 10% padding
               return data.price >= (visibleMin - padding) && data.price <= (visibleMax + padding);
             })
             .map(data => ({
