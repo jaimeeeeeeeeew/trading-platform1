@@ -59,24 +59,24 @@ export const VolumeProfile = ({
 
     const maxBarWidth = innerWidth * 0.7;
 
-    // Escala para el ancho de las barras (volumen)
+    // Escala para el volumen (ancho de las barras)
     const xScale = d3.scaleLinear()
       .domain([0, 1])
       .range([0, maxBarWidth]);
 
-    // Usar el mismo sistema de coordenadas que el gráfico principal
+    // Escala para los precios (altura), usando el mismo rango que el gráfico principal
     const yScale = d3.scaleLinear()
       .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
-      .range([innerHeight, 0]); // Invertimos el rango para que coincida con el gráfico
+      .range([innerHeight, 0]); // Invertido para coincidir con el gráfico principal
 
-    // Altura mínima de las barras basada en el rango visible
+    // Altura mínima de las barras basada en el rango de precios visible
     const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
-    const minBarHeight = Math.max(1, (innerHeight / (priceRange / 2)));
+    const minBarHeight = Math.max(1, innerHeight / (priceRange / 2));
 
-    // Filtrar datos dentro del rango visible y ordenar por precio
+    // Filtrar y ordenar datos dentro del rango visible
     const visibleData = data
       .filter(d => d.price >= priceCoordinates.minPrice && d.price <= priceCoordinates.maxPrice)
-      .sort((a, b) => a.price - b.price);
+      .sort((a, b) => a.price - b.price); // Ordenar por precio ascendente
 
     // Dibujar barras de volumen
     g.selectAll('.volume-bar')
@@ -93,68 +93,69 @@ export const VolumeProfile = ({
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
-    // Línea de precio actual
-    if (priceCoordinates.currentPrice && Number.isFinite(yScale(priceCoordinates.currentPrice))) {
-      // Línea principal
-      g.append('line')
-        .attr('class', 'price-line')
-        .attr('x1', 0)
-        .attr('x2', innerWidth)
-        .attr('y1', yScale(priceCoordinates.currentPrice))
-        .attr('y2', yScale(priceCoordinates.currentPrice))
-        .attr('stroke', '#ffffff')
-        .attr('stroke-width', 1)
-        .attr('stroke-dasharray', '2,2');
+    // Línea del precio actual
+    if (priceCoordinates.currentPrice) {
+      const currentY = yScale(priceCoordinates.currentPrice);
+      if (Number.isFinite(currentY)) {
+        // Línea principal
+        g.append('line')
+          .attr('class', 'price-line')
+          .attr('x1', -5)
+          .attr('x2', innerWidth)
+          .attr('y1', currentY)
+          .attr('y2', currentY)
+          .attr('stroke', '#ffffff')
+          .attr('stroke-width', 1)
+          .attr('stroke-dasharray', '2,2');
 
-      // Etiqueta de precio actual
-      g.append('text')
-        .attr('class', 'price-label')
-        .attr('x', -5)
-        .attr('y', yScale(priceCoordinates.currentPrice))
-        .attr('dy', '0.32em')
-        .attr('text-anchor', 'end')
-        .attr('fill', '#ffffff')
-        .attr('font-size', '10px')
-        .text(priceCoordinates.currentPrice.toFixed(1));
+        // Etiqueta de precio
+        g.append('text')
+          .attr('class', 'price-label')
+          .attr('x', -8)
+          .attr('y', currentY)
+          .attr('dy', '0.32em')
+          .attr('text-anchor', 'end')
+          .attr('fill', '#ffffff')
+          .attr('font-size', '10px')
+          .text(priceCoordinates.currentPrice.toFixed(1));
+      }
     }
 
-    // Crear escala de precios
-    const priceStep = Math.round(priceRange / 8); // Dividir el rango en 8 partes
-    const customPrices = Array.from({ length: 9 }, (_, i) => 
-      Math.round(priceCoordinates.minPrice + (i * priceStep))
+    // Crear marcas de precio
+    const numTicks = 8;
+    const priceStep = priceRange / numTicks;
+    const prices = Array.from({ length: numTicks + 1 }, (_, i) => 
+      priceCoordinates.minPrice + (i * priceStep)
     );
 
-    // Grupo para los ticks de precio
-    const priceAxisGroup = g.append('g')
+    // Añadir escala de precios
+    const priceAxis = g.append('g')
       .attr('class', 'price-axis')
-      .attr('transform', `translate(${-10}, 0)`);
+      .attr('transform', `translate(${-8}, 0)`);
 
-    // Agregar ticks personalizados
-    priceAxisGroup.selectAll('.custom-tick')
-      .data(customPrices)
-      .join('g')
-      .attr('class', 'custom-tick')
-      .attr('transform', d => `translate(0, ${yScale(d)})`)
-      .call(g => {
+    prices.forEach(price => {
+      const y = yScale(price);
+      if (Number.isFinite(y)) {
         // Línea del tick
-        g.append('line')
+        priceAxis.append('line')
           .attr('x1', 0)
           .attr('x2', 3)
-          .attr('y1', 0)
-          .attr('y2', 0)
+          .attr('y1', y)
+          .attr('y2', y)
           .attr('stroke', '#666')
           .attr('stroke-width', 0.5);
 
         // Texto del precio
-        g.append('text')
+        priceAxis.append('text')
           .attr('x', -5)
-          .attr('y', 0)
+          .attr('y', y)
           .attr('dy', '0.32em')
           .attr('text-anchor', 'end')
           .attr('fill', '#fff')
           .attr('font-size', '10px')
-          .text(d => d.toFixed(0));
-      });
+          .text(price.toFixed(0));
+      }
+    });
 
   }, [data, width, height, currentPrice, priceCoordinates]);
 
