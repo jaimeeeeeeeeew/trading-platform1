@@ -54,35 +54,52 @@ const groupDataByBars = (data: Props['data'], maxBars: number) => {
     const priceRange = maxPrice - minPrice;
 
     // Calcular el tamaño del grupo basado en el rango de precios y el número deseado de barras
-    const groupSize = priceRange / (effectiveMaxBars / 2);
+    const groupSize = Math.max(0.1, priceRange / (effectiveMaxBars / 2));
 
-    // Inicializar grupos
-    const groups: Map<number, Props['data'][0]> = new Map();
+    // Crear grupos con límites fijos
+    const groups = new Map<number, {
+      price: number;
+      volume: number;
+      count: number;
+      side: 'bid' | 'ask';
+    }>();
 
     // Agrupar órdenes por niveles de precio
     sortedOrders.forEach(order => {
       // Calcular el índice del grupo basado en el precio
       const groupIndex = Math.floor((order.price - minPrice) / groupSize);
-      const groupPrice = minPrice + (groupIndex * groupSize) + (groupSize / 2);
+      const groupStartPrice = minPrice + (groupIndex * groupSize);
+      const groupEndPrice = groupStartPrice + groupSize;
+      const groupMidPrice = (groupStartPrice + groupEndPrice) / 2;
 
-      if (groups.has(groupIndex)) {
-        const existingGroup = groups.get(groupIndex)!;
-        existingGroup.volume += order.volume;
-        // Actualizar el precio como un promedio ponderado
-        existingGroup.price = (existingGroup.price * (existingGroup.volume - order.volume) + 
-                             order.price * order.volume) / existingGroup.volume;
+      const key = groupIndex;
+
+      if (groups.has(key)) {
+        const group = groups.get(key)!;
+        group.volume += order.volume;
+        group.count += 1;
+        // Actualizar el precio como promedio ponderado
+        group.price = (group.price * group.count + order.price) / (group.count + 1);
       } else {
-        groups.set(groupIndex, {
+        groups.set(key, {
           price: order.price,
           volume: order.volume,
-          normalizedVolume: 0,
+          count: 1,
           side: order.side
         });
       }
     });
 
+    // Convertir grupos a formato final
+    const groupedData = Array.from(groups.values()).map(group => ({
+      price: group.price,
+      volume: group.volume,
+      normalizedVolume: 0, // Se calculará después
+      side: group.side
+    }));
+
     return {
-      groupedData: Array.from(groups.values()),
+      groupedData,
       groupFactor: Math.ceil(orders.length / (effectiveMaxBars / 2))
     };
   };
