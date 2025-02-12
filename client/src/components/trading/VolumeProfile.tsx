@@ -58,7 +58,7 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 25, right: 10, bottom: 25, left: 50 };
+    const margin = { top: 25, right: 50, bottom: 25, left: 10 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -70,9 +70,10 @@ export const VolumeProfile = ({
 
     const maxBarWidth = innerWidth * 0.8;
 
+    // Invertir la escala X para que vaya de derecha a izquierda
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([0, maxBarWidth]);
+      .range([maxBarWidth, 0]); // Cambio aquí: ahora va de maxBarWidth a 0
 
     const priceToY = (price: number) => {
       if (price === currentPrice) {
@@ -106,17 +107,17 @@ export const VolumeProfile = ({
       sampleAsk: asks[0]
     });
 
-    // Dibujar barras de volumen
+    // Dibujar barras de volumen desde la derecha
     g.selectAll('.bid-bars')
       .data(bids)
       .join('rect')
       .attr('class', 'volume-bar bid')
-      .attr('x', 0)
+      .attr('x', d => xScale(d.normalizedVolume)) // Cambio aquí: usar el valor escalado directamente
       .attr('y', d => {
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => xScale(d.normalizedVolume))
+      .attr('width', d => maxBarWidth - xScale(d.normalizedVolume)) // Cambio aquí: calcular el ancho como la diferencia
       .attr('height', barHeight)
       .attr('fill', '#26a69a')
       .attr('opacity', 0.8);
@@ -125,12 +126,12 @@ export const VolumeProfile = ({
       .data(asks)
       .join('rect')
       .attr('class', 'volume-bar ask')
-      .attr('x', 0)
+      .attr('x', d => xScale(d.normalizedVolume)) // Cambio aquí: usar el valor escalado directamente
       .attr('y', d => {
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => xScale(d.normalizedVolume))
+      .attr('width', d => maxBarWidth - xScale(d.normalizedVolume)) // Cambio aquí: calcular el ancho como la diferencia
       .attr('height', barHeight)
       .attr('fill', '#ef5350')
       .attr('opacity', 0.8);
@@ -149,16 +150,16 @@ export const VolumeProfile = ({
 
       g.append('text')
         .attr('class', 'price-label')
-        .attr('x', -8)
+        .attr('x', innerWidth + 8)
         .attr('y', priceCoordinates.currentY - margin.top)
         .attr('dy', '0.32em')
-        .attr('text-anchor', 'end')
+        .attr('text-anchor', 'start')
         .attr('fill', '#ffffff')
         .attr('font-size', '10px')
         .text(priceCoordinates.currentPrice.toFixed(1));
     }
 
-    // Escala de precios
+    // Escala de precios (ahora al lado derecho)
     const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
     const numTicks = Math.min(10, Math.floor(innerHeight / 30));
     const tickPrices = d3.range(numTicks).map(i => {
@@ -171,7 +172,7 @@ export const VolumeProfile = ({
 
     const priceAxis = g.append('g')
       .attr('class', 'price-axis')
-      .attr('transform', `translate(${-8}, 0)`);
+      .attr('transform', `translate(${innerWidth + 8}, 0)`);
 
     tickPrices.forEach(({ price, y }) => {
       if (Number.isFinite(y)) {
@@ -184,10 +185,10 @@ export const VolumeProfile = ({
           .attr('stroke-width', 0.5);
 
         priceAxis.append('text')
-          .attr('x', -5)
+          .attr('x', 8)
           .attr('y', y)
           .attr('dy', '0.32em')
-          .attr('text-anchor', 'end')
+          .attr('text-anchor', 'start')
           .attr('fill', '#fff')
           .attr('font-size', '10px')
           .text(price.toFixed(0));
