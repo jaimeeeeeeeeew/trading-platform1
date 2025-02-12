@@ -40,7 +40,7 @@ export const VolumeProfile = ({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
+    if (!svgRef.current || !data || data.length === 0 || !visiblePriceRange) {
       return;
     }
 
@@ -62,47 +62,40 @@ export const VolumeProfile = ({
     // Escala para el ancho de las barras (volumen)
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([maxBarWidth, 0]);
+      .range([0, maxBarWidth]);
 
     // Filtrar datos dentro del rango visible y ordenar por precio
     const visibleData = data
-      .filter(d => d.price >= priceCoordinates.minPrice && d.price <= priceCoordinates.maxPrice)
+      .filter(d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max)
       .sort((a, b) => b.price - a.price);
 
-    // Calcular la altura de las barras basada en el rango visible de precios
     const verticalScale = d3.scaleLinear()
-      .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
-      .range([priceCoordinates.minY - margin.top, priceCoordinates.maxY - margin.top]);
+      .domain([visiblePriceRange.min, visiblePriceRange.max])
+      .range([innerHeight, 0]);
 
     // Altura mínima de las barras
-    const barHeight = Math.max(2, (innerHeight / data.length) * 0.8);
+    const barHeight = Math.max(1, (innerHeight / visibleData.length) * 0.8);
 
     // Dibujar barras de volumen
     g.selectAll('.volume-bar')
       .data(visibleData)
       .join('rect')
       .attr('class', 'volume-bar')
-      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
-      .attr('y', d => {
-        const y = verticalScale(d.price);
-        return Number.isFinite(y) ? y - barHeight / 2 : 0;
-      })
-      .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
+      .attr('x', 0)
+      .attr('y', d => verticalScale(d.price) - barHeight / 2)
+      .attr('width', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
     // Línea de precio actual
-    if (priceCoordinates.currentPrice && Number.isFinite(verticalScale(priceCoordinates.currentPrice))) {
-      const currentY = verticalScale(priceCoordinates.currentPrice);
-
-      // Línea de precio actual
-      const priceLine = g.append('line')
+    if (currentPrice) {
+      g.append('line')
         .attr('class', 'price-line')
         .attr('x1', 0)
         .attr('x2', innerWidth)
-        .attr('y1', currentY)
-        .attr('y2', currentY)
+        .attr('y1', verticalScale(currentPrice))
+        .attr('y2', verticalScale(currentPrice))
         .attr('stroke', '#ffffff')
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '2,2');
@@ -110,25 +103,19 @@ export const VolumeProfile = ({
       // Etiqueta de precio actual
       g.append('text')
         .attr('class', 'price-label')
-        .attr('x', innerWidth - maxBarWidth - 5)
-        .attr('y', currentY)
-        .attr('dy', '-4')
-        .attr('text-anchor', 'end')
+        .attr('x', maxBarWidth + 5)
+        .attr('y', verticalScale(currentPrice))
+        .attr('dy', '0.32em')
+        .attr('text-anchor', 'start')
         .attr('fill', '#ffffff')
         .attr('font-size', '10px')
-        .text(priceCoordinates.currentPrice.toFixed(1));
+        .text(currentPrice.toFixed(1));
     }
 
-    // Eje de precios adaptativo
+    // Eje de precios
     const priceAxis = d3.axisRight(verticalScale)
       .ticks(10)
-      .tickFormat((d: any) => {
-        if (typeof d === 'number' && Number.isFinite(d)) {
-          return `${d.toFixed(0)}`;
-        }
-        return '';
-      })
-      .tickSize(3);
+      .tickFormat(d => typeof d === 'number' ? d.toFixed(0) : '');
 
     const priceAxisGroup = g.append('g')
       .attr('transform', `translate(${innerWidth},0)`)
@@ -142,22 +129,14 @@ export const VolumeProfile = ({
       .attr('fill', '#fff')
       .attr('font-size', '9px');
 
-    // Información del perfil
-    g.append('text')
-      .attr('x', innerWidth - maxBarWidth)
-      .attr('y', 15)
-      .attr('fill', '#fff')
-      .attr('font-size', '10px')
-      .text(`Vol Profile (${visibleData.length})`);
-
-  }, [data, width, height, currentPrice, priceCoordinates]);
+  }, [data, width, height, currentPrice, visiblePriceRange]);
 
   return (
     <div
       style={{
         position: 'absolute',
-        right: '80px',
-        top: 0,
+        right: '0',
+        top: '0',
         width: `${width}px`,
         height: '100%',
         background: 'transparent',
@@ -165,7 +144,7 @@ export const VolumeProfile = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000
+        zIndex: 100
       }}
     >
       <svg
