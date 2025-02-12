@@ -30,9 +30,9 @@ interface PriceCoordinates {
 
 // Constantes para la agrupación de volumen
 const PRICE_RANGES = {
-  TIGHT: 0.001, // 0.1% del precio actual
-  MEDIUM: 0.005, // 0.5% del precio actual
-  WIDE: 0.01    // 1% del precio actual
+  TIGHT: 0.0025, // 0.25% del precio actual
+  MEDIUM: 0.01,  // 1% del precio actual
+  WIDE: 0.02     // 2% del precio actual
 } as const;
 
 const GROUP_SIZES = {
@@ -43,21 +43,25 @@ const GROUP_SIZES = {
 
 const getGroupSize = (priceRange: number, currentPrice: number): number => {
   // Calcular los rangos dinámicamente basados en el precio actual
-  const tightRange = currentPrice * PRICE_RANGES.TIGHT;   // ~96 para BTC a 96000
-  const mediumRange = currentPrice * PRICE_RANGES.MEDIUM; // ~480 para BTC a 96000
-  const wideRange = currentPrice * PRICE_RANGES.WIDE;     // ~960 para BTC a 96000
+  const tightRange = currentPrice * PRICE_RANGES.TIGHT;   // ~240 para BTC a 96000
+  const mediumRange = currentPrice * PRICE_RANGES.MEDIUM; // ~960 para BTC a 96000
+  const wideRange = currentPrice * PRICE_RANGES.WIDE;     // ~1920 para BTC a 96000
+
+  // Usar un rango más pequeño para la agrupación, basado en la ventana visible
+  const effectiveRange = priceRange * 0.1; // Solo considerar 10% del rango visible
 
   console.log('Calculating group size:', {
     priceRange,
+    effectiveRange,
     currentPrice,
     tightRange,
     mediumRange,
     wideRange
   });
 
-  if (priceRange <= tightRange) {
+  if (effectiveRange <= tightRange) {
     return GROUP_SIZES.SMALL;  // Sin agrupación para zoom cercano
-  } else if (priceRange <= mediumRange) {
+  } else if (effectiveRange <= mediumRange) {
     return GROUP_SIZES.MEDIUM; // Grupos de $5 para zoom medio
   }
   return GROUP_SIZES.LARGE;    // Grupos de $10 para zoom amplio
