@@ -103,7 +103,7 @@ const groupDataByBars = (
     .sort((a, b) => b.price - a.price); // Ordenar por precio
 
   // Normalizar volúmenes
-  const maxVolume = Math.max(...groupedData.map(d => d.volume));
+  const maxVolume = Math.max(...groupedData.map(level => level.volume));
   groupedData.forEach(d => {
     d.normalizedVolume = d.volume / maxVolume;
   });
