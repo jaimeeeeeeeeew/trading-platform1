@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useToast } from '@/hooks/use-toast';
 import { useSocketIO } from '@/hooks/use-socket-io';
 
 interface OrderbookData {
@@ -28,88 +29,138 @@ export function useMarketData() {
     currentPrice: 0
   });
 
-  const [volumeProfile, setVolumeProfile] = useState<Array<{
-    price: number;
-    volume: number;
-    normalizedVolume: number;
-    side: 'bid' | 'ask';
-  }>>([]);
-
-  const { socket, connectionState } = useSocketIO({
-    onProfileData: (profileData) => {
-      if (!profileData.length) return;
-
-      const maxVolume = Math.max(...profileData.map(item => item.volume));
-
-      const normalizedData = profileData.map(item => ({
-        ...item,
-        normalizedVolume: maxVolume > 0 ? item.volume / maxVolume : 0
-      }));
-
-      console.log('📊 Received orderbook data:', {
-        timestamp: new Date().toISOString(),
-        bids_count: profileData.filter(d => d.side === 'bid').length,
-        asks_count: profileData.filter(d => d.side === 'ask').length
-      });
-
-      console.log('📗 Top 5 Bids:');
-      normalizedData
-        .filter(d => d.side === 'bid')
-        .slice(0, 5)
-        .forEach(bid => {
-          console.log(`   Price: ${bid.price}, Volume: ${bid.volume}`);
-        });
-
-      console.log('📕 Top 5 Asks:');
-      normalizedData
-        .filter(d => d.side === 'ask')
-        .slice(0, 5)
-        .forEach(ask => {
-          console.log(`   Price: ${ask.price}, Volume: ${ask.volume}`);
-        });
-
-      setVolumeProfile(normalizedData);
-    }
-  });
+  const [error, setError] = useState(false);
+  const { toast } = useToast();
+  const { socket, connectionState, reconnect } = useSocketIO();
 
   useEffect(() => {
     if (!socket) return;
 
+    console.log('Setting up orderbook listeners...');
+
     socket.on('orderbook_update', (newData: OrderbookData) => {
+      console.log('📊 Received orderbook data:', {
+        timestamp: newData.timestamp,
+        bids_count: newData.bids.length,
+        asks_count: newData.asks.length,
+        first_bid: newData.bids[0],
+        first_ask: newData.asks[0]
+      });
+
       try {
-        const bids = newData.bids.map(bid => ({
-          price: parseFloat(bid.Price),
-          volume: parseFloat(bid.Quantity)
-        }));
-
-        const asks = newData.asks.map(ask => ({
-          price: parseFloat(ask.Price),
-          volume: parseFloat(ask.Quantity)
-        }));
-
-        const midPrice = bids[0] && asks[0]
-          ? (bids[0].price + asks[0].price) / 2
-          : 0;
-
         setData(prev => ({
           ...prev,
           orderbook: newData,
-          currentPrice: midPrice
+          currentPrice: newData.bids[0] && newData.asks[0] 
+            ? (parseFloat(newData.bids[0].Price) + parseFloat(newData.asks[0].Price)) / 2 
+            : prev.currentPrice
         }));
-
+        setError(false);
       } catch (err) {
         console.error('Error processing orderbook data:', err);
+        setError(true);
+        toast({
+          variant: "destructive",
+          title: "Error de datos",
+          description: "Error al procesar los datos del orderbook"
+        });
       }
     });
 
     return () => {
       socket.off('orderbook_update');
     };
-  }, [socket]);
+  }, [socket, toast]);
 
-  return {
-    data,
-    volumeProfile,
-    connectionState
+  // Calculate volume profile data from orderbook with price buckets
+  const volumeProfile = useMemo(() => {
+    if (!data.orderbook.bids.length && !data.orderbook.asks.length) {
+      console.log('No orderbook data available for volume profile:', {
+        bids: data.orderbook.bids.length,
+        asks: data.orderbook.asks.length
+      });
+      return [];
+    }
+
+    const PRICE_BUCKET_SIZE = 10; // Agrupar precios cada $10
+
+    // Función para agrupar precios en buckets
+    const getPriceBucket = (price: number) => 
+      Math.floor(price / PRICE_BUCKET_SIZE) * PRICE_BUCKET_SIZE;
+
+    // Objeto para acumular volúmenes por nivel de precio
+    const volumeByPrice: Record<number, { volume: number; side: 'bid' | 'ask' }> = {};
+
+    // Procesar bids
+    data.orderbook.bids.forEach(bid => {
+      const price = parseFloat(bid.Price);
+      const volume = parseFloat(bid.Quantity);
+      const bucket = getPriceBucket(price);
+
+      if (!volumeByPrice[bucket]) {
+        volumeByPrice[bucket] = { volume: 0, side: 'bid' };
+      }
+      volumeByPrice[bucket].volume += volume;
+    });
+
+    // Procesar asks
+    data.orderbook.asks.forEach(ask => {
+      const price = parseFloat(ask.Price);
+      const volume = parseFloat(ask.Quantity);
+      const bucket = getPriceBucket(price);
+
+      if (!volumeByPrice[bucket]) {
+        volumeByPrice[bucket] = { volume: 0, side: 'ask' };
+      }
+      volumeByPrice[bucket].volume += volume;
+    });
+
+    // Convertir a array y ordenar por precio
+    const groupedLevels = Object.entries(volumeByPrice)
+      .map(([price, data]) => ({
+        price: parseFloat(price),
+        volume: data.volume,
+        side: data.side
+      }))
+      .sort((a, b) => b.price - a.price);
+
+    console.log('Volume Profile Calculation:', {
+      inputData: {
+        bids: data.orderbook.bids.length,
+        asks: data.orderbook.asks.length
+      },
+      processedLevels: groupedLevels.length,
+      sampleLevel: groupedLevels[0]
+    });
+
+    if (groupedLevels.length === 0) {
+      console.log('No grouped levels available');
+      return [];
+    }
+
+    // Encontrar el volumen máximo para normalización
+    const maxVolume = Math.max(...groupedLevels.map(level => level.volume));
+
+    // Normalizar volúmenes
+    const normalizedLevels = groupedLevels.map(level => ({
+      ...level,
+      normalizedVolume: level.volume / maxVolume
+    }));
+
+    console.log('📊 Volume Profile Data:', {
+      levels: normalizedLevels.length,
+      maxVolume,
+      sampleData: normalizedLevels.slice(0, 3)
+    });
+
+    return normalizedLevels;
+  }, [data.orderbook]);
+
+  return { 
+    data, 
+    volumeProfile, 
+    error, 
+    connectionState,
+    reconnect
   };
 }

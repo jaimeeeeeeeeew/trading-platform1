@@ -88,9 +88,7 @@ export default function Chart() {
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
   const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
 
-  const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData({
-    visiblePriceRange: visiblePriceRange
-  });
+  const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
 
   const { socket } = useSocketIO({
     onProfileData: (profileData) => {
@@ -322,30 +320,26 @@ export default function Chart() {
   const updatePriceCoordinate = () => {
     if (!candlestickSeriesRef.current || !currentChartPrice) return;
 
-    try {
-      const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
-      const minY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.min);
-      const maxY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.max);
+    const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
+    const minY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.min);
+    const maxY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.max);
 
-      if (currentY !== null && minY !== null && maxY !== null) {
-        setPriceCoordinate(currentY);
-        setPriceCoordinates({
-          currentPrice: currentChartPrice,
-          currentY,
-          minPrice: visiblePriceRange.min,
-          minY,
-          maxPrice: visiblePriceRange.max,
-          maxY
-        });
+    if (currentY !== null && minY !== null && maxY !== null) {
+      setPriceCoordinate(currentY);
+      setPriceCoordinates({
+        currentPrice: currentChartPrice,
+        currentY,
+        minPrice: visiblePriceRange.min,
+        minY,
+        maxPrice: visiblePriceRange.max,
+        maxY
+      });
 
-        console.log('Price coordinates updated:', {
-          price: currentChartPrice,
-          y: currentY,
-          range: { min: minY, max: maxY }
-        });
-      }
-    } catch (error) {
-      console.error('Error updating price coordinates:', error);
+      console.log('Price coordinates updated:', {
+        price: currentChartPrice,
+        y: currentY,
+        range: { min: minY, max: maxY }
+      });
     }
   };
 
@@ -363,18 +357,8 @@ export default function Chart() {
       const visibleLogicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
       if (!visibleLogicalRange) return;
 
-      const visibleCandlesticks = historicalDataRef.current.slice(
-        Math.max(0, Math.floor(visibleLogicalRange.from)),
-        Math.min(historicalDataRef.current.length, Math.ceil(visibleLogicalRange.to) + 1)
-      );
-
-      if (visibleCandlesticks.length === 0) return;
-
-      const prices = visibleCandlesticks.map(c => c.close);
-      const minPrice = Math.min(...prices) * 0.995; 
-      const maxPrice = Math.max(...prices) * 1.005; 
-
-      console.log('Updating visible price range:', { minPrice, maxPrice });
+      const minPrice = 90000;
+      const maxPrice = 105000;
 
       setVisiblePriceRange({
         min: minPrice,
@@ -383,7 +367,10 @@ export default function Chart() {
 
       setVisibleRange(visibleLogicalRange);
 
-      const lastPoint = historicalDataRef.current[historicalDataRef.current.length - 1];
+      const allData = historicalDataRef.current;
+      if (!allData.length) return;
+
+      const lastPoint = allData[allData.length - 1];
       if (!lastPoint) return;
 
       setCurrentChartPrice(lastPoint.close);
@@ -558,24 +545,19 @@ export default function Chart() {
       return;
     }
 
-    console.log('Raw Volume Profile Data:', {
-      total: orderbookVolumeProfile.length,
-      sample: orderbookVolumeProfile.slice(0, 3)
-    });
+    console.log('Volume Profile Data:', orderbookVolumeProfile);
 
-    const filteredData = orderbookVolumeProfile.filter(data => 
-      data.price >= visiblePriceRange.min && 
-      data.price <= visiblePriceRange.max
-    );
+    const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
+    const normalizedData = orderbookVolumeProfile.map(data => ({
+      ...data,
+      volume: data.volume,
+      side: data.side,
+      normalizedVolume: data.volume / maxVolume
+    }));
 
-    console.log('Filtered Volume Profile Data:', {
-      total: filteredData.length,
-      priceRange: visiblePriceRange,
-      sample: filteredData.slice(0, 3)
-    });
-
-    setVolumeProfileData(filteredData);
-  }, [orderbookVolumeProfile, visiblePriceRange]);
+    console.log('Normalized Volume Profile Data:', normalizedData);
+    setVolumeProfileData(normalizedData);
+  }, [orderbookVolumeProfile]);
 
 
   return (
@@ -644,13 +626,27 @@ export default function Chart() {
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
 
-        {container.current && volumeProfileData.length > 0 && currentChartPrice && (
-          <VolumeProfile
-            data={volumeProfileData}
-            visiblePriceRange={visiblePriceRange}
-            currentPrice={currentChartPrice}
-            height={container.current.clientHeight}
-          />
+        {container.current && orderbookVolumeProfile.length > 0 && currentChartPrice && (
+          <div
+            className="absolute right-0 top-0 h-full pointer-events-none"
+            style={{
+              width: '180px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 100
+            }}
+          >
+            <VolumeProfile
+              data={orderbookVolumeProfile}
+              width={180}
+              height={container.current.clientHeight}
+              visiblePriceRange={visiblePriceRange}
+              currentPrice={currentChartPrice}
+              priceCoordinate={priceCoordinate}
+              priceCoordinates={priceCoordinates}
+            />
+          </div>
         )}
 
         {activeIndicator !== 'none' && (

@@ -77,29 +77,25 @@ export function useSocketIO({
     });
 
     socket.on('orderbook_update', (data) => {
-      try {
-        if (onProfileData) {
-          const bids = data.bids.map((bid: any) => ({
-            price: parseFloat(bid.Price),
-            volume: parseFloat(bid.Quantity),
-            side: 'bid' as const
-          }));
+      if (onProfileData) {
+        const bids = data.bids.map((bid: any) => ({
+          price: parseFloat(bid.Price),
+          volume: parseFloat(bid.Quantity),
+          side: 'bid' as const
+        }));
 
-          const asks = data.asks.map((ask: any) => ({
-            price: parseFloat(ask.Price),
-            volume: parseFloat(ask.Quantity),
-            side: 'ask' as const
-          }));
+        const asks = data.asks.map((ask: any) => ({
+          price: parseFloat(ask.Price),
+          volume: parseFloat(ask.Quantity),
+          side: 'ask' as const
+        }));
 
-          const midPrice = (parseFloat(data.bids[0]?.Price || '0') + parseFloat(data.asks[0]?.Price || '0')) / 2;
-          if (midPrice && onPriceUpdate) {
-            onPriceUpdate(midPrice);
-          }
-
-          onProfileData([...bids, ...asks].sort((a, b) => b.price - a.price));
+        const midPrice = (parseFloat(data.bids[0]?.Price || '0') + parseFloat(data.asks[0]?.Price || '0')) / 2;
+        if (midPrice && onPriceUpdate) {
+          onPriceUpdate(midPrice);
         }
-      } catch (error) {
-        console.error('Error processing orderbook data:', error);
+
+        onProfileData([...bids, ...asks]);
       }
     });
 

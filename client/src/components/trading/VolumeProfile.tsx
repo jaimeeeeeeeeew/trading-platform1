@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import * as d3 from 'd3';
 
 interface Props {
   data: {
@@ -7,89 +8,182 @@ interface Props {
     normalizedVolume: number;
     side: 'bid' | 'ask';
   }[];
+  width: number;
+  height: number;
   visiblePriceRange: {
     min: number;
     max: number;
   };
   currentPrice: number;
-  height: number;
+  priceCoordinate: number | null;
+  priceCoordinates: PriceCoordinates | null;
+}
+
+interface PriceCoordinates {
+  currentPrice: number;
+  currentY: number;
+  minPrice: number;
+  minY: number;
+  maxPrice: number;
+  maxY: number;
 }
 
 export const VolumeProfile = ({
   data,
+  width = 160,
+  height,
   visiblePriceRange,
   currentPrice,
-  height
+  priceCoordinate,
+  priceCoordinates
 }: Props) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    console.log('VolumeProfile render:', {
-      data: data?.length,
-      range: visiblePriceRange,
-      price: currentPrice,
-      height
-    });
-  }, [data, visiblePriceRange, currentPrice, height]);
+    if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
+      return;
+    }
 
-  // Filtrar datos dentro del rango visible
-  const visibleData = data?.filter(
-    d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
-  ) || [];
+    const svg = d3.select(svgRef.current);
+    svg.selectAll('*').remove();
 
-  // Función para calcular la posición vertical
-  const calculatePosition = (price: number) => {
-    if (!visiblePriceRange) return 0;
-    const range = visiblePriceRange.max - visiblePriceRange.min;
-    const position = ((visiblePriceRange.max - price) / range) * height;
-    return Math.max(0, Math.min(height, position));
-  };
+    const margin = { top: 10, right: 0, bottom: 10, left: 50 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
 
-  // Calcular altura de cada barra
-  const barHeight = Math.max(2, height / (visibleData.length || 1));
+    const g = svg
+      .attr('width', width)
+      .attr('height', height)
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    const maxBarWidth = innerWidth * 0.7;
+
+    // Escala para el ancho de las barras (volumen)
+    const xScale = d3.scaleLinear()
+      .domain([0, 1])
+      .range([maxBarWidth, 0]);
+
+    // Usar el mismo rango de precios que el gráfico principal
+    const yScale = d3.scaleLinear()
+      .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
+      .range([innerHeight, 0]);
+
+    // Altura mínima de las barras basada en el rango visible
+    const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
+    const barHeight = Math.max(2, (innerHeight / (priceRange / 10)));
+
+    // Filtrar datos dentro del rango visible y ordenar por precio
+    const visibleData = data
+      .filter(d => d.price >= priceCoordinates.minPrice && d.price <= priceCoordinates.maxPrice)
+      .sort((a, b) => b.price - a.price);
+
+    // Dibujar barras de volumen
+    g.selectAll('.volume-bar')
+      .data(visibleData)
+      .join('rect')
+      .attr('class', 'volume-bar')
+      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
+      .attr('y', d => {
+        const y = yScale(d.price);
+        return Number.isFinite(y) ? y - barHeight / 2 : 0;
+      })
+      .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
+      .attr('height', barHeight)
+      .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
+      .attr('opacity', 0.8);
+
+    // Línea de precio actual con animación suave
+    if (priceCoordinates.currentPrice && Number.isFinite(yScale(priceCoordinates.currentPrice))) {
+      const priceLine = g.append('line')
+        .attr('class', 'price-line')
+        .attr('x1', 0)
+        .attr('x2', innerWidth)
+        .attr('y1', yScale(priceCoordinates.currentPrice))
+        .attr('y2', yScale(priceCoordinates.currentPrice))
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '2,2');
+
+      // Transición suave al actualizar la posición
+      priceLine.transition()
+        .duration(300)
+        .attr('y1', yScale(priceCoordinates.currentPrice))
+        .attr('y2', yScale(priceCoordinates.currentPrice));
+
+      // Etiqueta de precio actual
+      const priceLabel = g.append('text')
+        .attr('class', 'price-label')
+        .attr('x', innerWidth - maxBarWidth - 5)
+        .attr('y', yScale(priceCoordinates.currentPrice))
+        .attr('dy', '-4')
+        .attr('text-anchor', 'end')
+        .attr('fill', '#ffffff')
+        .attr('font-size', '10px')
+        .text(priceCoordinates.currentPrice.toFixed(1));
+
+      // Transición suave para la etiqueta
+      priceLabel.transition()
+        .duration(300)
+        .attr('y', yScale(priceCoordinates.currentPrice));
+    }
+
+    // Eje de precios adaptativo
+    const priceAxis = d3.axisRight(yScale)
+      .ticks(10)
+      .tickFormat((d: any) => {
+        if (typeof d === 'number' && Number.isFinite(d)) {
+          return `${d.toFixed(0)}`;
+        }
+        return '';
+      })
+      .tickSize(3);
+
+    const priceAxisGroup = g.append('g')
+      .attr('transform', `translate(${innerWidth},0)`)
+      .call(priceAxis);
+
+    priceAxisGroup.select('.domain').remove();
+    priceAxisGroup.selectAll('.tick line')
+      .attr('stroke', '#666')
+      .attr('stroke-width', 0.5);
+    priceAxisGroup.selectAll('.tick text')
+      .attr('fill', '#fff')
+      .attr('font-size', '9px');
+
+    // Información del perfil
+    g.append('text')
+      .attr('x', innerWidth - maxBarWidth)
+      .attr('y', 15)
+      .attr('fill', '#fff')
+      .attr('font-size', '10px')
+      .text(`Vol Profile (${visibleData.length})`);
+
+  }, [data, width, height, currentPrice, priceCoordinates]);
 
   return (
-    <div 
-      ref={containerRef}
-      className="absolute right-0 top-0 w-[200px] h-full border-l border-border bg-background/5"
-      style={{ height: `${height}px`, zIndex: 50 }}
+    <div
+      style={{
+        position: 'absolute',
+        right: '80px',
+        top: 0,
+        width: `${width}px`,
+        height: '100%',
+        background: 'transparent',
+        borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000
+      }}
     >
-      {/* Línea de precio actual */}
-      <div 
-        className="absolute w-full border-t border-white/80 border-dashed pointer-events-none"
-        style={{ 
-          top: `${calculatePosition(currentPrice)}px`,
-          zIndex: 51
+      <svg
+        ref={svgRef}
+        style={{
+          width: '100%',
+          height: '100%'
         }}
-      >
-        <span className="absolute right-1 -top-3 text-[10px] text-white bg-background/90 px-1 rounded">
-          {currentPrice.toFixed(1)}
-        </span>
-      </div>
-
-      {/* Barras de volumen */}
-      {visibleData.map((item, index) => (
-        <div
-          key={`${item.price}-${index}`}
-          className="absolute right-0 flex items-center justify-end w-full"
-          style={{
-            top: `${calculatePosition(item.price)}px`,
-            height: `${barHeight}px`,
-          }}
-        >
-          <div
-            className={`h-full transition-all duration-200 ${
-              item.side === 'bid' ? 'bg-green-500/60' : 'bg-red-500/60'
-            } hover:opacity-100`}
-            style={{
-              width: `${Math.max(40, item.normalizedVolume * 180)}px`,
-            }}
-          />
-          <span className="absolute right-1 text-[9px] text-white/90">
-            {item.price.toFixed(1)}
-          </span>
-        </div>
-      ))}
+      />
     </div>
   );
 };
