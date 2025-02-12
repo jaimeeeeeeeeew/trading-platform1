@@ -477,43 +477,64 @@ export default function Chart() {
       const series = candlestickSeriesRef.current;
       const containerHeight = container.current.clientHeight;
 
-      // Calculate visible range based on container height
-      const pixelsPerPrice = containerHeight / (currentChartPrice * 0.1); // 10% of current price
-      const pricePerPixel = (currentChartPrice * 0.1) / containerHeight;
+      // Obtener los datos visibles actuales
+      const visibleBars = chartRef.current?.timeScale().getVisibleRange();
+      if (!visibleBars) return;
 
-      // Calculate visible price range centered on current price
-      const halfRange = (containerHeight / 2) * pricePerPixel;
-      const visibleMin = currentChartPrice - halfRange;
-      const visibleMax = currentChartPrice + halfRange;
+      const data = series.data();
+      if (!data || data.length === 0) return;
+
+      // Calcular min/max de los precios visibles
+      let minPrice = Infinity;
+      let maxPrice = -Infinity;
+
+      for (let i = visibleBars.from; i <= visibleBars.to; i++) {
+        if (i >= 0 && i < data.length) {
+          const bar = data[i];
+          minPrice = Math.min(minPrice, bar.low);
+          maxPrice = Math.max(maxPrice, bar.high);
+        }
+      }
+
+      if (minPrice === Infinity || maxPrice === -Infinity) return;
+
+      // Ajustar el rango para incluir el precio actual
+      minPrice = Math.min(minPrice, currentChartPrice);
+      maxPrice = Math.max(maxPrice, currentChartPrice);
+
+      // Añadir un margen del 1% arriba y abajo
+      const margin = (maxPrice - minPrice) * 0.01;
+      minPrice -= margin;
+      maxPrice += margin;
 
       setVisiblePriceRange({
-        min: visibleMin,
-        max: visibleMax
+        min: minPrice,
+        max: maxPrice
       });
 
-      // Get coordinates for all price levels
+      // Obtener coordenadas Y para los precios
       const currentY = series.priceToCoordinate(currentChartPrice);
-      const minY = series.priceToCoordinate(visibleMin);
-      const maxY = series.priceToCoordinate(visibleMax);
+      const minY = series.priceToCoordinate(minPrice);
+      const maxY = series.priceToCoordinate(maxPrice);
 
       if (minY !== null && maxY !== null && currentY !== null) {
         setPriceCoordinate(currentY);
         setPriceCoordinates({
           currentPrice: currentChartPrice,
-          currentY: currentY,
-          minPrice: visibleMin,
-          minY: minY,
-          maxPrice: visibleMax,
-          maxY: maxY
+          currentY,
+          minPrice,
+          minY,
+          maxPrice,
+          maxY
         });
 
-        // Actualizar el perfil de volumen con las coordenadas coincidentes
+        // Actualizar el perfil de volumen con el nuevo rango
         if (orderbookVolumeProfile.length > 0) {
           const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
           const normalizedData = orderbookVolumeProfile
             .filter(data => {
-              const padding = (visibleMax - visibleMin) * 0.1; // 10% padding
-              return data.price >= (visibleMin - padding) && data.price <= (visibleMax + padding);
+              const padding = (maxPrice - minPrice) * 0.1;
+              return data.price >= (minPrice - padding) && data.price <= (maxPrice + padding);
             })
             .map(data => ({
               ...data,
@@ -523,7 +544,6 @@ export default function Chart() {
           setVolumeProfileData(normalizedData);
         }
       }
-      updatePriceScaleInfo();
     } catch (error) {
       console.error('Error updating visible range:', error);
     }
