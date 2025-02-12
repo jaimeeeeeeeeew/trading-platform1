@@ -28,50 +28,94 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-const MAX_VISIBLE_BARS = 30;
+const MIN_BAR_HEIGHT = 2; // Altura mínima de barra en píxeles
+const MAX_BAR_HEIGHT = 20; // Altura máxima de barra en píxeles
+const PRICE_STEP = 10; // Cada nivel de precio es de $10
 
-const groupDataByBars = (data: Props['data']) => {
-  let currentData = [...data];
+const groupDataByBars = (
+  data: Props['data'],
+  visiblePriceRange: { min: number; max: number },
+  height: number
+) => {
+  if (!data.length) return { groupedData: [], groupFactor: 1 };
+
+  // Calcular cuántos niveles de precio hay en el rango visible
+  const visibleRange = visiblePriceRange.max - visiblePriceRange.min;
+  const numPriceLevels = Math.ceil(visibleRange / PRICE_STEP);
+
+  // Calcular altura actual por barra
+  const currentBarHeight = height / numPriceLevels;
+
+  // Si la altura es menor que el mínimo, necesitamos agrupar
   let groupFactor = 1;
-
-  while (currentData.length > MAX_VISIBLE_BARS) {
-    // Agrupar de 2 en 2
-    const newData: Props['data'] = [];
-    for (let i = 0; i < currentData.length; i += 2) {
-      if (i + 1 < currentData.length) {
-        // Si hay un par completo, promediar precio y sumar volúmenes
-        newData.push({
-          price: (currentData[i].price + currentData[i + 1].price) / 2,
-          volume: currentData[i].volume + currentData[i + 1].volume,
-          normalizedVolume: 0, // Se calculará después
-          side: currentData[i].side
-        });
-      } else {
-        // Si queda uno solo, mantenerlo
-        newData.push(currentData[i]);
-      }
-    }
-    currentData = newData;
-    groupFactor *= 2;
+  if (currentBarHeight < MIN_BAR_HEIGHT) {
+    groupFactor = Math.ceil(MIN_BAR_HEIGHT / currentBarHeight);
+  }
+  // Si la altura es mayor que el máximo, también agrupamos
+  else if (currentBarHeight > MAX_BAR_HEIGHT) {
+    groupFactor = Math.floor(currentBarHeight / MAX_BAR_HEIGHT);
   }
 
-  // Normalizar volúmenes después de la agrupación
-  const maxVolume = Math.max(...currentData.map(d => d.volume));
-  const normalizedData = currentData.map(d => ({
-    ...d,
-    normalizedVolume: d.volume / maxVolume
-  }));
+  // Asegurar que el factor de agrupación sea múltiplo de PRICE_STEP
+  groupFactor = Math.max(1, Math.round(groupFactor / PRICE_STEP) * PRICE_STEP);
 
-  console.log('Agrupación final:', {
+  console.log('Calculando agrupación:', {
+    visibleRange,
+    numPriceLevels,
+    currentBarHeight,
+    groupFactor,
+    datosOriginales: data.length
+  });
+
+  // Crear buckets de precio basados en el factor de agrupación
+  const priceBuckets: Record<number, {
+    totalVolume: number;
+    count: number;
+    side: 'bid' | 'ask';
+  }> = {};
+
+  // Agrupar datos en buckets
+  data.forEach(item => {
+    const bucketPrice = Math.floor(item.price / groupFactor) * groupFactor;
+
+    if (!priceBuckets[bucketPrice]) {
+      priceBuckets[bucketPrice] = {
+        totalVolume: 0,
+        count: 0,
+        side: item.side
+      };
+    }
+
+    priceBuckets[bucketPrice].totalVolume += item.volume;
+    priceBuckets[bucketPrice].count++;
+  });
+
+  // Convertir buckets a array y calcular volumen normalizado
+  const groupedData = Object.entries(priceBuckets).map(([price, data]) => {
+    return {
+      price: parseFloat(price),
+      volume: data.totalVolume,
+      normalizedVolume: 0, // Se calculará después
+      side: data.side
+    };
+  });
+
+  // Normalizar volúmenes
+  const maxVolume = Math.max(...groupedData.map(d => d.volume));
+  groupedData.forEach(d => {
+    d.normalizedVolume = d.volume / maxVolume;
+  });
+
+  // Ordenar por precio
+  groupedData.sort((a, b) => b.price - a.price);
+
+  console.log('Agrupación completada:', {
     barrasOriginales: data.length,
-    barrasAgrupadas: normalizedData.length,
+    barrasAgrupadas: groupedData.length,
     factorAgrupacion: groupFactor
   });
 
-  return {
-    groupedData: normalizedData,
-    groupFactor
-  };
+  return { groupedData, groupFactor };
 };
 
 export const VolumeProfile = ({
@@ -99,13 +143,7 @@ export const VolumeProfile = ({
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
     );
 
-    const { groupedData, groupFactor } = groupDataByBars(visibleData);
-
-    console.log('Procesamiento de datos:', {
-      datosVisibles: visibleData.length,
-      datosAgrupados: groupedData.length,
-      factorAgrupacion: groupFactor
-    });
+    const { groupedData, groupFactor } = groupDataByBars(visibleData, visiblePriceRange, height);
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -162,7 +200,7 @@ export const VolumeProfile = ({
           .attr('text-anchor', 'end')
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .text(`${d.price}${groupFactor > 1 ? ` (x${groupFactor})` : ''}`);
+          .text(`${d.price.toFixed(0)}${groupFactor > 1 ? ` (x${groupFactor})` : ''}`);
       } else {
         g.append('text')
           .attr('class', 'price-label')
@@ -172,7 +210,7 @@ export const VolumeProfile = ({
           .attr('text-anchor', 'end')
           .attr('fill', '#666')
           .attr('font-size', '10px')
-          .text(`${d.price}`);
+          .text(`${d.price.toFixed(0)}`);
       }
     });
 
