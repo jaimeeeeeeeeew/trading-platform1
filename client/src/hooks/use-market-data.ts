@@ -35,65 +35,67 @@ export function useMarketData() {
     side: 'bid' | 'ask';
   }>>([]);
 
-  const { socket, connectionState } = useSocketIO();
+  const { socket, connectionState } = useSocketIO({
+    onProfileData: (profileData) => {
+      if (!profileData.length) return;
+
+      const maxVolume = Math.max(...profileData.map(item => item.volume));
+
+      const normalizedData = profileData.map(item => ({
+        ...item,
+        normalizedVolume: maxVolume > 0 ? item.volume / maxVolume : 0
+      }));
+
+      console.log('📊 Received orderbook data:', {
+        timestamp: new Date().toISOString(),
+        bids_count: profileData.filter(d => d.side === 'bid').length,
+        asks_count: profileData.filter(d => d.side === 'ask').length
+      });
+
+      console.log('📗 Top 5 Bids:');
+      normalizedData
+        .filter(d => d.side === 'bid')
+        .slice(0, 5)
+        .forEach(bid => {
+          console.log(`   Price: ${bid.price}, Volume: ${bid.volume}`);
+        });
+
+      console.log('📕 Top 5 Asks:');
+      normalizedData
+        .filter(d => d.side === 'ask')
+        .slice(0, 5)
+        .forEach(ask => {
+          console.log(`   Price: ${ask.price}, Volume: ${ask.volume}`);
+        });
+
+      setVolumeProfile(normalizedData);
+    }
+  });
 
   useEffect(() => {
     if (!socket) return;
 
-    console.log('Setting up orderbook listeners...');
-
     socket.on('orderbook_update', (newData: OrderbookData) => {
-      console.log('📊 Received orderbook data:', {
-        timestamp: newData.timestamp,
-        bids_count: newData.bids.length,
-        asks_count: newData.asks.length
-      });
-
       try {
-        // Procesar los datos del orderbook
         const bids = newData.bids.map(bid => ({
           price: parseFloat(bid.Price),
-          volume: parseFloat(bid.Quantity),
-          side: 'bid' as const
+          volume: parseFloat(bid.Quantity)
         }));
 
         const asks = newData.asks.map(ask => ({
           price: parseFloat(ask.Price),
-          volume: parseFloat(ask.Quantity),
-          side: 'ask' as const
+          volume: parseFloat(ask.Quantity)
         }));
 
-        // Calcular el precio medio
         const midPrice = bids[0] && asks[0]
           ? (bids[0].price + asks[0].price) / 2
           : 0;
-
-        // Combinar y ordenar los niveles de precio
-        const allLevels = [...bids, ...asks].sort((a, b) => b.price - a.price);
-
-        // Calcular el volumen máximo para normalización
-        const maxVolume = Math.max(...allLevels.map(level => level.volume));
-
-        // Crear el perfil de volumen normalizado
-        const profileData = allLevels.map(level => ({
-          ...level,
-          normalizedVolume: maxVolume > 0 ? level.volume / maxVolume : 0
-        }));
-
-        console.log('Volume Profile Generated:', {
-          levels: profileData.length,
-          maxVolume,
-          sampleBids: profileData.filter(d => d.side === 'bid').slice(0, 3),
-          sampleAsks: profileData.filter(d => d.side === 'ask').slice(0, 3)
-        });
 
         setData(prev => ({
           ...prev,
           orderbook: newData,
           currentPrice: midPrice
         }));
-
-        setVolumeProfile(profileData);
 
       } catch (err) {
         console.error('Error processing orderbook data:', err);
