@@ -72,7 +72,13 @@ export default function Chart() {
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [isLoading, setIsLoading] = useState(false);
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number; side: 'bid' | 'ask' }>>([]);
-  const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>({ min: 95850, max: 99300 });
+  const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>(() => {
+    const initialPrice = 96000; // Precio base inicial
+    return {
+      min: initialPrice * 0.85, // 15% por debajo
+      max: initialPrice * 1.15  // 15% por arriba
+    };
+  });
   const [currentChartPrice, setCurrentChartPrice] = useState<number>(96000);
   const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
   const [priceCoordinates, setPriceCoordinates] = useState<PriceCoordinates | null>(null);
@@ -453,19 +459,17 @@ export default function Chart() {
 
     try {
         const series = candlestickSeriesRef.current;
-        const containerHeight = container.current.clientHeight;
-
-        // Obtener los datos visibles actuales
-        const visibleBars = chartRef.current?.timeScale().getVisibleRange();
-        if (!visibleBars) return;
-
-        const data = series.data();
-        if (!data || data.length === 0) return;
 
         // Calcular min/max de los precios visibles usando un rango fijo del 15%
         const currentPrice = currentChartPrice;
         const minPrice = currentPrice * 0.85; // 15% por debajo
         const maxPrice = currentPrice * 1.15; // 15% por arriba
+
+        console.log('Actualizando rango de precios:', {
+          currentPrice,
+          minPrice,
+          maxPrice
+        });
 
         setVisiblePriceRange({
             min: minPrice,
