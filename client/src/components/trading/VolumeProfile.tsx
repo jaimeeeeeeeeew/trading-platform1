@@ -28,75 +28,50 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-// Constantes actualizadas para la agrupación dinámica
-const ZOOM_LEVELS = {
-  TIGHT: 100,    // Rango de $100 o menos - usar 1x
-  MEDIUM: 500,   // Rango de $500 o menos - usar 5x
-  WIDE: 1000     // Rango mayor a $1000 - usar 10x
-} as const;
+const MAX_VISIBLE_BARS = 30;
 
-const GROUP_SIZES = {
-  SMALL: 1,    // Sin agrupación (1:1)
-  MEDIUM: 5,   // Grupos de $5 (5:1)
-  LARGE: 10    // Grupos de $10 (10:1)
-} as const;
+const groupDataByBars = (data: Props['data']) => {
+  let currentData = [...data];
+  let groupFactor = 1;
 
-const getGroupSize = (priceRange: number): number => {
-  console.log('Calculating group size for price range:', priceRange);
-
-  if (priceRange <= ZOOM_LEVELS.TIGHT) {
-    console.log('Using SMALL grouping (1x) for tight zoom');
-    return GROUP_SIZES.SMALL;
-  } else if (priceRange <= ZOOM_LEVELS.MEDIUM) {
-    console.log('Using MEDIUM grouping (5x) for medium zoom');
-    return GROUP_SIZES.MEDIUM;
-  }
-  console.log('Using LARGE grouping (10x) for wide zoom');
-  return GROUP_SIZES.LARGE;
-};
-
-const getGroupFactor = (groupSize: number): string => {
-  switch (groupSize) {
-    case GROUP_SIZES.SMALL:
-      return '';        // Sin indicador para datos individuales
-    case GROUP_SIZES.MEDIUM:
-      return 'x5';     // Indicador para grupos de $5
-    case GROUP_SIZES.LARGE:
-      return 'x10';    // Indicador para grupos de $10
-    default:
-      return `x${groupSize}`;
-  }
-};
-
-const groupData = (data: Props['data'], groupSize: number) => {
-  // Si no hay agrupación, normalizar los volúmenes directamente
-  if (groupSize === 1) {
-    const maxVolume = Math.max(...data.map(d => d.volume));
-    return data.map(item => ({
-      ...item,
-      normalizedVolume: item.volume / maxVolume
-    }));
+  while (currentData.length > MAX_VISIBLE_BARS) {
+    // Agrupar de 2 en 2
+    const newData: Props['data'] = [];
+    for (let i = 0; i < currentData.length; i += 2) {
+      if (i + 1 < currentData.length) {
+        // Si hay un par completo, promediar precio y sumar volúmenes
+        newData.push({
+          price: (currentData[i].price + currentData[i + 1].price) / 2,
+          volume: currentData[i].volume + currentData[i + 1].volume,
+          normalizedVolume: 0, // Se calculará después
+          side: currentData[i].side
+        });
+      } else {
+        // Si queda uno solo, mantenerlo
+        newData.push(currentData[i]);
+      }
+    }
+    currentData = newData;
+    groupFactor *= 2;
   }
 
-  const groups = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
+  // Normalizar volúmenes después de la agrupación
+  const maxVolume = Math.max(...currentData.map(d => d.volume));
+  const normalizedData = currentData.map(d => ({
+    ...d,
+    normalizedVolume: d.volume / maxVolume
+  }));
 
-  data.forEach(item => {
-    const groupPrice = Math.floor(item.price / groupSize) * groupSize;
-    const existing = groups.get(groupPrice) || { volume: 0, side: item.side };
-    groups.set(groupPrice, {
-      volume: existing.volume + item.volume,
-      side: item.side
-    });
+  console.log('Agrupación final:', {
+    barrasOriginales: data.length,
+    barrasAgrupadas: normalizedData.length,
+    factorAgrupacion: groupFactor
   });
 
-  const maxVolume = Math.max(...Array.from(groups.values()).map(g => g.volume));
-
-  return Array.from(groups.entries()).map(([price, { volume, side }]) => ({
-    price,
-    volume,
-    normalizedVolume: volume / maxVolume,
-    side
-  }));
+  return {
+    groupedData: normalizedData,
+    groupFactor
+  };
 };
 
 export const VolumeProfile = ({
@@ -119,47 +94,23 @@ export const VolumeProfile = ({
       return;
     }
 
-    // Calcular el rango de precios visible actual
-    const visibleRange = visiblePriceRange.max - visiblePriceRange.min;
+    // Filtrar datos por rango visible y agrupar si es necesario
+    const visibleData = data.filter(
+      d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
+    );
 
-    // Usar una ventana móvil alrededor del precio actual para determinar el zoom
-    const zoomWindow = Math.min(visibleRange, 2000); // Limitar la ventana a 2000 para evitar grupos muy grandes
+    const { groupedData, groupFactor } = groupDataByBars(visibleData);
 
-    console.log('Volume Profile Range Analysis:', {
-      fullRange: visibleRange,
-      zoomWindow,
-      currentPrice,
-      visiblePrices: {
-        min: visiblePriceRange.min,
-        max: visiblePriceRange.max
-      }
-    });
-
-    const groupSize = getGroupSize(zoomWindow);
-
-    console.log('Selected grouping configuration:', {
-      zoomWindow,
-      groupSize,
-      groupFactor: getGroupFactor(groupSize)
-    });
-
-    const groupedData = groupData(data, groupSize);
-
-    console.log('VolumeProfile Data:', {
-      totalItems: groupedData.length,
-      bids: groupedData.filter(d => d.side === 'bid').length,
-      asks: groupedData.filter(d => d.side === 'ask').length,
-      priceRange: visibleRange,
-      groupSize,
-      originalDataLength: data.length,
-      sampleOriginalData: data[0],
-      sampleGroupedData: groupedData[0]
+    console.log('Procesamiento de datos:', {
+      datosVisibles: visibleData.length,
+      datosAgrupados: groupedData.length,
+      factorAgrupacion: groupFactor
     });
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 25, right: 50, bottom: 25, left: 55 }; // Increased left margin for price labels
+    const margin = { top: 25, right: 50, bottom: 25, left: 55 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -199,10 +150,10 @@ export const VolumeProfile = ({
       .filter(d => d.side === 'bid')
       .sort((a, b) => b.price - a.price);
 
-    // Price labels on the left side
+    // Etiquetas de precio con indicador de agrupación
     const allPrices = [...bids, ...asks].sort((a, b) => a.price - b.price);
     allPrices.forEach((d, i) => {
-      if (i % 2 === 0) { // Show full label for every other price
+      if (i % 2 === 0) {
         g.append('text')
           .attr('class', 'price-label')
           .attr('x', -8)
@@ -211,7 +162,7 @@ export const VolumeProfile = ({
           .attr('text-anchor', 'end')
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .text(`${d.price}${groupSize > GROUP_SIZES.SMALL ? ` (${getGroupFactor(groupSize)})` : ''}`);
+          .text(`${d.price}${groupFactor > 1 ? ` (x${groupFactor})` : ''}`);
       } else {
         g.append('text')
           .attr('class', 'price-label')
@@ -225,6 +176,7 @@ export const VolumeProfile = ({
       }
     });
 
+    // Barras de volumen
     g.selectAll('.bid-bars')
       .data(bids)
       .join('rect')
@@ -253,6 +205,7 @@ export const VolumeProfile = ({
       .attr('fill', '#ef5350')
       .attr('opacity', 0.8);
 
+    // Línea de precio actual
     if (priceCoordinates.currentPrice && priceCoordinates.currentY) {
       g.append('line')
         .attr('class', 'price-line')
