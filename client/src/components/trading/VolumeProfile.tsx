@@ -29,18 +29,27 @@ interface PriceCoordinates {
 }
 
 const getGroupSize = (priceRange: number): number => {
-  if (priceRange < 500) return 10;
+  if (priceRange < 500) return 1;  // Sin agrupación cuando hay suficiente zoom
   if (priceRange < 2000) return 50;
   return 100;
 };
 
 const getGroupFactor = (groupSize: number): string => {
-  if (groupSize === 10) return 'x1';
+  if (groupSize === 1) return '';  // Sin indicador de agrupación para datos individuales
   if (groupSize === 50) return 'x5';
   return 'x10';
 };
 
 const groupData = (data: Props['data'], groupSize: number) => {
+  // Si no hay agrupación, normalizar los volúmenes directamente
+  if (groupSize === 1) {
+    const maxVolume = Math.max(...data.map(d => d.volume));
+    return data.map(item => ({
+      ...item,
+      normalizedVolume: item.volume / maxVolume
+    }));
+  }
+
   const groups = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
 
   data.forEach(item => {
@@ -150,7 +159,7 @@ export const VolumeProfile = ({
           .attr('text-anchor', 'end')
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .text(`${d.price}(${groupFactor})`);
+          .text(`${d.price}${groupFactor ? `(${groupFactor})` : ''}`);
       } else {
         g.append('text')
           .attr('class', 'price-label')
