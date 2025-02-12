@@ -28,8 +28,8 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-const MIN_BAR_HEIGHT = 2; // Altura mínima de barra en píxeles
-const MAX_BAR_HEIGHT = 20; // Altura máxima de barra en píxeles
+const MIN_BAR_HEIGHT = 3; // Altura mínima aumentada a 3px
+const MAX_BAR_HEIGHT = 15; // Altura máxima reducida a 15px
 const PRICE_STEP = 10; // Cada nivel de precio es de $10
 
 const groupDataByBars = (
@@ -46,12 +46,11 @@ const groupDataByBars = (
   // Calcular altura actual por barra
   const currentBarHeight = height / numPriceLevels;
 
-  // Si la altura es menor que el mínimo, necesitamos agrupar
+  // Calcular factor de agrupación basado en la altura actual
   let groupFactor = 1;
   if (currentBarHeight < MIN_BAR_HEIGHT) {
     groupFactor = Math.ceil(MIN_BAR_HEIGHT / currentBarHeight);
   }
-  // Si la altura es mayor que el máximo, también agrupamos
   else if (currentBarHeight > MAX_BAR_HEIGHT) {
     groupFactor = Math.floor(currentBarHeight / MAX_BAR_HEIGHT);
   }
@@ -90,15 +89,13 @@ const groupDataByBars = (
     priceBuckets[bucketPrice].count++;
   });
 
-  // Convertir buckets a array y calcular volumen normalizado
-  const groupedData = Object.entries(priceBuckets).map(([price, data]) => {
-    return {
-      price: parseFloat(price),
-      volume: data.totalVolume,
-      normalizedVolume: 0, // Se calculará después
-      side: data.side
-    };
-  });
+  // Convertir buckets a array
+  const groupedData = Object.entries(priceBuckets).map(([price, data]) => ({
+    price: parseFloat(price),
+    volume: data.totalVolume,
+    normalizedVolume: 0,
+    side: data.side
+  }));
 
   // Normalizar volúmenes
   const maxVolume = Math.max(...groupedData.map(d => d.volume));
@@ -138,7 +135,7 @@ export const VolumeProfile = ({
       return;
     }
 
-    // Filtrar datos por rango visible y agrupar si es necesario
+    // Filtrar datos por rango visible
     const visibleData = data.filter(
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
     );
@@ -164,32 +161,30 @@ export const VolumeProfile = ({
       .domain([0, 1])
       .range([maxBarWidth/2, 0]);
 
+    // Función mejorada para calcular la posición Y
     const priceToY = (price: number) => {
       if (price === currentPrice) {
         return priceCoordinates.currentY - margin.top;
       }
 
-      if (price > currentPrice) {
-        const askRatio = (price - currentPrice) / (priceCoordinates.maxPrice - currentPrice);
-        return priceCoordinates.currentY - margin.top - (askRatio * (priceCoordinates.currentY - priceCoordinates.maxY));
-      }
-
-      const bidRatio = (currentPrice - price) / (currentPrice - priceCoordinates.minPrice);
-      return priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
+      const range = priceCoordinates.maxPrice - priceCoordinates.minPrice;
+      const normalizedPrice = (price - priceCoordinates.minPrice) / range;
+      return priceCoordinates.minY - margin.top - 
+             (normalizedPrice * (priceCoordinates.minY - priceCoordinates.maxY));
     };
 
-    const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (groupedData.length * 2));
+    // Calcular altura de barra basada en el rango de precios visible
+    const totalPriceLevels = Math.ceil((visiblePriceRange.max - visiblePriceRange.min) / PRICE_STEP);
+    const barHeight = Math.min(MAX_BAR_HEIGHT, Math.max(MIN_BAR_HEIGHT, innerHeight / totalPriceLevels));
 
-    const asks = groupedData
-      .filter(d => d.side === 'ask')
-      .sort((a, b) => a.price - b.price);
+    // Separar bids y asks
+    const asks = groupedData.filter(d => d.side === 'ask').sort((a, b) => a.price - b.price);
+    const bids = groupedData.filter(d => d.side === 'bid').sort((a, b) => b.price - a.price);
 
-    const bids = groupedData
-      .filter(d => d.side === 'bid')
-      .sort((a, b) => b.price - a.price);
-
-    // Etiquetas de precio con indicador de agrupación
+    // Etiquetas de precio
     const allPrices = [...bids, ...asks].sort((a, b) => a.price - b.price);
+
+    // Mostrar etiquetas alternadas para evitar solapamiento
     allPrices.forEach((d, i) => {
       if (i % 2 === 0) {
         g.append('text')
@@ -201,31 +196,18 @@ export const VolumeProfile = ({
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
           .text(`${d.price.toFixed(0)}${groupFactor > 1 ? ` (x${groupFactor})` : ''}`);
-      } else {
-        g.append('text')
-          .attr('class', 'price-label')
-          .attr('x', -8)
-          .attr('y', priceToY(d.price))
-          .attr('dy', '0.32em')
-          .attr('text-anchor', 'end')
-          .attr('fill', '#666')
-          .attr('font-size', '10px')
-          .text(`${d.price.toFixed(0)}`);
       }
     });
 
-    // Barras de volumen
+    // Dibujar barras de volumen
     g.selectAll('.bid-bars')
       .data(bids)
       .join('rect')
       .attr('class', 'volume-bar bid')
       .attr('x', d => xScale(d.normalizedVolume))
-      .attr('y', d => {
-        const y = priceToY(d.price);
-        return isNaN(y) ? 0 : y - barHeight / 2;
-      })
+      .attr('y', d => priceToY(d.price) - barHeight/2)
       .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume))
-      .attr('height', barHeight)
+      .attr('height', barHeight * 0.9) // Reducir ligeramente la altura para dar espacio
       .attr('fill', '#26a69a')
       .attr('opacity', 0.8);
 
@@ -234,12 +216,9 @@ export const VolumeProfile = ({
       .join('rect')
       .attr('class', 'volume-bar ask')
       .attr('x', d => xScale(d.normalizedVolume))
-      .attr('y', d => {
-        const y = priceToY(d.price);
-        return isNaN(y) ? 0 : y - barHeight / 2;
-      })
+      .attr('y', d => priceToY(d.price) - barHeight/2)
       .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume))
-      .attr('height', barHeight)
+      .attr('height', barHeight * 0.9) // Reducir ligeramente la altura para dar espacio
       .attr('fill', '#ef5350')
       .attr('opacity', 0.8);
 
@@ -256,7 +235,7 @@ export const VolumeProfile = ({
         .attr('stroke-dasharray', '2,2');
 
       g.append('text')
-        .attr('class', 'price-label')
+        .attr('class', 'current-price-label')
         .attr('x', innerWidth + 8)
         .attr('y', priceCoordinates.currentY - margin.top)
         .attr('dy', '0.32em')
