@@ -18,6 +18,7 @@ interface Props {
   priceCoordinate: number | null;
   priceCoordinates: PriceCoordinates | null;
   maxVisibleBars: number;
+  onMaxVolumeBar?: (volume: number, price: number) => void;
 }
 
 interface PriceCoordinates {
@@ -91,7 +92,8 @@ export const VolumeProfile = ({
   currentPrice,
   priceCoordinate,
   priceCoordinates,
-  maxVisibleBars
+  maxVisibleBars,
+  onMaxVolumeBar
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const prevDataRef = useRef<Props['data']>([]);
@@ -135,7 +137,7 @@ export const VolumeProfile = ({
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      const margin = { top: 20, right: 30, bottom: 20, left: 10 };
+      const margin = { top: 20, right: -30, bottom: 20, left: 100 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
@@ -176,6 +178,11 @@ export const VolumeProfile = ({
 
       // Determinar la barra con el volumen máximo total
       const maxVolumeBar = maxAskBar.volume > maxBidBar.volume ? maxAskBar : maxBidBar;
+
+      // Notificar al componente padre sobre la barra con volumen máximo
+      if (maxVolumeBar && onMaxVolumeBar) {
+        onMaxVolumeBar(maxVolumeBar.volume, maxVolumeBar.price);
+      }
 
       // Barras de volumen con espaciado garantizado
       g.selectAll('.bid-bars')
@@ -259,7 +266,7 @@ export const VolumeProfile = ({
         clearTimeout(updateTimeoutRef.current);
       }
     };
-  }, [processedData, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars]);
+  }, [processedData, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars, onMaxVolumeBar]);
 
   return (
     <div
