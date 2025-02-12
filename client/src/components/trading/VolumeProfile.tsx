@@ -41,11 +41,19 @@ export const VolumeProfile = ({
 
   useEffect(() => {
     if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
-      console.log('No data or coordinates available:', { data, priceCoordinates });
+      console.log('VolumeProfile: Missing data or coordinates:', { 
+        data: data?.length, 
+        priceCoordinates: !!priceCoordinates 
+      });
       return;
     }
 
-    console.log('Data received:', data.length, 'items');
+    console.log('VolumeProfile Data:', {
+      totalItems: data.length,
+      bids: data.filter(d => d.side === 'bid').length,
+      asks: data.filter(d => d.side === 'ask').length,
+      priceRange: visiblePriceRange
+    });
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -82,7 +90,7 @@ export const VolumeProfile = ({
 
     const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (data.length * 2));
 
-    // No filtrar por precio, solo por tipo
+    // Separar y ordenar bids y asks
     const asks = data
       .filter(d => d.side === 'ask')
       .sort((a, b) => a.price - b.price);
@@ -91,27 +99,40 @@ export const VolumeProfile = ({
       .filter(d => d.side === 'bid')
       .sort((a, b) => b.price - a.price);
 
-    console.log('Datos procesados:', {
+    console.log('VolumeProfile Rendering:', {
       asks: asks.length,
       bids: bids.length,
-      currentPrice,
-      sampleAsk: asks[0],
-      sampleBid: bids[0]
+      sampleBid: bids[0],
+      sampleAsk: asks[0]
     });
 
     // Dibujar barras de volumen
-    g.selectAll('.volume-bar')
-      .data([...asks, ...bids])
+    g.selectAll('.bid-bars')
+      .data(bids)
       .join('rect')
-      .attr('class', 'volume-bar')
+      .attr('class', 'volume-bar bid')
       .attr('x', 0)
       .attr('y', d => {
         const y = priceToY(d.price);
-        return y - barHeight / 2;
+        return isNaN(y) ? 0 : y - barHeight / 2;
       })
       .attr('width', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
-      .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
+      .attr('fill', '#26a69a')
+      .attr('opacity', 0.8);
+
+    g.selectAll('.ask-bars')
+      .data(asks)
+      .join('rect')
+      .attr('class', 'volume-bar ask')
+      .attr('x', 0)
+      .attr('y', d => {
+        const y = priceToY(d.price);
+        return isNaN(y) ? 0 : y - barHeight / 2;
+      })
+      .attr('width', d => xScale(d.normalizedVolume))
+      .attr('height', barHeight)
+      .attr('fill', '#ef5350')
       .attr('opacity', 0.8);
 
     // Línea de precio actual
@@ -173,7 +194,7 @@ export const VolumeProfile = ({
       }
     });
 
-  }, [data, width, height, currentPrice, priceCoordinates]);
+  }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange]);
 
   return (
     <div

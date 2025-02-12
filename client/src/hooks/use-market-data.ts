@@ -39,7 +39,7 @@ export function useMarketData() {
     console.log('Setting up orderbook listeners...');
 
     socket.on('orderbook_update', (newData: OrderbookData) => {
-      console.log('📊 Received orderbook data:', {
+      console.log('📊 Received orderbook update:', {
         timestamp: newData.timestamp,
         bids_count: newData.bids.length,
         asks_count: newData.asks.length,
@@ -48,11 +48,32 @@ export function useMarketData() {
       });
 
       try {
+        if (!Array.isArray(newData.bids) || !Array.isArray(newData.asks)) {
+          throw new Error('Invalid orderbook data structure');
+        }
+
+        const sortedBids = [...newData.bids].sort((a, b) => parseFloat(b.Price) - parseFloat(a.Price));
+        const sortedAsks = [...newData.asks].sort((a, b) => parseFloat(a.Price) - parseFloat(b.Price));
+
+        console.log('📗 Top 5 Bids:', sortedBids.slice(0, 5).map(bid => ({
+          Price: parseFloat(bid.Price),
+          Volume: parseFloat(bid.Quantity)
+        })));
+
+        console.log('📕 Top 5 Asks:', sortedAsks.slice(0, 5).map(ask => ({
+          Price: parseFloat(ask.Price),
+          Volume: parseFloat(ask.Quantity)
+        })));
+
         setData(prev => ({
           ...prev,
-          orderbook: newData,
-          currentPrice: newData.bids[0] && newData.asks[0] 
-            ? (parseFloat(newData.bids[0].Price) + parseFloat(newData.asks[0].Price)) / 2 
+          orderbook: {
+            bids: sortedBids,
+            asks: sortedAsks,
+            timestamp: newData.timestamp
+          },
+          currentPrice: sortedBids[0] && sortedAsks[0] 
+            ? (parseFloat(sortedBids[0].Price) + parseFloat(sortedAsks[0].Price)) / 2 
             : prev.currentPrice
         }));
         setError(false);
@@ -72,23 +93,18 @@ export function useMarketData() {
     };
   }, [socket, toast]);
 
-  // Calculate volume profile data from orderbook with price buckets
   const volumeProfile = useMemo(() => {
     if (!data.orderbook.bids.length && !data.orderbook.asks.length) {
-      console.log('No orderbook data available for volume profile:', {
-        bids: data.orderbook.bids.length,
-        asks: data.orderbook.asks.length
-      });
+      console.log('No orderbook data available for volume profile');
       return [];
     }
 
-    const PRICE_BUCKET_SIZE = 10; // Agrupar precios cada $10
+    const PRICE_BUCKET_SIZE = 10;
 
-    // Función para agrupar precios en buckets
     const getPriceBucket = (price: number) => 
       Math.floor(price / PRICE_BUCKET_SIZE) * PRICE_BUCKET_SIZE;
 
-    // Objeto para acumular volúmenes por nivel de precio
+    // Procesar bids y asks por separado
     const volumeByPrice: Record<number, { volume: number; side: 'bid' | 'ask' }> = {};
 
     // Procesar bids
@@ -100,7 +116,9 @@ export function useMarketData() {
       if (!volumeByPrice[bucket]) {
         volumeByPrice[bucket] = { volume: 0, side: 'bid' };
       }
-      volumeByPrice[bucket].volume += volume;
+      if (volumeByPrice[bucket].side === 'bid') {
+        volumeByPrice[bucket].volume += volume;
+      }
     });
 
     // Procesar asks
@@ -112,45 +130,33 @@ export function useMarketData() {
       if (!volumeByPrice[bucket]) {
         volumeByPrice[bucket] = { volume: 0, side: 'ask' };
       }
-      volumeByPrice[bucket].volume += volume;
+      if (volumeByPrice[bucket].side === 'ask') {
+        volumeByPrice[bucket].volume += volume;
+      }
     });
 
     // Convertir a array y ordenar por precio
-    const groupedLevels = Object.entries(volumeByPrice)
-      .map(([price, data]) => ({
-        price: parseFloat(price),
-        volume: data.volume,
-        side: data.side
-      }))
-      .sort((a, b) => b.price - a.price);
-
-    console.log('Volume Profile Calculation:', {
-      inputData: {
-        bids: data.orderbook.bids.length,
-        asks: data.orderbook.asks.length
-      },
-      processedLevels: groupedLevels.length,
-      sampleLevel: groupedLevels[0]
-    });
-
-    if (groupedLevels.length === 0) {
-      console.log('No grouped levels available');
-      return [];
-    }
+    const allLevels = Object.entries(volumeByPrice).map(([price, data]) => ({
+      price: Number(price),
+      volume: data.volume,
+      side: data.side
+    })).sort((a, b) => b.price - a.price);
 
     // Encontrar el volumen máximo para normalización
-    const maxVolume = Math.max(...groupedLevels.map(level => level.volume));
+    const maxVolume = Math.max(...allLevels.map(level => level.volume));
 
     // Normalizar volúmenes
-    const normalizedLevels = groupedLevels.map(level => ({
+    const normalizedLevels = allLevels.map(level => ({
       ...level,
       normalizedVolume: level.volume / maxVolume
     }));
 
     console.log('📊 Volume Profile Data:', {
       levels: normalizedLevels.length,
-      maxVolume,
-      sampleData: normalizedLevels.slice(0, 3)
+      bidLevels: normalizedLevels.filter(v => v.side === 'bid').length,
+      askLevels: normalizedLevels.filter(v => v.side === 'ask').length,
+      sampleBid: normalizedLevels.find(v => v.side === 'bid'),
+      sampleAsk: normalizedLevels.find(v => v.side === 'ask')
     });
 
     return normalizedLevels;
@@ -161,6 +167,6 @@ export function useMarketData() {
     volumeProfile, 
     error, 
     connectionState,
-    reconnect
+    reconnect 
   };
 }
