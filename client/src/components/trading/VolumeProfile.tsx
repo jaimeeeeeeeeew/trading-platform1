@@ -21,22 +21,21 @@ export const VolumeProfile = ({
   currentPrice,
   height
 }: Props) => {
-  console.log('VolumeProfile render:', {
-    dataLength: data?.length,
-    visibleRange: visiblePriceRange,
-    currentPrice,
-    height
-  });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    console.log('VolumeProfile render:', {
+      data: data?.length,
+      range: visiblePriceRange,
+      price: currentPrice,
+      height
+    });
+  }, [data, visiblePriceRange, currentPrice, height]);
 
   // Filtrar datos dentro del rango visible
   const visibleData = data?.filter(
     d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
   ) || [];
-
-  console.log('Visible data:', {
-    length: visibleData.length,
-    sample: visibleData.slice(0, 3)
-  });
 
   // Función para calcular la posición vertical
   const calculatePosition = (price: number) => {
@@ -47,11 +46,12 @@ export const VolumeProfile = ({
   };
 
   // Calcular altura de cada barra
-  const barHeight = Math.max(2, height / ((visibleData.length || 1) * 1.2));
+  const barHeight = Math.max(2, height / (visibleData.length || 1));
 
   return (
     <div 
-      className="absolute right-0 top-0 w-[200px] h-full border-l border-border/10 bg-background/80"
+      ref={containerRef}
+      className="absolute right-0 top-0 w-[200px] h-full border-l border-border bg-background/5"
       style={{ height: `${height}px`, zIndex: 50 }}
     >
       {/* Línea de precio actual */}
@@ -71,7 +71,7 @@ export const VolumeProfile = ({
       {visibleData.map((item, index) => (
         <div
           key={`${item.price}-${index}`}
-          className="absolute right-0 flex items-center w-full"
+          className="absolute right-0 flex items-center justify-end w-full"
           style={{
             top: `${calculatePosition(item.price)}px`,
             height: `${barHeight}px`,

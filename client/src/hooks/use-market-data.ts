@@ -18,11 +18,7 @@ interface MarketData {
   currentPrice: number;
 }
 
-interface UseMarketDataProps {
-  visiblePriceRange?: { min: number; max: number };
-}
-
-export function useMarketData({ visiblePriceRange }: UseMarketDataProps = {}) {
+export function useMarketData() {
   const [data, setData] = useState<MarketData>({
     orderbook: {
       bids: [],
@@ -72,28 +68,30 @@ export function useMarketData({ visiblePriceRange }: UseMarketDataProps = {}) {
           ? (bids[0].price + asks[0].price) / 2
           : 0;
 
+        // Combinar y ordenar los niveles de precio
+        const allLevels = [...bids, ...asks].sort((a, b) => b.price - a.price);
+
+        // Calcular el volumen máximo para normalización
+        const maxVolume = Math.max(...allLevels.map(level => level.volume));
+
+        // Crear el perfil de volumen normalizado
+        const profileData = allLevels.map(level => ({
+          ...level,
+          normalizedVolume: maxVolume > 0 ? level.volume / maxVolume : 0
+        }));
+
+        console.log('Volume Profile Generated:', {
+          levels: profileData.length,
+          maxVolume,
+          sampleBids: profileData.filter(d => d.side === 'bid').slice(0, 3),
+          sampleAsks: profileData.filter(d => d.side === 'ask').slice(0, 3)
+        });
+
         setData(prev => ({
           ...prev,
           orderbook: newData,
           currentPrice: midPrice
         }));
-
-        // Procesar y actualizar el perfil de volumen
-        const allLevels = [...bids, ...asks];
-        const maxVolume = Math.max(...allLevels.map(level => level.volume));
-
-        const profileData = allLevels.map(level => ({
-          price: level.price,
-          volume: level.volume,
-          normalizedVolume: maxVolume > 0 ? level.volume / maxVolume : 0,
-          side: level.side
-        }));
-
-        console.log('Volume Profile Processed:', {
-          levels: profileData.length,
-          maxVolume,
-          sampleData: profileData.slice(0, 3)
-        });
 
         setVolumeProfile(profileData);
 

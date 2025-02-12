@@ -558,12 +558,23 @@ export default function Chart() {
       return;
     }
 
-    console.log('Processing Volume Profile Data:', orderbookVolumeProfile.slice(0, 5));
+    console.log('Raw Volume Profile Data:', {
+      total: orderbookVolumeProfile.length,
+      sample: orderbookVolumeProfile.slice(0, 3)
+    });
 
-    setVolumeProfileData(orderbookVolumeProfile.filter(data => 
+    const filteredData = orderbookVolumeProfile.filter(data => 
       data.price >= visiblePriceRange.min && 
       data.price <= visiblePriceRange.max
-    ));
+    );
+
+    console.log('Filtered Volume Profile Data:', {
+      total: filteredData.length,
+      priceRange: visiblePriceRange,
+      sample: filteredData.slice(0, 3)
+    });
+
+    setVolumeProfileData(filteredData);
   }, [orderbookVolumeProfile, visiblePriceRange]);
 
 
