@@ -40,7 +40,7 @@ export const VolumeProfile = ({
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !data || data.length === 0) return;
+    if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -57,116 +57,79 @@ export const VolumeProfile = ({
 
     const maxBarWidth = innerWidth * 0.7;
 
+    // Escala horizontal para el volumen normalizado
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([maxBarWidth, 0]);
+      .range([0, maxBarWidth]);
 
-    // Asegurar que los valores del dominio sean números válidos
-    const yMin = Number.isFinite(visiblePriceRange.min) ? visiblePriceRange.min : 0;
-    const yMax = Number.isFinite(visiblePriceRange.max) ? visiblePriceRange.max : 100000;
-
+    // Usar las coordenadas del gráfico principal para el eje Y
     const yScale = d3.scaleLinear()
-      .domain([yMin, yMax])
-      .range([innerHeight, 0]);
+      .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
+      .range([priceCoordinates.minY - margin.top, priceCoordinates.maxY - margin.top]);
 
-    // Altura fija para las barras, ajustada para incrementos de $10
-    const barHeight = Math.max(2, (innerHeight / ((yMax - yMin) / 10)));
+    // Filtrar datos según el rango de precios visible
+    const visibleData = data.filter(d => 
+      d.price >= priceCoordinates.minPrice && 
+      d.price <= priceCoordinates.maxPrice
+    );
+
+    // Altura dinámica de las barras basada en el rango de precios visible
+    const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
+    const barHeight = Math.max(1, innerHeight / (priceRange / 10));
 
     // Dibujar barras de volumen
-    const bars = g.selectAll('.volume-bar')
-      .data(data)
+    g.selectAll('.volume-bar')
+      .data(visibleData)
       .join('rect')
       .attr('class', 'volume-bar')
-      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
-      .attr('y', d => {
-        const y = yScale(d.price);
-        return Number.isFinite(y) ? y - barHeight / 2 : 0;
-      })
-      .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
+      .attr('x', innerWidth - maxBarWidth)
+      .attr('y', d => yScale(d.price) - barHeight / 2)
+      .attr('width', d => xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
-    // Agregar etiquetas de precio
-    g.selectAll('.price-label')
-      .data(data)
-      .join('text')
-      .attr('class', 'price-label')
-      .attr('x', -5)
-      .attr('y', d => {
-        const y = yScale(d.price);
-        return Number.isFinite(y) ? y : 0;
-      })
-      .attr('text-anchor', 'end')
-      .attr('alignment-baseline', 'middle')
-      .attr('fill', '#ffffff')
-      .attr('font-size', '10px')
-      .text(d => d.price.toFixed(0));
-
     // Línea de precio actual
-    if (currentPrice && Number.isFinite(yScale(currentPrice))) {
+    if (priceCoordinates.currentPrice) {
+      const currentY = yScale(priceCoordinates.currentPrice);
+
       g.append('line')
         .attr('x1', 0)
         .attr('x2', innerWidth)
-        .attr('y1', yScale(currentPrice))
-        .attr('y2', yScale(currentPrice))
+        .attr('y1', currentY)
+        .attr('y2', currentY)
         .attr('stroke', '#ffffff')
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '2,2');
 
       g.append('text')
-        .attr('x', innerWidth - maxBarWidth - 5)
-        .attr('y', yScale(currentPrice))
+        .attr('x', -5)
+        .attr('y', currentY)
         .attr('dy', '-4')
         .attr('text-anchor', 'end')
         .attr('fill', '#ffffff')
         .attr('font-size', '10px')
-        .text(currentPrice.toFixed(1));
+        .text(priceCoordinates.currentPrice.toFixed(1));
     }
 
-    // Eje de precios con incrementos de $10
-    const priceAxis = d3.axisRight(yScale)
-      .ticks((yMax - yMin) / 10)
-      .tickFormat((d: any) => {
-        if (typeof d === 'number' && Number.isFinite(d)) {
-          return `${d.toFixed(0)}`;
-        }
-        return '';
-      })
-      .tickSize(3);
+    // Etiquetas de precio en el eje Y
+    const yAxis = d3.axisRight(yScale)
+      .ticks(10)
+      .tickFormat(d => typeof d === 'number' ? d.toFixed(0) : '');
 
-    const priceAxisGroup = g.append('g')
+    const yAxisGroup = g.append('g')
       .attr('transform', `translate(${innerWidth},0)`)
-      .call(priceAxis);
+      .call(yAxis);
 
-    priceAxisGroup.select('.domain').remove();
-    priceAxisGroup.selectAll('.tick line')
+    yAxisGroup.select('.domain').remove();
+    yAxisGroup.selectAll('.tick line')
       .attr('stroke', '#666')
       .attr('stroke-width', 0.5);
-    priceAxisGroup.selectAll('.tick text')
+    yAxisGroup.selectAll('.tick text')
       .attr('fill', '#fff')
       .attr('font-size', '9px');
 
-    // Información del perfil
-    g.append('text')
-      .attr('x', innerWidth - maxBarWidth)
-      .attr('y', 15)
-      .attr('fill', '#fff')
-      .attr('font-size', '10px')
-      .text(`Vol Profile (${data.length})`);
-
-    // Solo mostrar coordenadas de 2 barras aleatorias
-    const randomBars = data
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 2);
-
-    console.log('📊 Coordenadas de barras de volumen:');
-    randomBars.forEach((bar, i) => {
-      const y = yScale(bar.price);
-      console.log(`Barra ${i + 1}: Precio=${bar.price}, Y=${y}`);
-    });
-
-  }, [data, width, height, visiblePriceRange, currentPrice]);
+  }, [data, width, height, visiblePriceRange, currentPrice, priceCoordinates]);
 
   return (
     <div
@@ -181,7 +144,8 @@ export const VolumeProfile = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000
+        zIndex: 1000,
+        pointerEvents: 'none'
       }}
     >
       <svg
