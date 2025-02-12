@@ -37,8 +37,8 @@ export function useMarketData() {
       setError(true);
       toast({
         variant: "destructive",
-        title: "Error de conexión",
-        description: "No se pudo conectar al servidor de datos"
+        title: "Connection error",
+        description: "Could not connect to data server"
       });
     }
   });
@@ -46,21 +46,8 @@ export function useMarketData() {
   useEffect(() => {
     if (!socket) return;
 
-    console.log('⚡ Configurando listeners de orderbook...');
-
     socket.on('orderbook_update', (newData: OrderbookData) => {
       try {
-        if (!newData || !newData.bids || !newData.asks) {
-          console.warn('Datos de orderbook inválidos:', newData);
-          return;
-        }
-
-        console.log('📊 Datos de orderbook recibidos:', {
-          timestamp: newData.timestamp,
-          bids_count: newData.bids.length,
-          asks_count: newData.asks.length
-        });
-
         setData(prev => ({
           ...prev,
           orderbook: newData,
@@ -70,13 +57,8 @@ export function useMarketData() {
         }));
         setError(false);
       } catch (err) {
-        console.error('Error procesando datos de orderbook:', err);
+        console.error('Error processing orderbook data:', err);
         setError(true);
-        toast({
-          variant: "destructive",
-          title: "Error de datos",
-          description: "Error al procesar los datos del orderbook"
-        });
       }
     });
 
@@ -123,8 +105,6 @@ export function useMarketData() {
       }))
       .sort((a, b) => b.price - a.price);
 
-    if (groupedLevels.length === 0) return [];
-
     const maxVolume = Math.max(...groupedLevels.map(level => level.volume));
 
     return groupedLevels.map(level => ({
@@ -136,7 +116,7 @@ export function useMarketData() {
   return { 
     data, 
     volumeProfile, 
-    error, 
+    error,
     connectionState,
     reconnect
   };
