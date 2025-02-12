@@ -404,140 +404,95 @@ export default function Chart() {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
     try {
-      const series = candlestickSeriesRef.current;
-      const logicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
+        const series = candlestickSeriesRef.current;
+        const logicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
 
-      if (!logicalRange) return;
+        if (!logicalRange) return;
 
-      // Get visible range using the series methods
-      const visibleBars = chartRef.current.timeScale().getVisibleRange();
-      if (!visibleBars) return;
+        const visibleBars = chartRef.current.timeScale().getVisibleRange();
+        if (!visibleBars) return;
 
-      // Get min/max prices from visible bars
-      let minPrice = Infinity;
-      let maxPrice = -Infinity;
+        // Usar el rango de precios visible actual
+        const { min: minPrice, max: maxPrice } = visiblePriceRange;
 
-      const data = candlestickSeriesRef.current.data();
-      for (let i = visibleBars.from; i <= visibleBars.to; i++) {
-        if (i >= 0 && i < data.length) {
-          const bar = data[i];
-          minPrice = Math.min(minPrice, bar.low);
-          maxPrice = Math.max(maxPrice, bar.high);
+        const range = maxPrice - minPrice;
+
+        // Usar un priceStep fijo de $10
+        const priceStep = 10;
+
+        // Generar niveles de precio cada $10
+        const numSteps = Math.floor(range / priceStep);
+        const prices: Array<{price: number, coordinate: number}> = [];
+
+        for (let i = 0; i <= numSteps; i++) {
+            const price = minPrice + (i * priceStep);
+            const coordinate = series.priceToCoordinate(price);
+
+            if (coordinate !== null) {
+                prices.push({
+                    price,
+                    coordinate
+                });
+            }
         }
-      }
 
-      if (minPrice === Infinity || maxPrice === -Infinity) return;
-
-      const range = maxPrice - minPrice;
-
-      // Calculate price step based on zoom level
-      const zoomLevel = range / maxPrice; // normalized zoom level
-      let priceStep = 200; // default step
-
-      if (zoomLevel < 0.01) {
-        priceStep = 25;
-      } else if (zoomLevel < 0.05) {
-        priceStep = 50;
-      } else if (zoomLevel < 0.1) {
-        priceStep = 100;
-      }
-
-      // Generate price levels
-      const numSteps = Math.floor(range / priceStep);
-      const prices: Array<{price: number, coordinate: number}> = [];
-
-      for (let i = 0; i <= numSteps; i++) {
-        const price = minPrice + (i * priceStep);
-        const coordinate = series.priceToCoordinate(price);
-
-        if (coordinate !== null) {
-          prices.push({
-            price,
-            coordinate
-          });
-        }
-      }
-
-      setPriceScaleInfo({
-        visiblePrices: prices,
-        priceStep,
-        maxPrice,
-        minPrice
-      });
+        setPriceScaleInfo({
+            visiblePrices: prices,
+            priceStep,
+            maxPrice,
+            minPrice
+        });
 
     } catch (error) {
-      console.error('Error updating price scale info:', error);
+        console.error('Error updating price scale info:', error);
     }
-  };
+};
 
   const handleVisibleRangeChange = () => {
     if (!candlestickSeriesRef.current || !currentChartPrice || !container.current) return;
 
     try {
-      const series = candlestickSeriesRef.current;
-      const containerHeight = container.current.clientHeight;
+        const series = candlestickSeriesRef.current;
+        const containerHeight = container.current.clientHeight;
 
-      // Obtener los datos visibles actuales
-      const visibleBars = chartRef.current?.timeScale().getVisibleRange();
-      if (!visibleBars) return;
+        // Obtener los datos visibles actuales
+        const visibleBars = chartRef.current?.timeScale().getVisibleRange();
+        if (!visibleBars) return;
 
-      const data = series.data();
-      if (!data || data.length === 0) return;
+        const data = series.data();
+        if (!data || data.length === 0) return;
 
-      // Calcular min/max de los precios visibles
-      let minPrice = Infinity;
-      let maxPrice = -Infinity;
+        // Calcular min/max de los precios visibles usando un rango fijo del 15%
+        const currentPrice = currentChartPrice;
+        const minPrice = currentPrice * 0.85; // 15% por debajo
+        const maxPrice = currentPrice * 1.15; // 15% por arriba
 
-      for (let i = visibleBars.from; i <= visibleBars.to; i++) {
-        if (i >= 0 && i < data.length) {
-          const bar = data[i];
-          if (bar) {
-            minPrice = Math.min(minPrice, bar.low || Infinity);
-            maxPrice = Math.max(maxPrice, bar.high || -Infinity);
-          }
-        }
-      }
-
-      if (minPrice === Infinity || maxPrice === -Infinity) {
-        minPrice = currentChartPrice * 0.99;
-        maxPrice = currentChartPrice * 1.01;
-      }
-
-      // Ajustar el rango para incluir el precio actual
-      minPrice = Math.min(minPrice, currentChartPrice);
-      maxPrice = Math.max(maxPrice, currentChartPrice);
-
-      // Añadir un margen del 1% arriba y abajo
-      const margin = (maxPrice - minPrice) * 0.01;
-      minPrice -= margin;
-      maxPrice += margin;
-
-      setVisiblePriceRange({
-        min: minPrice,
-        max: maxPrice
-      });
-
-      // Obtener coordenadas Y para los precios
-      const currentY = series.priceToCoordinate(currentChartPrice);
-      const minY = series.priceToCoordinate(minPrice);
-      const maxY = series.priceToCoordinate(maxPrice);
-
-      if (minY !== null && maxY !== null && currentY !== null) {
-        setPriceCoordinate(currentY);
-        setPriceCoordinates({
-          currentPrice: currentChartPrice,
-          currentY,
-          minPrice,
-          minY,
-          maxPrice,
-          maxY
+        setVisiblePriceRange({
+            min: minPrice,
+            max: maxPrice
         });
-      }
+
+        // Obtener coordenadas Y para los precios
+        const currentY = series.priceToCoordinate(currentPrice);
+        const minY = series.priceToCoordinate(minPrice);
+        const maxY = series.priceToCoordinate(maxPrice);
+
+        if (minY !== null && maxY !== null && currentY !== null) {
+            setPriceCoordinate(currentY);
+            setPriceCoordinates({
+                currentPrice,
+                currentY,
+                minPrice,
+                minY,
+                maxPrice,
+                maxY
+            });
+        }
 
     } catch (error) {
-      console.error('Error updating visible range:', error);
+        console.error('Error updating visible range:', error);
     }
-  };
+};
 
   useEffect(() => {
     if (!container.current || !currentSymbol) return;
