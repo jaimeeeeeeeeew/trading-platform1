@@ -34,6 +34,12 @@ const getGroupSize = (priceRange: number): number => {
   return 100;
 };
 
+const getGroupFactor = (groupSize: number): string => {
+  if (groupSize === 10) return 'x1';
+  if (groupSize === 50) return 'x5';
+  return 'x10';
+};
+
 const groupData = (data: Props['data'], groupSize: number) => {
   const groups = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
 
@@ -78,6 +84,7 @@ export const VolumeProfile = ({
 
     const priceRange = visiblePriceRange.max - visiblePriceRange.min;
     const groupSize = getGroupSize(priceRange);
+    const groupFactor = getGroupFactor(groupSize);
     const groupedData = groupData(data, groupSize);
 
     console.log('VolumeProfile Data:', {
@@ -91,7 +98,7 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 25, right: 50, bottom: 25, left: -30 }; 
+    const margin = { top: 25, right: 50, bottom: 25, left: 55 }; // Increased left margin for price labels
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -101,11 +108,11 @@ export const VolumeProfile = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    const maxBarWidth = innerWidth * 1.6; 
+    const maxBarWidth = innerWidth * 1.6;
 
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([maxBarWidth/2, 0]); 
+      .range([maxBarWidth/2, 0]);
 
     const priceToY = (price: number) => {
       if (price === currentPrice) {
@@ -131,16 +138,42 @@ export const VolumeProfile = ({
       .filter(d => d.side === 'bid')
       .sort((a, b) => b.price - a.price);
 
+    // Price labels on the left side
+    const allPrices = [...bids, ...asks].sort((a, b) => a.price - b.price);
+    allPrices.forEach((d, i) => {
+      if (i % 2 === 0) { // Show full label for every other price
+        g.append('text')
+          .attr('class', 'price-label')
+          .attr('x', -8)
+          .attr('y', priceToY(d.price))
+          .attr('dy', '0.32em')
+          .attr('text-anchor', 'end')
+          .attr('fill', '#ffffff')
+          .attr('font-size', '10px')
+          .text(`${d.price}(${groupFactor})`);
+      } else {
+        g.append('text')
+          .attr('class', 'price-label')
+          .attr('x', -8)
+          .attr('y', priceToY(d.price))
+          .attr('dy', '0.32em')
+          .attr('text-anchor', 'end')
+          .attr('fill', '#666')
+          .attr('font-size', '10px')
+          .text(`${d.price}`);
+      }
+    });
+
     g.selectAll('.bid-bars')
       .data(bids)
       .join('rect')
       .attr('class', 'volume-bar bid')
-      .attr('x', d => xScale(d.normalizedVolume)) 
+      .attr('x', d => xScale(d.normalizedVolume))
       .attr('y', d => {
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume)) 
+      .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('fill', '#26a69a')
       .attr('opacity', 0.8);
@@ -149,12 +182,12 @@ export const VolumeProfile = ({
       .data(asks)
       .join('rect')
       .attr('class', 'volume-bar ask')
-      .attr('x', d => xScale(d.normalizedVolume)) 
+      .attr('x', d => xScale(d.normalizedVolume))
       .attr('y', d => {
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume)) 
+      .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('fill', '#ef5350')
       .attr('opacity', 0.8);
@@ -180,40 +213,6 @@ export const VolumeProfile = ({
         .attr('font-size', '10px')
         .text(priceCoordinates.currentPrice.toFixed(1));
     }
-
-    const numTicks = Math.min(10, Math.floor(innerHeight / 30));
-    const tickPrices = d3.range(numTicks).map(i => {
-      const price = priceCoordinates.minPrice + (i * (priceCoordinates.maxPrice - priceCoordinates.minPrice) / (numTicks - 1));
-      return {
-        price,
-        y: priceToY(price)
-      };
-    });
-
-    const priceAxis = g.append('g')
-      .attr('class', 'price-axis')
-      .attr('transform', `translate(${innerWidth + 8}, 0)`);
-
-    tickPrices.forEach(({ price, y }) => {
-      if (Number.isFinite(y)) {
-        priceAxis.append('line')
-          .attr('x1', 0)
-          .attr('x2', 3)
-          .attr('y1', y)
-          .attr('y2', y)
-          .attr('stroke', '#666')
-          .attr('stroke-width', 0.5);
-
-        priceAxis.append('text')
-          .attr('x', 8)
-          .attr('y', y)
-          .attr('dy', '0.32em')
-          .attr('text-anchor', 'start')
-          .attr('fill', '#fff')
-          .attr('font-size', '10px')
-          .text(price.toFixed(0));
-      }
-    });
 
   }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange]);
 
