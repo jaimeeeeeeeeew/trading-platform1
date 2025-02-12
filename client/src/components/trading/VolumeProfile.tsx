@@ -30,7 +30,7 @@ interface PriceCoordinates {
 
 export const VolumeProfile = ({
   data,
-  width = 270, // Aumentado de 180 a 270 (50% más ancho)
+  width = 80,
   height,
   visiblePriceRange,
   currentPrice,
@@ -58,7 +58,7 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 25, right: 50, bottom: 25, left: -120 }; // Modificado left de -30 a -120 para expandir hacia la izquierda
+    const margin = { top: 25, right: 50, bottom: 25, left: -30 }; 
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -68,13 +68,11 @@ export const VolumeProfile = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    // Duplicamos la longitud máxima de las barras (de 0.8 a 1.6)
-    const maxBarWidth = innerWidth * 1.6;
+    const maxBarWidth = innerWidth * 1.6; 
 
-    // Invertir la escala X para que vaya de derecha a izquierda
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([maxBarWidth, 0]); // Cambio aquí: ahora va de maxBarWidth a 0
+      .range([maxBarWidth/2, 0]); 
 
     const priceToY = (price: number) => {
       if (price === currentPrice) {
@@ -92,7 +90,6 @@ export const VolumeProfile = ({
 
     const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (data.length * 2));
 
-    // Separar y ordenar bids y asks
     const asks = data
       .filter(d => d.side === 'ask')
       .sort((a, b) => a.price - b.price);
@@ -108,7 +105,6 @@ export const VolumeProfile = ({
       sampleAsk: asks[0]
     });
 
-    // Dibujar barras de volumen desde la derecha
     g.selectAll('.bid-bars')
       .data(bids)
       .join('rect')
@@ -118,7 +114,7 @@ export const VolumeProfile = ({
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => maxBarWidth - xScale(d.normalizedVolume)) 
+      .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume)) 
       .attr('height', barHeight)
       .attr('fill', '#26a69a')
       .attr('opacity', 0.8);
@@ -132,12 +128,11 @@ export const VolumeProfile = ({
         const y = priceToY(d.price);
         return isNaN(y) ? 0 : y - barHeight / 2;
       })
-      .attr('width', d => maxBarWidth - xScale(d.normalizedVolume)) 
+      .attr('width', d => maxBarWidth/2 - xScale(d.normalizedVolume)) 
       .attr('height', barHeight)
       .attr('fill', '#ef5350')
       .attr('opacity', 0.8);
 
-    // Línea de precio actual
     if (priceCoordinates.currentPrice && priceCoordinates.currentY) {
       g.append('line')
         .attr('class', 'price-line')
@@ -160,7 +155,6 @@ export const VolumeProfile = ({
         .text(priceCoordinates.currentPrice.toFixed(1));
     }
 
-    // Escala de precios (ahora al lado derecho)
     const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
     const numTicks = Math.min(10, Math.floor(innerHeight / 30));
     const tickPrices = d3.range(numTicks).map(i => {
