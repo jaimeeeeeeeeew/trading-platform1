@@ -62,16 +62,16 @@ export const VolumeProfile = ({
     // Escala para el ancho de las barras (volumen)
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([maxBarWidth, 0]);
+      .range([0, maxBarWidth]);
 
-    // Usar el mismo rango de precios que el gráfico principal
+    // Usar el mismo rango y sistema de coordenadas que el gráfico principal
     const yScale = d3.scaleLinear()
-      .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
-      .range([innerHeight, 0]);
+      .domain([priceCoordinates.maxPrice, priceCoordinates.minPrice]) // Invertido para coincidir con lightweight-charts
+      .range([0, innerHeight]);
 
     // Altura mínima de las barras basada en el rango visible
     const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
-    const barHeight = Math.max(2, (innerHeight / (priceRange / 10)));
+    const minBarHeight = Math.max(1, (innerHeight / (priceRange / 2)));
 
     // Filtrar datos dentro del rango visible y ordenar por precio
     const visibleData = data
@@ -83,19 +83,20 @@ export const VolumeProfile = ({
       .data(visibleData)
       .join('rect')
       .attr('class', 'volume-bar')
-      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
+      .attr('x', 0)
       .attr('y', d => {
         const y = yScale(d.price);
-        return Number.isFinite(y) ? y - barHeight / 2 : 0;
+        return Number.isFinite(y) ? y - minBarHeight / 2 : 0;
       })
-      .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
-      .attr('height', barHeight)
+      .attr('width', d => Math.max(1, xScale(d.normalizedVolume)))
+      .attr('height', minBarHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
-    // Línea de precio actual con animación suave
+    // Línea de precio actual
     if (priceCoordinates.currentPrice && Number.isFinite(yScale(priceCoordinates.currentPrice))) {
-      const priceLine = g.append('line')
+      // Línea principal
+      g.append('line')
         .attr('class', 'price-line')
         .attr('x1', 0)
         .attr('x2', innerWidth)
@@ -105,27 +106,16 @@ export const VolumeProfile = ({
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '2,2');
 
-      // Transición suave al actualizar la posición
-      priceLine.transition()
-        .duration(300)
-        .attr('y1', yScale(priceCoordinates.currentPrice))
-        .attr('y2', yScale(priceCoordinates.currentPrice));
-
-      // Etiqueta de precio actual
-      const priceLabel = g.append('text')
+      // Etiqueta de precio
+      g.append('text')
         .attr('class', 'price-label')
-        .attr('x', innerWidth - maxBarWidth - 5)
+        .attr('x', -5)
         .attr('y', yScale(priceCoordinates.currentPrice))
-        .attr('dy', '-4')
+        .attr('dy', '0.32em')
         .attr('text-anchor', 'end')
         .attr('fill', '#ffffff')
         .attr('font-size', '10px')
         .text(priceCoordinates.currentPrice.toFixed(1));
-
-      // Transición suave para la etiqueta
-      priceLabel.transition()
-        .duration(300)
-        .attr('y', yScale(priceCoordinates.currentPrice));
     }
 
     // Eje de precios adaptativo
@@ -133,7 +123,7 @@ export const VolumeProfile = ({
       .ticks(10)
       .tickFormat((d: any) => {
         if (typeof d === 'number' && Number.isFinite(d)) {
-          return `${d.toFixed(0)}`;
+          return d.toFixed(0);
         }
         return '';
       })
@@ -151,21 +141,13 @@ export const VolumeProfile = ({
       .attr('fill', '#fff')
       .attr('font-size', '9px');
 
-    // Información del perfil
-    g.append('text')
-      .attr('x', innerWidth - maxBarWidth)
-      .attr('y', 15)
-      .attr('fill', '#fff')
-      .attr('font-size', '10px')
-      .text(`Vol Profile (${visibleData.length})`);
-
   }, [data, width, height, currentPrice, priceCoordinates]);
 
   return (
     <div
       style={{
         position: 'absolute',
-        right: '80px',
+        right: 0,
         top: 0,
         width: `${width}px`,
         height: '100%',
