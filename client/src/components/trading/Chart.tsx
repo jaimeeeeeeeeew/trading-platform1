@@ -105,8 +105,7 @@ export default function Chart() {
       setVolumeProfileData(normalizedData);
     },
     onPriceUpdate: (newPrice) => {
-      setCurrentChartPrice(newPrice);
-      updatePriceCoordinate();
+      updateCurrentPrice(newPrice);
     }
   });
 
@@ -294,6 +293,12 @@ export default function Chart() {
           volume: c.volume
         }));
 
+        // Actualizar el precio actual con el último cierre
+        const lastCandle = formattedCandlesticks[formattedCandlesticks.length - 1];
+        if (lastCandle) {
+          updateCurrentPrice(lastCandle.close);
+        }
+
         updateVolumeProfile(historicalDataRef.current);
         initializeWebSocket(formattedSymbol);
 
@@ -384,10 +389,10 @@ export default function Chart() {
     try {
       if (!data || data.length === 0) return;
 
-      const currentPrice = data[data.length - 1].close;
-      if (!currentPrice || isNaN(currentPrice)) return;
+      const lastPrice = data[data.length - 1].close;
+      if (!lastPrice || isNaN(lastPrice)) return;
 
-      setCurrentChartPrice(currentPrice);
+      updateCurrentPrice(lastPrice);
     } catch (error) {
       console.error('Error updating volume profile:', error);
     }
@@ -524,8 +529,7 @@ export default function Chart() {
     if (!socket) return;
 
     const handlePriceUpdate = (newPrice: number) => {
-      setCurrentChartPrice(newPrice);
-      updatePriceCoordinate();
+      updateCurrentPrice(newPrice);
     };
 
     socket.on('price_update', handlePriceUpdate);
@@ -538,6 +542,38 @@ export default function Chart() {
   useEffect(() => {
     updatePriceCoordinate();
   }, [currentChartPrice, visiblePriceRange]);
+
+
+  const updateCurrentPrice = (newPrice: number) => {
+    if (!newPrice || isNaN(newPrice)) return;
+
+    setCurrentChartPrice(newPrice);
+
+    // Inmediatamente actualizar coordenadas
+    if (candlestickSeriesRef.current) {
+      const currentY = candlestickSeriesRef.current.priceToCoordinate(newPrice);
+      const minY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.min);
+      const maxY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.max);
+
+      if (currentY !== null && minY !== null && maxY !== null) {
+        setPriceCoordinate(currentY);
+        setPriceCoordinates({
+          currentPrice: newPrice,
+          currentY,
+          minPrice: visiblePriceRange.min,
+          minY,
+          maxPrice: visiblePriceRange.max,
+          maxY
+        });
+
+        console.log('Price coordinates synchronized:', {
+          price: newPrice,
+          y: currentY,
+          range: { min: minY, max: maxY }
+        });
+      }
+    }
+  };
 
   useEffect(() => {
     if (!orderbookVolumeProfile.length) {
