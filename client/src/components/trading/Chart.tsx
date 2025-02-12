@@ -545,7 +545,11 @@ export default function Chart() {
       return;
     }
 
-    console.log('Volume Profile Data:', orderbookVolumeProfile);
+    console.log('Updating Volume Profile with new data:', {
+      dataPoints: orderbookVolumeProfile.length,
+      firstPoint: orderbookVolumeProfile[0],
+      lastPoint: orderbookVolumeProfile[orderbookVolumeProfile.length - 1]
+    });
 
     const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
     const normalizedData = orderbookVolumeProfile.map(data => ({
@@ -555,8 +559,20 @@ export default function Chart() {
       normalizedVolume: data.volume / maxVolume
     }));
 
-    console.log('Normalized Volume Profile Data:', normalizedData);
-    setVolumeProfileData(normalizedData);
+    console.log('Normalized Volume Profile Data:', {
+      points: normalizedData.length,
+      maxVolume,
+      sample: normalizedData.slice(0, 3)
+    });
+
+    setVolumeProfileData(prev => {
+      const isDifferent = JSON.stringify(prev) !== JSON.stringify(normalizedData);
+      if (isDifferent) {
+        console.log('Updating volume profile data with new values');
+        return normalizedData;
+      }
+      return prev;
+    });
   }, [orderbookVolumeProfile]);
 
 
@@ -638,7 +654,8 @@ export default function Chart() {
             }}
           >
             <VolumeProfile
-              data={orderbookVolumeProfile}
+              key={JSON.stringify(orderbookVolumeProfile)}
+              data={volumeProfileData}
               width={180}
               height={container.current.clientHeight}
               visiblePriceRange={visiblePriceRange}
