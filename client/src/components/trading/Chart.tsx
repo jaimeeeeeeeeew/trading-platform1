@@ -486,66 +486,52 @@ export default function Chart() {
       const series = candlestickSeriesRef.current;
       const containerHeight = container.current.clientHeight;
 
-      // Calculate price range based on the visible bars
-      const visibleBars = chartRef.current?.timeScale().getVisibleRange();
-      if (!visibleBars) return;
+      // Calculate price range based on the priceScale
+      const priceScale = series.priceScale();
+      const logicalRange = chartRef.current?.timeScale().getVisibleLogicalRange();
 
-      // Get min/max prices from visible bars
-      let minPrice = Infinity;
-      let maxPrice = -Infinity;
+      if (!logicalRange) return;
 
-      const data = series.data();
-      for (let i = visibleBars.from; i <= visibleBars.to; i++) {
-        if (i >= 0 && i < data.length) {
-          const bar = data[i];
-          minPrice = Math.min(minPrice, bar.low);
-          maxPrice = Math.max(maxPrice, bar.high);
-        }
-      }
+      // Get the current coordinate range
+      const coordinate = series.priceToCoordinate(currentChartPrice);
+      if (coordinate === null) return;
 
-      if (minPrice === Infinity || maxPrice === -Infinity) return;
+      // Calculate visible range based on container height
+      const pixelsPerPrice = containerHeight / (currentChartPrice * 0.1); // 10% of current price
+      const pricePerPixel = (currentChartPrice * 0.1) / containerHeight;
 
-      // Calculate visible range centered on current price
-      const halfRange = (maxPrice - minPrice) / 2;
-      const visibleMin = Math.max(0, minPrice - halfRange * 0.1); // Add 10% padding
-      const visibleMax = maxPrice + halfRange * 0.1; // Add 10% padding
+      // Calculate visible price range centered on current price
+      const halfRange = (containerHeight / 2) * pricePerPixel;
+      const visibleMin = currentChartPrice - halfRange;
+      const visibleMax = currentChartPrice + halfRange;
 
       setVisiblePriceRange({
         min: visibleMin,
         max: visibleMax
       });
 
-      // Get coordinates for visible prices
-      const currentY = series.priceToCoordinate(currentChartPrice);
+      // Get coordinates for all price levels
+      const currentY = coordinate;
       const minY = series.priceToCoordinate(visibleMin);
       const maxY = series.priceToCoordinate(visibleMax);
 
-      if (minY !== null && maxY !== null && currentY !== null) {
-        // Ensure min and max are in correct order (remember Y coordinates are inverted in canvas)
-        const [yMin, yMax] = maxY > minY ? [minY, maxY] : [maxY, minY];
-
+      if (minY !== null && maxY !== null) {
         setPriceCoordinate(currentY);
         setPriceCoordinates({
           currentPrice: currentChartPrice,
           currentY: currentY,
           minPrice: visibleMin,
-          minY: yMin,
+          minY: minY,
           maxPrice: visibleMax,
-          maxY: yMax
+          maxY: maxY
         });
 
-        console.log('Price coordinates updated:', {
-          price: currentChartPrice,
-          y: currentY,
-          range: { min: yMin, max: yMax }
-        });
-
-        // Update volume profile if needed
+        // Actualizar el perfil de volumen con las coordenadas coincidentes
         if (orderbookVolumeProfile.length > 0) {
           const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
           const normalizedData = orderbookVolumeProfile
             .filter(data => {
-              const padding = (visibleMax - visibleMin) * 0.1;
+              const padding = (visibleMax - visibleMin) * 0.1; // 10% padding
               return data.price >= (visibleMin - padding) && data.price <= (visibleMax + padding);
             })
             .map(data => ({
@@ -555,6 +541,12 @@ export default function Chart() {
 
           setVolumeProfileData(normalizedData);
         }
+
+        console.log('Price coordinates updated:', {
+          price: currentChartPrice,
+          coordinate: currentY,
+          range: { min: minY, max: maxY }
+        });
       }
       updatePriceScaleInfo();
     } catch (error) {
