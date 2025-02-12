@@ -66,13 +66,16 @@ export default function Chart() {
   const wsRef = useRef<WebSocket | null>(null);
   const historicalDataRef = useRef<Array<{ close: number; volume: number }>>([]);
 
-  const { currentSymbol, currentPrice, updateCurrentPrice, priceCoordinates, updatePriceCoordinates } = useTrading();
+  const { currentSymbol } = useTrading();
   const { toast } = useToast();
 
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [isLoading, setIsLoading] = useState(false);
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number; side: 'bid' | 'ask' }>>([]);
   const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>({ min: 95850, max: 99300 });
+  const [currentChartPrice, setCurrentChartPrice] = useState<number>(96000);
+  const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
+  const [priceCoordinates, setPriceCoordinates] = useState<PriceCoordinates | null>(null);
   const [secondaryIndicators, setSecondaryIndicators] = useState<SecondaryIndicators>({
     fundingRate: [],
     longShortRatio: [],
@@ -102,7 +105,7 @@ export default function Chart() {
       setVolumeProfileData(normalizedData);
     },
     onPriceUpdate: (newPrice) => {
-      handlePriceUpdate(newPrice);
+      updateCurrentPrice(newPrice);
     }
   });
 
@@ -320,20 +323,27 @@ export default function Chart() {
   };
 
   const updatePriceCoordinate = () => {
-    if (!candlestickSeriesRef.current || !currentPrice) return;
+    if (!candlestickSeriesRef.current || !currentChartPrice) return;
 
-    const currentY = candlestickSeriesRef.current.priceToCoordinate(currentPrice);
+    const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
     const minY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.min);
     const maxY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.max);
 
     if (currentY !== null && minY !== null && maxY !== null) {
-      updatePriceCoordinates({
-        currentPrice: currentPrice,
+      setPriceCoordinate(currentY);
+      setPriceCoordinates({
+        currentPrice: currentChartPrice,
         currentY,
         minPrice: visiblePriceRange.min,
         minY,
         maxPrice: visiblePriceRange.max,
         maxY
+      });
+
+      console.log('Price coordinates updated:', {
+        price: currentChartPrice,
+        y: currentY,
+        range: { min: minY, max: maxY }
       });
     }
   };
@@ -368,7 +378,7 @@ export default function Chart() {
       const lastPoint = allData[allData.length - 1];
       if (!lastPoint) return;
 
-      updateCurrentPrice(lastPoint.close);
+      setCurrentChartPrice(lastPoint.close);
       updatePriceCoordinate();
     } catch (error) {
       console.error('Error updating visible price range:', error);
@@ -509,7 +519,7 @@ export default function Chart() {
       candlestickSeriesRef.current = null;
       historicalDataRef.current = [];
     };
-  }, [currentSymbol, updateCurrentPrice, updatePriceCoordinates]);
+  }, [currentSymbol]);
 
   useEffect(() => {
     handleResize();
@@ -527,28 +537,39 @@ export default function Chart() {
     return () => {
       socket.off('price_update', handlePriceUpdate);
     };
-  }, [socket, updateCurrentPrice]);
+  }, [socket]);
 
   useEffect(() => {
     updatePriceCoordinate();
-  }, [currentPrice, visiblePriceRange, updatePriceCoordinates]);
+  }, [currentChartPrice, visiblePriceRange]);
 
 
-  const handlePriceUpdate = (newPrice: number) => {
+  const updateCurrentPrice = (newPrice: number) => {
     if (!newPrice || isNaN(newPrice)) return;
 
-    updateCurrentPrice(newPrice);
+    setCurrentChartPrice(newPrice);
 
+    // Inmediatamente actualizar coordenadas
     if (candlestickSeriesRef.current) {
       const currentY = candlestickSeriesRef.current.priceToCoordinate(newPrice);
       const minY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.min);
       const maxY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.max);
 
       if (currentY !== null && minY !== null && maxY !== null) {
-        updatePriceCoordinates({
+        setPriceCoordinate(currentY);
+        setPriceCoordinates({
+          currentPrice: newPrice,
           currentY,
+          minPrice: visiblePriceRange.min,
           minY,
+          maxPrice: visiblePriceRange.max,
           maxY
+        });
+
+        console.log('Price coordinates synchronized:', {
+          price: newPrice,
+          y: currentY,
+          range: { min: minY, max: maxY }
         });
       }
     }
@@ -573,7 +594,6 @@ export default function Chart() {
     console.log('Normalized Volume Profile Data:', normalizedData);
     setVolumeProfileData(normalizedData);
   }, [orderbookVolumeProfile]);
-
 
 
   return (
@@ -642,7 +662,7 @@ export default function Chart() {
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
 
-        {container.current && orderbookVolumeProfile.length > 0 && currentPrice && (
+        {container.current && orderbookVolumeProfile.length > 0 && currentChartPrice && (
           <div
             className="absolute right-0 top-0 h-full pointer-events-none"
             style={{
@@ -658,7 +678,8 @@ export default function Chart() {
               width={180}
               height={container.current.clientHeight}
               visiblePriceRange={visiblePriceRange}
-              currentPrice={currentPrice}
+              currentPrice={currentChartPrice}
+              priceCoordinate={priceCoordinate}
               priceCoordinates={priceCoordinates}
             />
           </div>

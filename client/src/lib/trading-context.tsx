@@ -24,7 +24,6 @@ interface Order {
     value: number;
     distance: number;
   };
-  orderId?: string; // Added orderId to Order interface
 }
 
 interface TradingContextType {
@@ -37,14 +36,6 @@ interface TradingContextType {
   activeOrders: Order[];
   placeOrder: (order: Order) => Promise<void>;
   cancelOrder: (orderId: string) => Promise<void>;
-  currentPrice: number;
-  updateCurrentPrice: (price: number) => void;
-  priceCoordinates: {
-    currentY: number | null;
-    minY: number | null;
-    maxY: number | null;
-  } | null;
-  updatePriceCoordinates: (coords: { currentY: number; minY: number; maxY: number }) => void;
 }
 
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
@@ -66,12 +57,6 @@ export function TradingProvider({ children }: { children: ReactNode }) {
 
   const [timeRange, setTimeRange] = useState<TimeRange | null>(null);
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
-  const [currentPrice, setCurrentPrice] = useState<number>(0);
-  const [priceCoordinates, setPriceCoordinates] = useState<{
-    currentY: number | null;
-    minY: number | null;
-    maxY: number | null;
-  } | null>(null);
 
   const handleSymbolChange = (symbol: string) => {
     localStorage.setItem(STORAGE_KEY, symbol);
@@ -84,17 +69,6 @@ export function TradingProvider({ children }: { children: ReactNode }) {
 
   const updateTimeRange = (range: TimeRange) => {
     setTimeRange(range);
-  };
-
-  const updateCurrentPrice = (price: number) => {
-    if (!price || isNaN(price)) return;
-    setCurrentPrice(price);
-    console.log('Price updated in context:', price);
-  };
-
-  const updatePriceCoordinates = (coords: { currentY: number; minY: number; maxY: number }) => {
-    setPriceCoordinates(coords);
-    console.log('Coordinates updated in context:', coords);
   };
 
   const placeOrder = async (order: Order) => {
@@ -110,7 +84,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   const cancelOrder = async (orderId: string) => {
     try {
       console.log('Cancelando orden:', orderId);
-      setActiveOrders(prev => prev.filter(order => order.orderId === orderId));
+      setActiveOrders(prev => prev.filter(order => order.id !== orderId));
     } catch (error) {
       console.error('Error al cancelar la orden:', error);
       throw error;
@@ -128,11 +102,7 @@ export function TradingProvider({ children }: { children: ReactNode }) {
         updateTimeRange,
         activeOrders,
         placeOrder,
-        cancelOrder,
-        currentPrice,
-        updateCurrentPrice,
-        priceCoordinates,
-        updatePriceCoordinates
+        cancelOrder
       }}
     >
       {children}
