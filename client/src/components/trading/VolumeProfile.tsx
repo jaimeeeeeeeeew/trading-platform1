@@ -28,49 +28,82 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-const MAX_VISIBLE_BARS = 10;
+const MAX_VISIBLE_BARS = 40;
 
 const groupDataByBars = (data: Props['data']) => {
-  let currentData = [...data];
-  let groupFactor = 1;
+  // Separar bids y asks
+  const bids = data.filter(d => d.side === 'bid');
+  const asks = data.filter(d => d.side === 'ask');
 
-  while (currentData.length > MAX_VISIBLE_BARS) {
-    // Agrupar de 2 en 2
-    const newData: Props['data'] = [];
-    for (let i = 0; i < currentData.length; i += 2) {
-      if (i + 1 < currentData.length) {
-        // Si hay un par completo, promediar precio y sumar volúmenes
-        newData.push({
-          price: (currentData[i].price + currentData[i + 1].price) / 2,
-          volume: currentData[i].volume + currentData[i + 1].volume,
-          normalizedVolume: 0, // Se calculará después
-          side: currentData[i].side
-        });
-      } else {
-        // Si queda uno solo, mantenerlo
-        newData.push(currentData[i]);
+  // Calcular volumen total original para verificación
+  const originalTotalVolume = data.reduce((sum, d) => sum + d.volume, 0);
+  const originalBidVolume = bids.reduce((sum, d) => sum + d.volume, 0);
+  const originalAskVolume = asks.reduce((sum, d) => sum + d.volume, 0);
+
+  console.log('Volúmenes originales:', {
+    total: originalTotalVolume,
+    bids: originalBidVolume,
+    asks: originalAskVolume
+  });
+
+  // Función para agrupar un lado del libro
+  const groupSide = (orders: Props['data']) => {
+    let currentData = [...orders];
+    let groupFactor = 1;
+
+    while (currentData.length > MAX_VISIBLE_BARS / 2) { // Dividir MAX_VISIBLE_BARS entre bids y asks
+      const newData: Props['data'] = [];
+      for (let i = 0; i < currentData.length; i += 2) {
+        if (i + 1 < currentData.length) {
+          // Sumar volúmenes y promediar precios
+          newData.push({
+            price: (currentData[i].price + currentData[i + 1].price) / 2,
+            volume: currentData[i].volume + currentData[i + 1].volume,
+            normalizedVolume: 0, // Se calculará después
+            side: currentData[i].side
+          });
+        } else {
+          // Si queda uno solo, mantenerlo
+          newData.push(currentData[i]);
+        }
       }
+      currentData = newData;
+      groupFactor *= 2;
     }
-    currentData = newData;
-    groupFactor *= 2;
-  }
 
-  // Normalizar volúmenes después de la agrupación
-  const maxVolume = Math.max(...currentData.map(d => d.volume));
-  const normalizedData = currentData.map(d => ({
+    return { groupedData: currentData, groupFactor };
+  };
+
+  // Agrupar cada lado por separado
+  const { groupedData: groupedBids, groupFactor: bidGroupFactor } = groupSide(bids);
+  const { groupedData: groupedAsks, groupFactor: askGroupFactor } = groupSide(asks);
+
+  // Combinar resultados
+  const combinedData = [...groupedBids, ...groupedAsks];
+
+  // Verificar volumen total después de agrupar
+  const groupedTotalVolume = combinedData.reduce((sum, d) => sum + d.volume, 0);
+  const groupedBidVolume = groupedBids.reduce((sum, d) => sum + d.volume, 0);
+  const groupedAskVolume = groupedAsks.reduce((sum, d) => sum + d.volume, 0);
+
+  console.log('Volúmenes después de agrupar:', {
+    total: groupedTotalVolume,
+    bids: groupedBidVolume,
+    asks: groupedAskVolume,
+    diferenciaBids: originalBidVolume - groupedBidVolume,
+    diferenciaAsks: originalAskVolume - groupedAskVolume
+  });
+
+  // Normalizar volúmenes
+  const maxVolume = Math.max(...combinedData.map(d => d.volume));
+  const normalizedData = combinedData.map(d => ({
     ...d,
     normalizedVolume: d.volume / maxVolume
   }));
 
-  console.log('Agrupación final:', {
-    barrasOriginales: data.length,
-    barrasAgrupadas: normalizedData.length,
-    factorAgrupacion: groupFactor
-  });
-
   return {
     groupedData: normalizedData,
-    groupFactor
+    groupFactor: Math.max(bidGroupFactor, askGroupFactor)
   };
 };
 
@@ -110,7 +143,7 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 25, right: 50, bottom: 25, left: 75 };
+    const margin = { top: 25, right: 50, bottom: 25, left: 55 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
