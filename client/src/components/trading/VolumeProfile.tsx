@@ -47,7 +47,8 @@ export const VolumeProfile = ({
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const margin = { top: 10, right: 0, bottom: 10, left: 50 };
+    // Adjust margins to match main chart layout
+    const margin = { top: 20, right: 10, bottom: 20, left: 50 };
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
@@ -57,28 +58,31 @@ export const VolumeProfile = ({
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    const maxBarWidth = innerWidth * 0.7;
+    // Calculate the maximum bar width based on available space
+    const maxBarWidth = innerWidth * 0.8;
 
-    // Escala para el volumen (ancho de las barras)
+    // Create scales
     const xScale = d3.scaleLinear()
       .domain([0, 1])
       .range([0, maxBarWidth]);
 
-    // Escala para los precios (altura), usando el mismo rango que el gráfico principal
+    // Use the price coordinates from the main chart for perfect alignment
     const yScale = d3.scaleLinear()
       .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
-      .range([innerHeight, 0]); // Invertido para coincidir con el gráfico principal
+      .range([innerHeight, 0]);
 
-    // Altura mínima de las barras basada en el rango de precios visible
+    // Calculate bar height based on price range
     const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
-    const minBarHeight = Math.max(1, innerHeight / (priceRange / 2));
+    const minBarHeight = Math.max(1, innerHeight / (priceRange * 2));
 
-    // Filtrar y ordenar datos dentro del rango visible
+    // Filter data within visible range and add padding
+    const padding = priceRange * 0.1;
     const visibleData = data
-      .filter(d => d.price >= priceCoordinates.minPrice && d.price <= priceCoordinates.maxPrice)
-      .sort((a, b) => a.price - b.price); // Ordenar por precio ascendente
+      .filter(d => d.price >= (priceCoordinates.minPrice - padding) && 
+                   d.price <= (priceCoordinates.maxPrice + padding))
+      .sort((a, b) => a.price - b.price);
 
-    // Dibujar barras de volumen
+    // Draw volume bars
     g.selectAll('.volume-bar')
       .data(visibleData)
       .join('rect')
@@ -93,11 +97,10 @@ export const VolumeProfile = ({
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
-    // Línea del precio actual
+    // Add current price line
     if (priceCoordinates.currentPrice) {
       const currentY = yScale(priceCoordinates.currentPrice);
       if (Number.isFinite(currentY)) {
-        // Línea principal
         g.append('line')
           .attr('class', 'price-line')
           .attr('x1', -5)
@@ -108,7 +111,7 @@ export const VolumeProfile = ({
           .attr('stroke-width', 1)
           .attr('stroke-dasharray', '2,2');
 
-        // Etiqueta de precio
+        // Add price label
         g.append('text')
           .attr('class', 'price-label')
           .attr('x', -8)
@@ -121,14 +124,12 @@ export const VolumeProfile = ({
       }
     }
 
-    // Crear marcas de precio
+    // Add price scale ticks
     const numTicks = 8;
-    const priceStep = priceRange / numTicks;
-    const prices = Array.from({ length: numTicks + 1 }, (_, i) => 
-      priceCoordinates.minPrice + (i * priceStep)
+    const prices = d3.range(numTicks + 1).map(i => 
+      priceCoordinates.minPrice + (i * (priceRange / numTicks))
     );
 
-    // Añadir escala de precios
     const priceAxis = g.append('g')
       .attr('class', 'price-axis')
       .attr('transform', `translate(${-8}, 0)`);
@@ -136,7 +137,6 @@ export const VolumeProfile = ({
     prices.forEach(price => {
       const y = yScale(price);
       if (Number.isFinite(y)) {
-        // Línea del tick
         priceAxis.append('line')
           .attr('x1', 0)
           .attr('x2', 3)
@@ -145,7 +145,6 @@ export const VolumeProfile = ({
           .attr('stroke', '#666')
           .attr('stroke-width', 0.5);
 
-        // Texto del precio
         priceAxis.append('text')
           .attr('x', -5)
           .attr('y', y)
@@ -172,7 +171,8 @@ export const VolumeProfile = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000
+        pointerEvents: 'none',
+        zIndex: 2
       }}
     >
       <svg
