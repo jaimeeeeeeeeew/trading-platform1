@@ -57,36 +57,33 @@ export const VolumeProfile = ({
 
     const maxBarWidth = innerWidth * 0.7;
 
-    // Escala horizontal para el volumen normalizado
+    // Escala horizontal para el volumen normalizado - Invertida para que las barras crezcan hacia la izquierda
     const xScale = d3.scaleLinear()
       .domain([0, 1])
-      .range([0, maxBarWidth]);
+      .range([maxBarWidth, 0]);
 
-    // Usar las coordenadas del gráfico principal para el eje Y
-    const yMin = Math.min(priceCoordinates.minPrice, currentPrice);
-    const yMax = Math.max(priceCoordinates.maxPrice, currentPrice);
-
+    // Usar exactamente el mismo rango que el gráfico principal
     const yScale = d3.scaleLinear()
-      .domain([yMin, yMax])
-      .range([height - margin.bottom, margin.top]);
+      .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
+      .range([priceCoordinates.maxY - margin.top, priceCoordinates.minY - margin.top]);
 
     // Filtrar datos según el rango de precios visible
     const visibleData = data.filter(d => 
-      d.price >= yMin && d.price <= yMax
+      d.price >= priceCoordinates.minPrice && 
+      d.price <= priceCoordinates.maxPrice
     );
 
-    // Altura dinámica de las barras basada en el rango de precios visible
-    const priceRange = yMax - yMin;
-    const barHeight = Math.max(1, innerHeight / (priceRange / 10));
+    // Altura dinámica de las barras
+    const barHeight = Math.max(1, Math.abs(yScale(priceCoordinates.minPrice + 10) - yScale(priceCoordinates.minPrice)));
 
     // Dibujar barras de volumen
     g.selectAll('.volume-bar')
       .data(visibleData)
       .join('rect')
       .attr('class', 'volume-bar')
-      .attr('x', 0)
+      .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
       .attr('y', d => yScale(d.price) - barHeight / 2)
-      .attr('width', d => xScale(d.normalizedVolume))
+      .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
       .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
