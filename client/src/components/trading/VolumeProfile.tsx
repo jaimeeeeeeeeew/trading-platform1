@@ -67,38 +67,29 @@ export const VolumeProfile = ({
       .domain([0, 1])
       .range([0, maxBarWidth]);
 
-    // Función mejorada para calcular la posición Y
     const priceToY = (price: number) => {
-      // Para el precio actual
       if (price === currentPrice) {
         return priceCoordinates.currentY - margin.top;
       }
 
-      // Para asks (por encima del precio actual)
       if (price > currentPrice) {
         const askRatio = (price - currentPrice) / (priceCoordinates.maxPrice - currentPrice);
-        const y = priceCoordinates.currentY - margin.top - (askRatio * (priceCoordinates.currentY - priceCoordinates.maxY));
-        console.log('Ask Y calculation:', { price, ratio: askRatio, y });
-        return y;
+        return priceCoordinates.currentY - margin.top - (askRatio * (priceCoordinates.currentY - priceCoordinates.maxY));
       }
 
-      // Para bids (por debajo del precio actual)
       const bidRatio = (currentPrice - price) / (currentPrice - priceCoordinates.minPrice);
-      const y = priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
-      console.log('Bid Y calculation:', { price, ratio: bidRatio, y });
-      return y;
+      return priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
     };
 
-    // Altura de las barras
     const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (data.length * 2));
 
-    // Filtrar y ordenar los datos
+    // Filtrar y ordenar los datos sin restricción de precio
     const asks = data
-      .filter(d => d.side === 'ask' && d.price > currentPrice)
+      .filter(d => d.side === 'ask')
       .sort((a, b) => a.price - b.price);
 
     const bids = data
-      .filter(d => d.side === 'bid' && d.price < currentPrice)
+      .filter(d => d.side === 'bid')
       .sort((a, b) => b.price - a.price);
 
     console.log('Datos procesados:', {
@@ -120,7 +111,6 @@ export const VolumeProfile = ({
       .attr('x', 0)
       .attr('y', d => {
         const y = priceToY(d.price);
-        console.log('Bar position:', { price: d.price, side: d.side, y });
         return y - barHeight / 2;
       })
       .attr('width', d => xScale(d.normalizedVolume))
@@ -140,7 +130,6 @@ export const VolumeProfile = ({
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '2,2');
 
-      // Etiqueta de precio actual
       g.append('text')
         .attr('class', 'price-label')
         .attr('x', -8)
