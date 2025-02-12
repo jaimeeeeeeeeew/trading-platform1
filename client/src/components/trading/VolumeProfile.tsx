@@ -17,6 +17,7 @@ interface Props {
   currentPrice: number;
   priceCoordinate: number | null;
   priceCoordinates: PriceCoordinates | null;
+  maxVisibleBars: number;
 }
 
 interface PriceCoordinates {
@@ -28,9 +29,7 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-const MAX_VISIBLE_BARS = 40;
-
-const groupDataByBars = (data: Props['data']) => {
+const groupDataByBars = (data: Props['data'], maxBars: number) => {
   // Separar bids y asks
   const bids = data.filter(d => d.side === 'bid');
   const asks = data.filter(d => d.side === 'ask');
@@ -51,7 +50,7 @@ const groupDataByBars = (data: Props['data']) => {
     let currentData = [...orders];
     let groupFactor = 1;
 
-    while (currentData.length > MAX_VISIBLE_BARS / 2) { // Dividir MAX_VISIBLE_BARS entre bids y asks
+    while (currentData.length > maxBars / 2) { // Dividir maxBars entre bids y asks
       const newData: Props['data'] = [];
       for (let i = 0; i < currentData.length; i += 2) {
         if (i + 1 < currentData.length) {
@@ -115,7 +114,8 @@ export const VolumeProfile = ({
   visiblePriceRange,
   currentPrice,
   priceCoordinate,
-  priceCoordinates
+  priceCoordinates,
+  maxVisibleBars
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -133,7 +133,7 @@ export const VolumeProfile = ({
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
     );
 
-    const { groupedData, groupFactor, totalVolume } = groupDataByBars(visibleData);
+    const { groupedData, groupFactor, totalVolume } = groupDataByBars(visibleData, maxVisibleBars);
 
     console.log('Procesamiento de datos:', {
       datosVisibles: visibleData.length,
@@ -262,7 +262,7 @@ export const VolumeProfile = ({
         .text(priceCoordinates.currentPrice.toFixed(1));
     }
 
-  }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange]);
+  }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars]);
 
   return (
     <div

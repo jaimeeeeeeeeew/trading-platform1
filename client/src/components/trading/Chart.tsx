@@ -72,6 +72,7 @@ export default function Chart() {
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [isLoading, setIsLoading] = useState(false);
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number; side: 'bid' | 'ask' }>>([]);
+  const [maxVisibleBars, setMaxVisibleBars] = useState<number>(200);
 
   // Obtener los datos del mercado primero
   const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
@@ -673,6 +674,21 @@ export default function Chart() {
             ))}
           </SelectContent>
         </Select>
+
+        <Select
+          value={maxVisibleBars.toString()}
+          onValueChange={(value) => setMaxVisibleBars(Number(value))}
+        >
+          <SelectTrigger className="w-24 bg-background">
+            <SelectValue placeholder="Bars" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="40">40 bars</SelectItem>
+            <SelectItem value="100">100 bars</SelectItem>
+            <SelectItem value="200">200 bars</SelectItem>
+            <SelectItem value="300">300 bars</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {crosshairData && (
@@ -739,6 +755,7 @@ export default function Chart() {
               currentPrice={currentChartPrice}
               priceCoordinate={priceCoordinate}
               priceCoordinates={priceCoordinates}
+              maxVisibleBars={maxVisibleBars}
             />
           </div>
         )}
