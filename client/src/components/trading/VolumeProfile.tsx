@@ -28,16 +28,52 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-const getGroupSize = (priceRange: number): number => {
-  if (priceRange < 500) return 1;  // Sin agrupación cuando hay suficiente zoom
-  if (priceRange < 2000) return 50;
-  return 100;
+// Constantes para la agrupación de volumen
+const PRICE_RANGES = {
+  TIGHT: 0.001, // 0.1% del precio actual
+  MEDIUM: 0.005, // 0.5% del precio actual
+  WIDE: 0.01    // 1% del precio actual
+} as const;
+
+const GROUP_SIZES = {
+  SMALL: 1,    // Sin agrupación
+  MEDIUM: 5,   // Grupos de $5
+  LARGE: 10    // Grupos de $10
+} as const;
+
+const getGroupSize = (priceRange: number, currentPrice: number): number => {
+  // Calcular los rangos dinámicamente basados en el precio actual
+  const tightRange = currentPrice * PRICE_RANGES.TIGHT;   // ~96 para BTC a 96000
+  const mediumRange = currentPrice * PRICE_RANGES.MEDIUM; // ~480 para BTC a 96000
+  const wideRange = currentPrice * PRICE_RANGES.WIDE;     // ~960 para BTC a 96000
+
+  console.log('Calculating group size:', {
+    priceRange,
+    currentPrice,
+    tightRange,
+    mediumRange,
+    wideRange
+  });
+
+  if (priceRange <= tightRange) {
+    return GROUP_SIZES.SMALL;  // Sin agrupación para zoom cercano
+  } else if (priceRange <= mediumRange) {
+    return GROUP_SIZES.MEDIUM; // Grupos de $5 para zoom medio
+  }
+  return GROUP_SIZES.LARGE;    // Grupos de $10 para zoom amplio
 };
 
 const getGroupFactor = (groupSize: number): string => {
-  if (groupSize === 1) return '';  // Sin indicador de agrupación para datos individuales
-  if (groupSize === 50) return 'x5';
-  return 'x10';
+  switch (groupSize) {
+    case GROUP_SIZES.SMALL:
+      return '';           // Sin indicador para datos individuales
+    case GROUP_SIZES.MEDIUM:
+      return 'x5';        // Indicador para grupos de $5
+    case GROUP_SIZES.LARGE:
+      return 'x10';       // Indicador para grupos de $10
+    default:
+      return `x${groupSize}`;
+  }
 };
 
 const groupData = (data: Props['data'], groupSize: number) => {
@@ -92,11 +128,17 @@ export const VolumeProfile = ({
     }
 
     const priceRange = visiblePriceRange.max - visiblePriceRange.min;
-    const groupSize = getGroupSize(priceRange);
-    console.log('Actualizando precio y rango:', {
-      price: currentPrice,
-      min: visiblePriceRange.min,
-      max: visiblePriceRange.max
+    const groupSize = getGroupSize(priceRange, currentPrice);
+
+    console.log('Volume Profile Configuration:', {
+      currentPrice,
+      priceRange,
+      visibleRange: {
+        min: visiblePriceRange.min,
+        max: visiblePriceRange.max
+      },
+      groupSize,
+      groupFactor: getGroupFactor(groupSize)
     });
 
     const groupedData = groupData(data, groupSize);
@@ -167,7 +209,7 @@ export const VolumeProfile = ({
           .attr('text-anchor', 'end')
           .attr('fill', '#ffffff')
           .attr('font-size', '10px')
-          .text(`${d.price}${groupSize > 1 ? `(x${groupSize/10})` : ''}`);
+          .text(`${d.price}${groupSize > 1 ? `(${getGroupFactor(groupSize)})` : ''}`);
       } else {
         g.append('text')
           .attr('class', 'price-label')
