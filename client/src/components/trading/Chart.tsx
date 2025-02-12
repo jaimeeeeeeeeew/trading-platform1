@@ -341,51 +341,31 @@ export default function Chart() {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
     try {
-      const minPrice = 90000;
-      const maxPrice = 105000;
+      // Get the visible time range
+      const timeScale = chartRef.current.timeScale();
+      const visibleLogicalRange = timeScale.getVisibleLogicalRange();
+      if (!visibleLogicalRange) return;
 
-      // Solo mostrar información del rango visible
-      console.log('📊 Rango visible de precios:', {
-        min: { 
-          precio: minPrice, 
-          coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(minPrice) 
-        },
-        max: { 
-          precio: maxPrice, 
-          coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(maxPrice) 
-        },
-        rangoTotal: maxPrice - minPrice
-      });
+      // Get the visible data points
+      const allData = historicalDataRef.current;
+      if (!allData.length) return;
 
+      // Get price range from candlestick series
+      const visibleRange = candlestickSeriesRef.current.priceToCoordinate(0);
+      if (!visibleRange) return;
+
+      // Calculate visible price range
+      const topY = 0;
+      const bottomY = chartRef.current.height();
+
+      const maxPrice = candlestickSeriesRef.current.coordinateToPrice(topY);
+      const minPrice = candlestickSeriesRef.current.coordinateToPrice(bottomY);
+
+      // Update price ranges
       setVisiblePriceRange({
         min: minPrice,
         max: maxPrice
       });
-
-      const timeScale = chartRef.current.timeScale();
-      const visibleLogicalRange = timeScale.getVisibleLogicalRange();
-      if (visibleLogicalRange) {
-        setVisibleRange(visibleLogicalRange);
-      }
-
-      const visibleRange = timeScale.getVisibleRange();
-      if (!visibleRange) return;
-
-      const allData = historicalDataRef.current;
-      if (!allData.length) return;
-
-      // Solo mostrar coordenadas de 2 velas aleatorias
-      const visibleCandles = allData.slice(-20);
-      const randomCandles = visibleCandles
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 2);
-
-      console.log('📈 Coordenadas de velas aleatorias:');
-      randomCandles.forEach((candle, i) => {
-        const coordinate = candlestickSeriesRef.current?.priceToCoordinate(candle.close);
-        console.log(`Vela ${i + 1}: Precio=${candle.close}, Y=${coordinate}`);
-      });
-
 
       const lastPoint = allData[allData.length - 1];
       if (!lastPoint) return;
@@ -576,6 +556,26 @@ export default function Chart() {
     setVolumeProfileData(normalizedData);
   }, [orderbookVolumeProfile]);
 
+
+  useEffect(() => {
+    if (!chartRef.current || !candlestickSeriesRef.current) return;
+
+    // Subscribe to price scale changes
+    const priceScale = chartRef.current.priceScale('right');
+    const timeScale = chartRef.current.timeScale();
+
+    const handleScaleChanged = () => {
+      updateVisiblePriceRange();
+    };
+
+    priceScale.subscribeVisibleLogicalRangeChange(handleScaleChanged);
+    timeScale.subscribeVisibleLogicalRangeChange(handleScaleChanged);
+
+    return () => {
+      priceScale.unsubscribeVisibleLogicalRangeChange(handleScaleChanged);
+      timeScale.unsubscribeVisibleLogicalRangeChange(handleScaleChanged);
+    };
+  }, []);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
