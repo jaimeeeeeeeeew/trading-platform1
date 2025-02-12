@@ -751,19 +751,6 @@ export default function Chart() {
               priceCoordinate={priceCoordinate}
               priceCoordinates={priceCoordinates}
               maxVisibleBars={maxVisibleBars}
-              onMaxVolumeBar={(volume, price) => {
-                // Añadir texto a la izquierda del gráfico mostrando el volumen máximo
-                if (candlestickSeriesRef.current) {
-                  const textColor = '#999';
-                  chartRef.current?.priceScale('right').createPriceLabel({
-                    price: price,
-                    coordinate: candlestickSeriesRef.current.priceToCoordinate(price) || 0,
-                    text: `Max Vol: ${volume.toFixed(3)} BTC`,
-                    color: textColor,
-                    borderColor: textColor,
-                  });
-                }
-              }}
             />
           </div>
         )}
