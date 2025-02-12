@@ -395,11 +395,12 @@ export default function Chart() {
       const series = candlestickSeriesRef.current;
       const containerHeight = container.current.clientHeight;
 
-      // Calculate visible range based on container dimensions and current price
-      const pricePerPixel = currentChartPrice * 0.0001; // 0.01% per pixel
-      const totalPixels = containerHeight;
-      const totalPriceRange = pricePerPixel * totalPixels;
+      // Calculate price range based on current price and container height
+      // Use a smaller percentage per pixel for more precise control
+      const pricePerPixel = currentChartPrice * 0.00005; // 0.005% per pixel
+      const totalPriceRange = pricePerPixel * containerHeight;
 
+      // Center the visible range around the current price
       const visibleMin = currentChartPrice - (totalPriceRange / 2);
       const visibleMax = currentChartPrice + (totalPriceRange / 2);
 
@@ -408,7 +409,7 @@ export default function Chart() {
         max: visibleMax
       });
 
-      // Get Y coordinates for the price levels
+      // Get Y coordinates for price levels
       const currentY = series.priceToCoordinate(currentChartPrice);
       const minY = series.priceToCoordinate(visibleMin);
       const maxY = series.priceToCoordinate(visibleMax);
@@ -424,11 +425,15 @@ export default function Chart() {
           maxY
         });
 
-        // Update volume profile if available
+        // Update volume profile with the same visible range
         if (orderbookVolumeProfile.length > 0) {
           const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
           const normalizedData = orderbookVolumeProfile
-            .filter(data => data.price >= visibleMin && data.price <= visibleMax)
+            .filter(data => {
+              // Use a slightly wider range for the volume profile to ensure smooth transitions
+              const padding = (visibleMax - visibleMin) * 0.1;
+              return data.price >= (visibleMin - padding) && data.price <= (visibleMax + padding);
+            })
             .map(data => ({
               ...data,
               normalizedVolume: data.volume / maxVolume
