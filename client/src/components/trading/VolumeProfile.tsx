@@ -45,6 +45,9 @@ export const VolumeProfile = ({
       return;
     }
 
+    console.log('Current price coordinates:', priceCoordinates);
+    console.log('Data received:', data.length, 'items');
+
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
@@ -60,39 +63,45 @@ export const VolumeProfile = ({
 
     const maxBarWidth = innerWidth * 0.8;
 
-    // Escala X para el ancho de las barras
     const xScale = d3.scaleLinear()
       .domain([0, 1])
       .range([0, maxBarWidth]);
 
-    // Usar directamente las coordenadas Y del gráfico principal
+    // Función mejorada para calcular la posición Y
     const priceToY = (price: number) => {
-      if (price === currentPrice) return priceCoordinates.currentY - margin.top;
+      // Para el precio actual
+      if (price === currentPrice) {
+        return priceCoordinates.currentY - margin.top;
+      }
 
       // Para asks (por encima del precio actual)
       if (price > currentPrice) {
-        const ratio = (price - currentPrice) / (priceCoordinates.maxPrice - currentPrice);
-        return priceCoordinates.currentY - margin.top - (ratio * (priceCoordinates.currentY - priceCoordinates.maxY));
+        const askRatio = (price - currentPrice) / (priceCoordinates.maxPrice - currentPrice);
+        const y = priceCoordinates.currentY - margin.top - (askRatio * (priceCoordinates.currentY - priceCoordinates.maxY));
+        console.log('Ask Y calculation:', { price, ratio: askRatio, y });
+        return y;
       }
 
       // Para bids (por debajo del precio actual)
-      const ratio = (currentPrice - price) / (currentPrice - priceCoordinates.minPrice);
-      return priceCoordinates.currentY - margin.top + (ratio * (priceCoordinates.minY - priceCoordinates.currentY));
+      const bidRatio = (currentPrice - price) / (currentPrice - priceCoordinates.minPrice);
+      const y = priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
+      console.log('Bid Y calculation:', { price, ratio: bidRatio, y });
+      return y;
     };
 
-    // Calcular altura de las barras
+    // Altura de las barras
     const barHeight = Math.max(1, (priceCoordinates.minY - priceCoordinates.maxY) / (data.length * 2));
 
-    // Filtrar y ordenar datos dentro del rango visible
+    // Filtrar y ordenar los datos
     const asks = data
       .filter(d => d.side === 'ask' && d.price > currentPrice)
-      .sort((a, b) => a.price - b.price); // asks ordenados de menor a mayor
+      .sort((a, b) => a.price - b.price);
 
     const bids = data
       .filter(d => d.side === 'bid' && d.price < currentPrice)
-      .sort((a, b) => b.price - a.price); // bids ordenados de mayor a menor
+      .sort((a, b) => b.price - a.price);
 
-    console.log('Datos filtrados:', {
+    console.log('Datos procesados:', {
       asks: asks.length,
       bids: bids.length,
       currentPrice,
@@ -100,7 +109,7 @@ export const VolumeProfile = ({
       sampleBid: bids[0]
     });
 
-    // Concatenar asks y bids manteniendo el orden correcto
+    // Combinar los datos manteniendo el orden
     const visibleData = [...asks, ...bids];
 
     // Dibujar barras de volumen
@@ -119,7 +128,7 @@ export const VolumeProfile = ({
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
-    // Dibujar línea de precio actual
+    // Línea de precio actual
     if (priceCoordinates.currentPrice && priceCoordinates.currentY) {
       g.append('line')
         .attr('class', 'price-line')
@@ -143,7 +152,7 @@ export const VolumeProfile = ({
         .text(priceCoordinates.currentPrice.toFixed(1));
     }
 
-    // Añadir escala de precios
+    // Escala de precios
     const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
     const numTicks = Math.min(10, Math.floor(innerHeight / 30));
     const tickPrices = d3.range(numTicks).map(i => {
