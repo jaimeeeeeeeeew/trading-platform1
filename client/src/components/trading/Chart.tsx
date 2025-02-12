@@ -615,6 +615,7 @@ export default function Chart() {
     // Subscribe to time scale changes
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
       handleVisibleRangeChange();
+      updatePriceScaleInfo();
     });
 
     // Subscribe to crosshair moves
@@ -625,16 +626,21 @@ export default function Chart() {
         const data = param.seriesData.get(candlestickSeries) as CandlestickData;
         if (data) {
           setCrosshairData(data as any);
-          updatePriceScaleInfo(); 
+          updatePriceScaleInfo();
           handleVisibleRangeChange();
         }
       }
     });
-    // Add price scale change subscription
-    chart.priceScale('right').subscribeVisibleLogicalRangeChange(() => {
-      handleVisibleRangeChange();
-      updatePriceScaleInfo();
-    });
+
+    // Add price scale change subscription correctly
+    const priceScale = chart.priceScale('right');
+    if (priceScale) {
+      priceScale.subscribePriceScaleChange(() => {
+        handleVisibleRangeChange();
+        updatePriceScaleInfo();
+      });
+    }
+
     loadInitialData(currentSymbol);
     handleResize();
     window.addEventListener('resize', handleResize);
