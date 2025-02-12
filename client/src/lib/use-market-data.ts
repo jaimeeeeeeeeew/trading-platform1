@@ -99,64 +99,21 @@ export function useMarketData() {
       return [];
     }
 
-    const PRICE_BUCKET_SIZE = 10;
+    // Convertir directamente los datos sin bucketing
+    const allLevels: Array<{ price: number; volume: number; side: 'bid' | 'ask' }> = [
+      ...data.orderbook.bids.map(bid => ({
+        price: parseFloat(bid.Price),
+        volume: parseFloat(bid.Quantity),
+        side: 'bid' as const
+      })),
+      ...data.orderbook.asks.map(ask => ({
+        price: parseFloat(ask.Price),
+        volume: parseFloat(ask.Quantity),
+        side: 'ask' as const
+      }))
+    ];
 
-    const getPriceBucket = (price: number) => 
-      Math.floor(price / PRICE_BUCKET_SIZE) * PRICE_BUCKET_SIZE;
-
-    // Nueva estructura para mantener volúmenes separados de bids y asks
-    const volumeByPrice: Record<number, { bidVolume: number; askVolume: number }> = {};
-
-    // Procesar bids
-    data.orderbook.bids.forEach(bid => {
-      const price = parseFloat(bid.Price);
-      const volume = parseFloat(bid.Quantity);
-      const bucket = getPriceBucket(price);
-
-      if (!volumeByPrice[bucket]) {
-        volumeByPrice[bucket] = { bidVolume: 0, askVolume: 0 };
-      }
-      volumeByPrice[bucket].bidVolume += volume;
-    });
-
-    // Procesar asks
-    data.orderbook.asks.forEach(ask => {
-      const price = parseFloat(ask.Price);
-      const volume = parseFloat(ask.Quantity);
-      const bucket = getPriceBucket(price);
-
-      if (!volumeByPrice[bucket]) {
-        volumeByPrice[bucket] = { bidVolume: 0, askVolume: 0 };
-      }
-      volumeByPrice[bucket].askVolume += volume;
-    });
-
-    // Convertir a array y separar bids y asks
-    const allLevels: Array<{ price: number; volume: number; side: 'bid' | 'ask' }> = [];
-
-    Object.entries(volumeByPrice).forEach(([price, volumes]) => {
-      const numPrice = Number(price);
-
-      // Agregar nivel de bid si hay volumen
-      if (volumes.bidVolume > 0) {
-        allLevels.push({
-          price: numPrice,
-          volume: volumes.bidVolume,
-          side: 'bid'
-        });
-      }
-
-      // Agregar nivel de ask si hay volumen
-      if (volumes.askVolume > 0) {
-        allLevels.push({
-          price: numPrice,
-          volume: volumes.askVolume,
-          side: 'ask'
-        });
-      }
-    });
-
-    // Ordenar por precio
+    // Ordenar por precio de mayor a menor
     allLevels.sort((a, b) => b.price - a.price);
 
     // Encontrar el volumen máximo para normalización
@@ -173,7 +130,8 @@ export function useMarketData() {
       bidLevels: normalizedLevels.filter(v => v.side === 'bid').length,
       askLevels: normalizedLevels.filter(v => v.side === 'ask').length,
       sampleBid: normalizedLevels.find(v => v.side === 'bid'),
-      sampleAsk: normalizedLevels.find(v => v.side === 'ask')
+      sampleAsk: normalizedLevels.find(v => v.side === 'ask'),
+      maxVolume
     });
 
     return normalizedLevels;
