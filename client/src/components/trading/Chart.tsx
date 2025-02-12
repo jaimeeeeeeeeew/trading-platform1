@@ -350,35 +350,6 @@ export default function Chart() {
       .replace('PERP', '');
   };
 
-  const updateVisiblePriceRange = () => {
-    if (!chartRef.current || !candlestickSeriesRef.current) return;
-
-    try {
-      const visibleLogicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
-      if (!visibleLogicalRange) return;
-
-      const minPrice = 90000;
-      const maxPrice = 105000;
-
-      setVisiblePriceRange({
-        min: minPrice,
-        max: maxPrice
-      });
-
-      setVisibleRange(visibleLogicalRange);
-
-      const allData = historicalDataRef.current;
-      if (!allData.length) return;
-
-      const lastPoint = allData[allData.length - 1];
-      if (!lastPoint) return;
-
-      setCurrentChartPrice(lastPoint.close);
-      updatePriceCoordinate();
-    } catch (error) {
-      console.error('Error updating visible price range:', error);
-    }
-  };
 
   const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
     try {
@@ -475,8 +446,59 @@ export default function Chart() {
     });
 
     candlestickSeriesRef.current = candlestickSeries;
-    loadInitialData(currentSymbol);
 
+    const handleVisibleRangeChange = () => {
+      if (!candlestickSeriesRef.current || !currentChartPrice) return;
+
+      const priceRange = candlestickSeriesRef.current.priceScale().getVisibleRange();
+      if (!priceRange) return;
+
+      const visibleMin = Math.floor(priceRange.from);
+      const visibleMax = Math.ceil(priceRange.to);
+
+      setVisiblePriceRange({
+        min: visibleMin,
+        max: visibleMax
+      });
+
+      const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
+      const minY = candlestickSeriesRef.current.priceToCoordinate(visibleMin);
+      const maxY = candlestickSeriesRef.current.priceToCoordinate(visibleMax);
+
+      if (currentY !== null && minY !== null && maxY !== null) {
+        setPriceCoordinate(currentY);
+        setPriceCoordinates({
+          currentPrice: currentChartPrice,
+          currentY,
+          minPrice: visibleMin,
+          minY,
+          maxPrice: visibleMax,
+          maxY
+        });
+
+        if (orderbookVolumeProfile.length > 0) {
+          const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
+          const normalizedData = orderbookVolumeProfile
+            .filter(data => data.price >= visibleMin && data.price <= visibleMax)
+            .map(data => ({
+              ...data,
+              normalizedVolume: data.volume / maxVolume
+            }));
+
+          setVolumeProfileData(normalizedData);
+        }
+      }
+    };
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+      handleVisibleRangeChange();
+    });
+
+    candlestickSeries.subscribeVisiblePriceRangeChange(() => {
+      handleVisibleRangeChange();
+    });
+
+    loadInitialData(currentSymbol);
     handleResize();
     window.addEventListener('resize', handleResize);
 
@@ -501,10 +523,6 @@ export default function Chart() {
       }
     });
 
-    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
-      updateVisiblePriceRange();
-      updatePriceCoordinate();
-    });
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -540,24 +558,27 @@ export default function Chart() {
   }, [currentChartPrice, visiblePriceRange]);
 
   useEffect(() => {
-    if (!orderbookVolumeProfile.length) {
-      console.log('No volume profile data available');
-      return;
-    }
+    if (!orderbookVolumeProfile.length) return;
 
-    console.log('Volume Profile Data:', orderbookVolumeProfile);
+    const handleVolumeProfileUpdate = () => {
+      if (!candlestickSeriesRef.current) return;
 
-    const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
-    const normalizedData = orderbookVolumeProfile.map(data => ({
-      ...data,
-      volume: data.volume,
-      side: data.side,
-      normalizedVolume: data.volume / maxVolume
-    }));
+      const priceRange = candlestickSeriesRef.current.priceScale().getVisibleRange();
+      if (!priceRange) return;
 
-    console.log('Normalized Volume Profile Data:', normalizedData);
-    setVolumeProfileData(normalizedData);
-  }, [orderbookVolumeProfile]);
+      const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
+      const normalizedData = orderbookVolumeProfile
+        .filter(data => data.price >= priceRange.from && data.price <= priceRange.to)
+        .map(data => ({
+          ...data,
+          normalizedVolume: data.volume / maxVolume
+        }));
+
+      setVolumeProfileData(normalizedData);
+    };
+
+    handleVolumeProfileUpdate();
+  }, [orderbookVolumeProfile, currentChartPrice]);
 
 
   return (
@@ -638,7 +659,7 @@ export default function Chart() {
             }}
           >
             <VolumeProfile
-              data={orderbookVolumeProfile}
+              data={volumeProfileData}
               width={180}
               height={container.current.clientHeight}
               visiblePriceRange={visiblePriceRange}
