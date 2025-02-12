@@ -405,17 +405,29 @@ export default function Chart() {
 
     try {
       const series = candlestickSeriesRef.current;
-      const priceScale = series.priceScale();
       const logicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
 
       if (!logicalRange) return;
 
-      // Get visible range
-      const visibleRange = priceScale.priceRange();
-      if (!visibleRange) return;
+      // Get visible range using the series methods
+      const visibleBars = chartRef.current.timeScale().getVisibleRange();
+      if (!visibleBars) return;
 
-      const minPrice = visibleRange.minValue();
-      const maxPrice = visibleRange.maxValue();
+      // Get min/max prices from visible bars
+      let minPrice = Infinity;
+      let maxPrice = -Infinity;
+
+      const data = candlestickSeriesRef.current.data();
+      for (let i = visibleBars.from; i <= visibleBars.to; i++) {
+        if (i >= 0 && i < data.length) {
+          const bar = data[i];
+          minPrice = Math.min(minPrice, bar.low);
+          maxPrice = Math.max(maxPrice, bar.high);
+        }
+      }
+
+      if (minPrice === Infinity || maxPrice === -Infinity) return;
+
       const range = maxPrice - minPrice;
 
       // Calculate price step based on zoom level
@@ -613,6 +625,7 @@ export default function Chart() {
         const data = param.seriesData.get(candlestickSeries) as CandlestickData;
         if (data) {
           setCrosshairData(data as any);
+          updatePriceScaleInfo(); 
           handleVisibleRangeChange();
         }
       }
