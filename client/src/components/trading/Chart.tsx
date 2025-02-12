@@ -322,26 +322,30 @@ export default function Chart() {
   const updatePriceCoordinate = () => {
     if (!candlestickSeriesRef.current || !currentChartPrice) return;
 
-    const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
-    const minY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.min);
-    const maxY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.max);
+    try {
+      const currentY = candlestickSeriesRef.current.priceToCoordinate(currentChartPrice);
+      const minY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.min);
+      const maxY = candlestickSeriesRef.current.priceToCoordinate(visiblePriceRange.max);
 
-    if (currentY !== null && minY !== null && maxY !== null) {
-      setPriceCoordinate(currentY);
-      setPriceCoordinates({
-        currentPrice: currentChartPrice,
-        currentY,
-        minPrice: visiblePriceRange.min,
-        minY,
-        maxPrice: visiblePriceRange.max,
-        maxY
-      });
+      if (currentY !== null && minY !== null && maxY !== null) {
+        setPriceCoordinate(currentY);
+        setPriceCoordinates({
+          currentPrice: currentChartPrice,
+          currentY,
+          minPrice: visiblePriceRange.min,
+          minY,
+          maxPrice: visiblePriceRange.max,
+          maxY
+        });
 
-      console.log('Price coordinates updated:', {
-        price: currentChartPrice,
-        y: currentY,
-        range: { min: minY, max: maxY }
-      });
+        console.log('Price coordinates updated:', {
+          price: currentChartPrice,
+          y: currentY,
+          range: { min: minY, max: maxY }
+        });
+      }
+    } catch (error) {
+      console.error('Error updating price coordinates:', error);
     }
   };
 
@@ -367,8 +371,8 @@ export default function Chart() {
       if (visibleCandlesticks.length === 0) return;
 
       const prices = visibleCandlesticks.map(c => c.close);
-      const minPrice = Math.min(...prices) * 0.995; // Add 0.5% margin
-      const maxPrice = Math.max(...prices) * 1.005; // Add 0.5% margin
+      const minPrice = Math.min(...prices) * 0.995; 
+      const maxPrice = Math.max(...prices) * 1.005; 
 
       console.log('Updating visible price range:', { minPrice, maxPrice });
 
