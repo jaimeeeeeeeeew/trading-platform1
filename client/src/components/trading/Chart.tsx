@@ -341,44 +341,75 @@ export default function Chart() {
     if (!chartRef.current || !candlestickSeriesRef.current) return;
 
     try {
-      // Obtener el rango visible actual
-      const timeScale = chartRef.current.timeScale();
-      const visibleLogicalRange = timeScale.getVisibleLogicalRange();
-      if (!visibleLogicalRange) return;
+      const minPrice = 90000;
+      const maxPrice = 105000;
 
-      // Calcular el rango de precios visible
-      const topY = 0;
-      const bottomY = chartRef.current.height();
-
-      const maxPrice = candlestickSeriesRef.current.coordinateToPrice(topY);
-      const minPrice = candlestickSeriesRef.current.coordinateToPrice(bottomY);
-
-      if (maxPrice === null || minPrice === null) return;
+      // Solo mostrar información del rango visible
+      console.log('📊 Rango visible de precios:', {
+        min: { 
+          precio: minPrice, 
+          coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(minPrice) 
+        },
+        max: { 
+          precio: maxPrice, 
+          coordenadaY: candlestickSeriesRef.current?.priceToCoordinate(maxPrice) 
+        },
+        rangoTotal: maxPrice - minPrice
+      });
 
       setVisiblePriceRange({
         min: minPrice,
         max: maxPrice
       });
 
-      const lastPoint = historicalDataRef.current[historicalDataRef.current.length - 1];
+      const timeScale = chartRef.current.timeScale();
+      const visibleLogicalRange = timeScale.getVisibleLogicalRange();
+      if (visibleLogicalRange) {
+        setVisibleRange(visibleLogicalRange);
+      }
+
+      const visibleRange = timeScale.getVisibleRange();
+      if (!visibleRange) return;
+
+      const allData = historicalDataRef.current;
+      if (!allData.length) return;
+
+      // Solo mostrar coordenadas de 2 velas aleatorias
+      const visibleCandles = allData.slice(-20);
+      const randomCandles = visibleCandles
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 2);
+
+      console.log('📈 Coordenadas de velas aleatorias:');
+      randomCandles.forEach((candle, i) => {
+        const coordinate = candlestickSeriesRef.current?.priceToCoordinate(candle.close);
+        console.log(`Vela ${i + 1}: Precio=${candle.close}, Y=${coordinate}`);
+      });
+
+
+      const lastPoint = allData[allData.length - 1];
       if (!lastPoint) return;
 
       setCurrentChartPrice(lastPoint.close);
 
-      // Actualizar coordenadas de precio
-      const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
-      const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
-      const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
+      if (candlestickSeriesRef.current) {
+        const currentY = candlestickSeriesRef.current.priceToCoordinate(lastPoint.close);
+        const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
+        const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
 
-      if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
-        setPriceCoordinates({
-          currentPrice: lastPoint.close,
-          currentY,
-          minPrice,
-          minY,
-          maxPrice,
-          maxY
-        });
+        if (typeof currentY === 'number' && typeof minY === 'number' && typeof maxY === 'number') {
+          const coordinates = {
+            currentPrice: lastPoint.close,
+            currentY,
+            minPrice,
+            minY,
+            maxPrice,
+            maxY
+          };
+
+          setPriceCoordinates(coordinates);
+          setPriceCoordinate(currentY);
+        }
       }
     } catch (error) {
       console.error('Error updating visible price range:', error);
@@ -506,9 +537,9 @@ export default function Chart() {
       }
     });
 
-    chart.timeScale().subscribeVisibleTimeRangeChange(() => {
-        updateVisiblePriceRange();
-        updatePriceCoordinate();
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+      updateVisiblePriceRange();
+      updatePriceCoordinate();
     });
 
     return () => {
@@ -545,30 +576,6 @@ export default function Chart() {
     setVolumeProfileData(normalizedData);
   }, [orderbookVolumeProfile]);
 
-
-  useEffect(() => {
-    if (!chartRef.current || !candlestickSeriesRef.current) return;
-
-    const chart = chartRef.current;
-    const timeScale = chart.timeScale();
-
-    const handleScaleChanged = () => {
-      updateVisiblePriceRange();
-    };
-
-    // Suscribirse a cambios en el timeScale
-    timeScale.subscribeVisibleTimeRangeChange(handleScaleChanged);
-
-    // Suscribirse a cambios en el viewport
-    chart.subscribeClick(handleScaleChanged);
-    chart.subscribeCrosshairMove(handleScaleChanged);
-
-    return () => {
-      timeScale.unsubscribeVisibleTimeRangeChange(handleScaleChanged);
-      chart.unsubscribeClick(handleScaleChanged);
-      chart.unsubscribeCrosshairMove(handleScaleChanged);
-    };
-  }, []);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">

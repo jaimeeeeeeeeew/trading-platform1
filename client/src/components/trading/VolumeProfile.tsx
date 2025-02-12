@@ -43,10 +43,17 @@ export const VolumeProfile = ({
     if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
       console.log('Volume Profile: Missing required data', {
         hasData: data?.length > 0,
-        hasCoordinates: !!priceCoordinates
+        hasCoordinates: !!priceCoordinates,
+        currentPrice
       });
       return;
     }
+
+    console.log('Volume Profile Update:', {
+      dataPoints: data.length,
+      priceRange: visiblePriceRange,
+      coordinates: priceCoordinates
+    });
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -63,39 +70,50 @@ export const VolumeProfile = ({
 
     const maxBarWidth = innerWidth * 0.7;
 
-    // Escala para el volumen
+    // Escala para el ancho de las barras (volumen)
     const xScale = d3.scaleLinear()
       .domain([0, 1])
       .range([maxBarWidth, 0]);
 
-    // Escala para los precios, usando el mismo rango que el gráfico principal
+    // Usar el mismo rango de precios que el gráfico principal
     const yScale = d3.scaleLinear()
       .domain([priceCoordinates.minPrice, priceCoordinates.maxPrice])
       .range([innerHeight, 0]);
 
+    // Altura mínima de las barras basada en el rango visible
+    const priceRange = priceCoordinates.maxPrice - priceCoordinates.minPrice;
+    const barHeight = Math.max(2, (innerHeight / (priceRange / 10)));
+
     // Filtrar datos dentro del rango visible
-    const visibleData = data.filter(d =>
-      d.price >= priceCoordinates.minPrice &&
+    const visibleData = data.filter(d => 
+      d.price >= priceCoordinates.minPrice && 
       d.price <= priceCoordinates.maxPrice
     );
 
+    console.log('Visible Data:', {
+      total: data.length,
+      visible: visibleData.length,
+      minPrice: priceCoordinates.minPrice,
+      maxPrice: priceCoordinates.maxPrice
+    });
+
     // Dibujar barras de volumen
-    g.selectAll('.volume-bar')
+    const bars = g.selectAll('.volume-bar')
       .data(visibleData)
       .join('rect')
       .attr('class', 'volume-bar')
       .attr('x', d => innerWidth - maxBarWidth + xScale(d.normalizedVolume))
       .attr('y', d => {
         const y = yScale(d.price);
-        return Number.isFinite(y) ? y : 0;
+        return Number.isFinite(y) ? y - barHeight / 2 : 0;
       })
       .attr('width', d => Math.max(1, maxBarWidth - xScale(d.normalizedVolume)))
-      .attr('height', 2)
+      .attr('height', barHeight)
       .attr('fill', d => d.side === 'bid' ? '#26a69a' : '#ef5350')
       .attr('opacity', 0.8);
 
     // Línea de precio actual
-    if (priceCoordinates.currentPrice) {
+    if (priceCoordinates.currentPrice && Number.isFinite(yScale(priceCoordinates.currentPrice))) {
       g.append('line')
         .attr('x1', 0)
         .attr('x2', innerWidth)
@@ -123,7 +141,8 @@ export const VolumeProfile = ({
           return `${d.toFixed(0)}`;
         }
         return '';
-      });
+      })
+      .tickSize(3);
 
     const priceAxisGroup = g.append('g')
       .attr('transform', `translate(${innerWidth},0)`)
@@ -137,7 +156,15 @@ export const VolumeProfile = ({
       .attr('fill', '#fff')
       .attr('font-size', '9px');
 
-  }, [data, width, height, priceCoordinates]);
+    // Información del perfil
+    g.append('text')
+      .attr('x', innerWidth - maxBarWidth)
+      .attr('y', 15)
+      .attr('fill', '#fff')
+      .attr('font-size', '10px')
+      .text(`Vol Profile (${visibleData.length})`);
+
+  }, [data, width, height, currentPrice, priceCoordinates]);
 
   return (
     <div
