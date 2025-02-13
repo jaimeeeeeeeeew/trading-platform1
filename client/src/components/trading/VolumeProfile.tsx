@@ -29,58 +29,78 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-// Función para determinar si dos arrays de barras son significativamente diferentes
-const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], threshold = 0.1) => {
-  if (prevBars.length !== newBars.length) return true;
+// Función mejorada para determinar cambios significativos
+const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], threshold = 0.05) => {
+  if (!prevBars || !newBars || prevBars.length !== newBars.length) return true;
 
-  return newBars.some((newBar, i) => {
+  // Solo comparar una muestra de barras para mejor rendimiento
+  const sampleSize = Math.min(50, prevBars.length);
+  const step = Math.max(1, Math.floor(prevBars.length / sampleSize));
+
+  for (let i = 0; i < prevBars.length; i += step) {
     const prevBar = prevBars[i];
-    return Math.abs(newBar.volume - prevBar.volume) / prevBar.volume > threshold ||
-           Math.abs(newBar.price - prevBar.price) > threshold;
-  });
+    const newBar = newBars[i];
+    if (!prevBar || !newBar) continue;
+
+    if (Math.abs(newBar.volume - prevBar.volume) / prevBar.volume > threshold ||
+        Math.abs(newBar.price - prevBar.price) > threshold) {
+      return true;
+    }
+  }
+  return false;
 };
 
+// Función optimizada para combinar barras superpuestas
 const mergeOverlappingBars = (bars: Props['data'], getY: (price: number) => number, tolerance: number = 3) => {
-  // Verificar volumen total antes de la fusión
-  const initialTotalVolume = bars.reduce((sum, bar) => sum + bar.volume, 0);
+  if (!bars || bars.length === 0) return { bars: [], maxVolumeBar: null };
 
-  // Ordenar las barras por precio para asegurar un procesamiento consistente
-  const sortedBars = [...bars].sort((a, b) => a.price - b.price);
-
-  // Usar Map para agrupar barras por coordenada Y
   const merged = new Map<number, Props['data'][0]>();
+  let maxVolumeBar = bars[0];
 
-  sortedBars.forEach(bar => {
+  bars.forEach(bar => {
     const y = Math.round(getY(bar.price));
-    // Buscamos si hay alguna barra cercana en el rango de tolerancia
     const key = Math.floor(y / tolerance) * tolerance;
 
     if (merged.has(key)) {
       const existing = merged.get(key)!;
       const totalVolume = existing.volume + bar.volume;
-      // Actualizar precio como promedio ponderado por volumen
       existing.price = (existing.price * existing.volume + bar.price * bar.volume) / totalVolume;
-      // Sumar volúmenes
       existing.volume = totalVolume;
+
+      if (totalVolume > maxVolumeBar.volume) {
+        maxVolumeBar = existing;
+      }
     } else {
       merged.set(key, { ...bar });
+      if (bar.volume > maxVolumeBar.volume) {
+        maxVolumeBar = bar;
+      }
     }
   });
 
-  // Convertir el Map a array
   const mergedArray = Array.from(merged.values());
-  const maxVolume = Math.max(...mergedArray.map(b => b.volume));
+  const maxVolume = maxVolumeBar.volume;
 
   return {
     bars: mergedArray.map(bar => ({
       ...bar,
       normalizedVolume: bar.volume / maxVolume
     })),
-    maxVolumeBar: mergedArray.reduce((max, bar) => 
-      bar.volume > (max?.volume || 0) ? bar : max, 
-      mergedArray[0]
-    )
+    maxVolumeBar
   };
+};
+
+// Función para determinar qué barras son visibles
+const getVisibleBars = (
+  bars: Props['data'],
+  height: number,
+  priceToY: (price: number) => number,
+  viewport: { top: number; bottom: number }
+) => {
+  return bars.filter(bar => {
+    const y = priceToY(bar.price);
+    return y >= viewport.top - 50 && y <= viewport.bottom + 50; // Buffer de 50px
+  });
 };
 
 export const VolumeProfile = ({
@@ -96,8 +116,8 @@ export const VolumeProfile = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const prevDataRef = useRef<Props['data']>([]);
   const updateTimeoutRef = useRef<number | null>(null);
+  const renderRequestRef = useRef<number | null>(null);
 
-  // Memoizar los datos procesados para evitar recálculos innecesarios
   const processedData = useMemo(() => {
     const visibleData = data.filter(
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
@@ -105,13 +125,6 @@ export const VolumeProfile = ({
 
     const asks = visibleData.filter(d => d.side === 'ask').sort((a, b) => a.price - b.price);
     const bids = visibleData.filter(d => d.side === 'bid').sort((a, b) => b.price - a.price);
-
-    // Verificar volúmenes totales
-    console.log('Volúmenes antes de procesar:', {
-      asks: asks.reduce((sum, d) => sum + d.volume, 0),
-      bids: bids.reduce((sum, d) => sum + d.volume, 0),
-      total: visibleData.reduce((sum, d) => sum + d.volume, 0)
-    });
 
     return { asks, bids };
   }, [data, visiblePriceRange]);
@@ -121,16 +134,13 @@ export const VolumeProfile = ({
       return;
     }
 
-    // Función de renderizado que será throttled
     const renderChart = () => {
       const { asks, bids } = processedData;
 
-      // Verificar si hay cambios significativos antes de actualizar
-      const newData = [...asks, ...bids];
-      if (!hasSignificantChanges(prevDataRef.current, newData)) {
+      if (!hasSignificantChanges(prevDataRef.current, [...asks, ...bids])) {
         return;
       }
-      prevDataRef.current = newData;
+      prevDataRef.current = [...asks, ...bids];
 
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
@@ -166,18 +176,30 @@ export const VolumeProfile = ({
         return priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
       };
 
-      // Calcular altura de barra basada en el rango visible
+      const viewport = {
+        top: 0,
+        bottom: height
+      };
+
       const visibleRange = priceCoordinates.minY - priceCoordinates.maxY;
-      const barHeight = Math.max(3, visibleRange / (asks.length + bids.length) * 0.8);
+      const barHeight = Math.max(3, visibleRange / maxVisibleBars * 0.8);
 
-      // Combinar barras que se solapan
-      const { bars: mergedAsks, maxVolumeBar: maxAskBar } = mergeOverlappingBars(asks, priceToY, barHeight);
-      const { bars: mergedBids, maxVolumeBar: maxBidBar } = mergeOverlappingBars(bids, priceToY, barHeight);
+      const { bars: mergedAsks, maxVolumeBar: maxAskBar } = mergeOverlappingBars(
+        getVisibleBars(asks, height, priceToY, viewport),
+        priceToY,
+        barHeight
+      );
 
-      // Determinar la barra con el volumen máximo total
-      const maxVolumeBar = maxAskBar.volume > maxBidBar.volume ? maxAskBar : maxBidBar;
+      const { bars: mergedBids, maxVolumeBar: maxBidBar } = mergeOverlappingBars(
+        getVisibleBars(bids, height, priceToY, viewport),
+        priceToY,
+        barHeight
+      );
 
-      // Barras de volumen con espaciado garantizado
+      const maxVolumeBar = maxAskBar && maxBidBar
+        ? (maxAskBar.volume > maxBidBar.volume ? maxAskBar : maxBidBar)
+        : (maxAskBar || maxBidBar);
+
       g.selectAll('.bid-bars')
         .data(mergedBids)
         .join('rect')
@@ -206,22 +228,22 @@ export const VolumeProfile = ({
         .attr('fill', '#ef5350')
         .attr('opacity', 0.9);
 
-      // Añadir etiqueta de volumen máximo
-      const maxVolumeY = priceToY(maxVolumeBar.price);
-      if (maxVolumeY !== null) {
-        g.append('text')
-          .attr('class', 'max-volume-label')
-          .attr('x', -5)
-          .attr('y', maxVolumeY)
-          .attr('dy', '0.32em')
-          .attr('text-anchor', 'end')
-          .attr('fill', '#ffffff')
-          .attr('font-size', '11px')
-          .attr('font-weight', 'bold')
-          .text(`${maxVolumeBar.volume.toFixed(3)} BTC`);
+      if (maxVolumeBar) {
+        const maxVolumeY = priceToY(maxVolumeBar.price);
+        if (maxVolumeY !== null) {
+          g.append('text')
+            .attr('class', 'max-volume-label')
+            .attr('x', -5)
+            .attr('y', maxVolumeY)
+            .attr('dy', '0.32em')
+            .attr('text-anchor', 'end')
+            .attr('fill', '#ffffff')
+            .attr('font-size', '11px')
+            .attr('font-weight', 'bold')
+            .text(`${maxVolumeBar.volume.toFixed(3)} BTC`);
+        }
       }
 
-      // Línea de precio actual
       if (priceCoordinates.currentPrice && priceCoordinates.currentY) {
         g.append('line')
           .attr('class', 'price-line')
@@ -233,7 +255,6 @@ export const VolumeProfile = ({
           .attr('stroke-width', 1.5)
           .attr('stroke-dasharray', '2,2');
 
-        // Solo mantener la etiqueta del precio actual
         g.append('text')
           .attr('class', 'current-price-label')
           .attr('x', innerWidth + 5)
@@ -247,16 +268,25 @@ export const VolumeProfile = ({
       }
     };
 
-    // Throttle las actualizaciones
+    const scheduleRender = () => {
+      if (renderRequestRef.current) {
+        cancelAnimationFrame(renderRequestRef.current);
+      }
+      renderRequestRef.current = requestAnimationFrame(renderChart);
+    };
+
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
     }
 
-    updateTimeoutRef.current = window.setTimeout(renderChart, 100);
+    updateTimeoutRef.current = window.setTimeout(scheduleRender, 50);
 
     return () => {
       if (updateTimeoutRef.current) {
         clearTimeout(updateTimeoutRef.current);
+      }
+      if (renderRequestRef.current) {
+        cancelAnimationFrame(renderRequestRef.current);
       }
     };
   }, [processedData, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars]);
