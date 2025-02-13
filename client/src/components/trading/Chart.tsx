@@ -78,7 +78,7 @@ interface Props {
   priceCoordinate: number | null;
   priceCoordinates: PriceCoordinates | null;
   maxVisibleBars: number;
-  priceBucketSize?: number;  // New prop
+  priceBucketSize?: number;
 }
 
 export default function Chart() {
@@ -97,9 +97,9 @@ export default function Chart() {
   const [maxVisibleBars, setMaxVisibleBars] = useState<number>(200);
   const [customBars, setCustomBars] = useState<string>("");
   const [showCustomInput, setShowCustomInput] = useState(false);
-  const [priceBucketSize, setPriceBucketSize] = useState<number>(10);  // New state
+  const [priceBucketSize, setPriceBucketSize] = useState<number>(10);
 
-  const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
+  const { data: marketData, volumeProfile: orderbookVolumeProfile, setBucketSize } = useMarketData();
 
   const [currentChartPrice, setCurrentChartPrice] = useState<number>(0);
   const [visiblePriceRange, setVisiblePriceRange] = useState<{min: number, max: number}>({
@@ -708,7 +708,9 @@ export default function Chart() {
         <Select
           value={priceBucketSize.toString()}
           onValueChange={(value) => {
-            setPriceBucketSize(Number(value));
+            const newSize = Number(value);
+            setPriceBucketSize(newSize);
+            setBucketSize(newSize);
           }}
         >
           <SelectTrigger className="w-24 bg-background">
@@ -789,7 +791,7 @@ export default function Chart() {
               priceCoordinate={priceCoordinate}
               priceCoordinates={priceCoordinates}
               maxVisibleBars={maxVisibleBars}
-              priceBucketSize={priceBucketSize}  // Add new prop
+              priceBucketSize={priceBucketSize}
             />
           </div>
         )}
