@@ -15,8 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import SecondaryIndicator from './SecondaryIndicator';
-import { Input } from "@/components/ui/input";
-import { useState as useState2, useEffect as useEffect2, useRef as useRef2 } from 'react';
 
 interface PriceCoordinates {
   currentPrice: number;
@@ -44,26 +42,6 @@ interface OHLCVData {
   time: Time;
 }
 
-
-interface Props {
-  data: {
-    price: number;
-    volume: number;
-    normalizedVolume: number;
-    side: 'bid' | 'ask';
-  }[];
-  width: number;
-  height: number;
-  visiblePriceRange: {
-    min: number;
-    max: number;
-  };
-  currentPrice: number;
-  priceCoordinate: number | null;
-  priceCoordinates: PriceCoordinates | null;
-  maxVisibleBars: number;
-}
-
 const INTERVALS = {
   '1m': { label: '1m', minutes: 1 },
   '5m': { label: '5m', minutes: 5 },
@@ -75,11 +53,6 @@ const INTERVALS = {
 
 type IntervalKey = keyof typeof INTERVALS;
 type ActiveIndicator = 'none' | 'rsi' | 'funding' | 'longShort' | 'deltaCvd';
-
-interface UseSocketIOOptions {
-  onProfileData?: (data: Array<{ price: number; volume: number; side: 'bid' | 'ask' }>) => void;
-  onPriceUpdate?: (price: number) => void;
-}
 
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
@@ -94,10 +67,7 @@ export default function Chart() {
   const [interval, setInterval] = useState<IntervalKey>('1m');
   const [isLoading, setIsLoading] = useState(false);
   const [volumeProfileData, setVolumeProfileData] = useState<Array<{ price: number; volume: number; normalizedVolume: number; side: 'bid' | 'ask' }>>([]);
-  const [maxVisibleBars, setMaxVisibleBars] = useState<number>(200);
-  const [customBars, setCustomBars] = useState<string>("");
-  const [showCustomInput, setShowCustomInput] = useState(false);
-  const [priceBucketSize, setPriceBucketSize] = useState<number>(10);
+  const [maxVisibleBars] = useState<number>(200);
   const [grouping, setGrouping] = useState<'1' | '5' | '10'>('1');
 
   const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
@@ -119,27 +89,6 @@ export default function Chart() {
   });
   const [activeIndicator, setActiveIndicator] = useState<ActiveIndicator>('none');
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
-  const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
-
-  const { socket } = useSocketIO({
-    onProfileData: (profileData) => {
-      if (!profileData || profileData.length === 0) return;
-
-      const maxVolume = Math.max(...profileData.map(item => item.volume));
-      const normalizedData = profileData.map(item => ({
-        price: item.price,
-        volume: item.volume,
-        normalizedVolume: item.volume / maxVolume,
-        side: item.side
-      }));
-
-      setVolumeProfileData(normalizedData);
-    },
-    onPriceUpdate: (newPrice) => {
-      setCurrentChartPrice(newPrice);
-      updatePriceCoordinate();
-    }
-  });
 
   const cleanupWebSocket = () => {
     if (wsRef.current) {
@@ -147,7 +96,6 @@ export default function Chart() {
       wsRef.current = null;
     }
   };
-
 
   const handleIntervalChange = async (newInterval: IntervalKey) => {
     try {
@@ -384,7 +332,6 @@ export default function Chart() {
       .replace('PERP', '');
   };
 
-
   const updateVolumeProfile = (data: { close: number; volume: number }[]) => {
     try {
       if (!data || data.length === 0) return;
@@ -423,116 +370,11 @@ export default function Chart() {
     return ((close - open) / open) * 100;
   };
 
-  const [priceScaleInfo, setPriceScaleInfo] = useState<{
-    visiblePrices: Array<{price: number, coordinate: number}>;
-    priceStep: number;
-    maxPrice: number;
-    minPrice: number;
-  }>({
-    visiblePrices: [],
-    priceStep: 200,
-    maxPrice: 0,
-    minPrice: 0
-  });
-
-  const updatePriceScaleInfo = () => {
-    if (!chartRef.current || !candlestickSeriesRef.current) return;
-
-    try {
-        const series = candlestickSeriesRef.current;
-        const logicalRange = chartRef.current.timeScale().getVisibleLogicalRange();
-
-        if (!logicalRange) return;
-
-        const visibleBars = chartRef.current.timeScale().getVisibleRange();
-        if (!visibleBars) return;
-
-        const { min: minPrice, max: maxPrice } = visiblePriceRange;
-
-        const range = maxPrice - minPrice;
-
-        const priceStep = 10;
-
-        const numSteps = Math.floor(range / priceStep);
-        const prices: Array<{price: number, coordinate: number}> = [];
-
-        for (let i = 0; i <= numSteps; i++) {
-            const price = minPrice + (i * priceStep);
-            const coordinate = series.priceToCoordinate(price);
-
-            if (coordinate !== null) {
-                prices.push({
-                    price,
-                    coordinate
-                });
-            }
-        }
-
-        setPriceScaleInfo({
-            visiblePrices: prices,
-            priceStep,
-            maxPrice,
-            minPrice
-        });
-
-    } catch (error) {
-        console.error('Error updating price scale info:', error);
-    }
-  };
-
-  const handleVisibleRangeChange = () => {
-    if (!candlestickSeriesRef.current || !currentChartPrice || !container.current) return;
-
-    try {
-        const series = candlestickSeriesRef.current;
-
-        const currentPrice = currentChartPrice;
-        const minPrice = currentPrice * 0.85; 
-        const maxPrice = currentPrice * 1.15; 
-
-        console.log('Actualizando rango de precios:', {
-          currentPrice,
-          minPrice,
-          maxPrice
-        });
-
-        setVisiblePriceRange({
-            min: minPrice,
-            max: maxPrice
-        });
-
-        const currentY = series.priceToCoordinate(currentPrice);
-        const minY = series.priceToCoordinate(minPrice);
-        const maxY = series.priceToCoordinate(maxPrice);
-
-        if (minY !== null && maxY !== null && currentY !== null) {
-            setPriceCoordinate(currentY);
-            setPriceCoordinates({
-                currentPrice,
-                currentY,
-                minPrice,
-                minY,
-                maxPrice,
-                maxY
-            });
-        }
-
-    } catch (error) {
-        console.error('Error updating visible range:', error);
-    }
-  };
-
   useEffect(() => {
     if (marketData?.currentPrice) {
       const price = marketData.currentPrice;
       setCurrentChartPrice(price);
       setVisiblePriceRange({
-        min: price * 0.85, 
-        max: price * 1.15  
-      });
-
-      console.log('Actualizando precio y rango:', {
-        price,
         min: price * 0.85,
         max: price * 1.15
       });
@@ -599,7 +441,6 @@ export default function Chart() {
 
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
       handleVisibleRangeChange();
-      updatePriceScaleInfo();
     });
 
     chart.subscribeCrosshairMove((param) => {
@@ -609,8 +450,6 @@ export default function Chart() {
         const data = param.seriesData.get(candlestickSeries) as CandlestickData;
         if (data) {
           setCrosshairData(data as any);
-          updatePriceScaleInfo();
-          handleVisibleRangeChange();
         }
       }
     });
@@ -634,25 +473,6 @@ export default function Chart() {
   }, [activeIndicator]);
 
   useEffect(() => {
-    if (!socket) return;
-
-    const handlePriceUpdate = (newPrice: number) => {
-      setCurrentChartPrice(newPrice);
-      updatePriceCoordinate();
-    };
-
-    socket.on('price_update', handlePriceUpdate);
-
-    return () => {
-      socket.off('price_update', handlePriceUpdate);
-    };
-  }, [socket]);
-
-  useEffect(() => {
-    updatePriceCoordinate();
-  }, [currentChartPrice, visiblePriceRange]);
-
-  useEffect(() => {
     if (!orderbookVolumeProfile.length) return;
 
     const handleVolumeProfileUpdate = () => {
@@ -672,38 +492,38 @@ export default function Chart() {
     handleVolumeProfileUpdate();
   }, [orderbookVolumeProfile, visiblePriceRange]);
 
-
-  useEffect(() => {
-    if (!candlestickSeriesRef.current || !historicalDataRef.current) return;
+  const handleVisibleRangeChange = () => {
+    if (!candlestickSeriesRef.current || !currentChartPrice || !container.current) return;
 
     try {
-      const rawData = historicalDataRef.current.map((candle, index) => ({
-        time: Math.floor(Date.now() / 1000 - (historicalDataRef.current.length - index) * 60) as Time,
-        open: candle.close, 
-        high: candle.close,
-        low: candle.close,
-        close: candle.close,
-        volume: candle.volume
-      }));
+      const currentPrice = currentChartPrice;
+      const minPrice = currentPrice * 0.85;
+      const maxPrice = currentPrice * 1.15;
 
-      if (candlestickSeriesRef.current) {
-        candlestickSeriesRef.current.setData(rawData);
+      setVisiblePriceRange({
+        min: minPrice,
+        max: maxPrice
+      });
+
+      const currentY = candlestickSeriesRef.current.priceToCoordinate(currentPrice);
+      const minY = candlestickSeriesRef.current.priceToCoordinate(minPrice);
+      const maxY = candlestickSeriesRef.current.priceToCoordinate(maxPrice);
+
+      if (minY !== null && maxY !== null && currentY !== null) {
+        setPriceCoordinate(currentY);
+        setPriceCoordinates({
+          currentPrice,
+          currentY,
+          minPrice,
+          minY,
+          maxPrice,
+          maxY
+        });
       }
-
-      toast({
-        title: 'Grouping Updated',
-        description: `Changed grouping to ${grouping === '1' ? 'none' : `${grouping}x`}`,
-      });
-
     } catch (error) {
-      console.error('Error updating grouping:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update grouping',
-        variant: 'destructive',
-      });
+      console.error('Error updating visible range:', error);
     }
-  }, [grouping]);
+  };
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
