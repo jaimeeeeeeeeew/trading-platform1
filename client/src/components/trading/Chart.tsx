@@ -687,41 +687,6 @@ export default function Chart() {
             ))}
           </SelectContent>
         </Select>
-
-        <Select
-          value={maxVisibleBars.toString()}
-          onValueChange={(value) => {
-            setMaxVisibleBars(Number(value));
-          }}
-        >
-          <SelectTrigger className="w-24 bg-background">
-            <SelectValue placeholder="Bars" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="40">40 bars</SelectItem>
-            <SelectItem value="100">100 bars</SelectItem>
-            <SelectItem value="200">200 bars</SelectItem>
-            <SelectItem value="300">300 bars</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={priceBucketSize.toString()}
-          onValueChange={(value) => {
-            setPriceBucketSize(Number(value));
-          }}
-        >
-          <SelectTrigger className="w-24 bg-background">
-            <SelectValue placeholder="Group" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="10">$10 Group</SelectItem>
-            <SelectItem value="50">$50 Group</SelectItem>
-            <SelectItem value="100">$100 Group</SelectItem>
-            <SelectItem value="200">$200 Group</SelectItem>
-          </SelectContent>
-        </Select>
-
       </div>
 
       {crosshairData && (
