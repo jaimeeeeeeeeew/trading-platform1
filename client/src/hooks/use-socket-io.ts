@@ -40,7 +40,7 @@ export function useSocketIO({
     };
 
     const initializeSocket = () => {
-      console.log('Initializing socket connection...');
+      console.log('🎧 Initializing socket connection...');
       setConnectionState('connecting');
 
       cleanup();
@@ -60,27 +60,28 @@ export function useSocketIO({
       socketRef.current = socket;
 
       socket.on('connect', () => {
-        console.log('Connected to server');
+        console.log('🟢 Connected to server');
         setConnectionState('connected');
         reconnectAttempts.current = 0;
       });
 
       socket.on('disconnect', (reason) => {
-        console.log('Disconnected from server:', reason);
+        console.log('🔴 Disconnected from server:', reason);
         setConnectionState('disconnected');
 
         if (reason === 'io server disconnect') {
+          // Si el servidor desconectó intencionalmente, reconectar manualmente
           socket.connect();
         }
       });
 
       socket.on('error', (error) => {
-        console.error('Socket Error:', error);
+        console.error('❌ Socket Error:', error);
         handleError();
       });
 
       socket.on('connect_error', (error) => {
-        console.log('Connection error:', error.message);
+        console.log('⚠️ Connection error:', error.message);
         handleError();
       });
 
@@ -116,12 +117,12 @@ export function useSocketIO({
       reconnectAttempts.current++;
 
       if (reconnectAttempts.current >= maxReconnectAttempts) {
-        console.log('Max reconnection attempts reached, stopping...');
+        console.log('🔄 Max reconnection attempts reached, stopping...');
         cleanup();
         setConnectionState('error');
         onError?.();
       } else {
-        console.log(`Reconnecting... Attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+        console.log(`🔄 Reconnecting... Attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
         setConnectionState('connecting');
 
         if (reconnectTimeoutRef.current) {
@@ -143,7 +144,7 @@ export function useSocketIO({
   const reconnect = () => {
     reconnectAttempts.current = 0;
     if (socketRef.current) {
-      console.log('Forcing reconnection...');
+      console.log('🔄 Forcing reconnection...');
       socketRef.current.connect();
     }
   };

@@ -56,54 +56,65 @@ const mergeOverlappingBars = (
   bars: Props['data'], 
   getY: (price: number) => number, 
   tolerance: number = 3,
-  priceBucketSize: number = 10  // Tamaño fijo de $10 por barra
+  priceBucketSize: number = 10  // Add priceBucketSize parameter
 ) => {
   if (!bars || bars.length === 0) return { bars: [], maxVolumeBar: null };
 
-  // Agrupar por buckets de precio fijo de $10
-  const volumeByPrice = new Map<number, Props['data'][0]>();
+  // Agrupar por buckets de precio primero
+  const priceGroups = new Map<number, Props['data'][0]>();
 
   bars.forEach(bar => {
-    // Redondear al bucket de $10 más cercano
     const bucketPrice = Math.floor(bar.price / priceBucketSize) * priceBucketSize;
 
-    if (volumeByPrice.has(bucketPrice)) {
-      const existing = volumeByPrice.get(bucketPrice)!;
-      existing.volume += bar.volume;
-      // El precio se mantiene en el inicio del bucket
-      existing.price = bucketPrice;
+    if (priceGroups.has(bucketPrice)) {
+      const existing = priceGroups.get(bucketPrice)!;
+      const totalVolume = existing.volume + bar.volume;
+      existing.volume = totalVolume;
+      // El precio se mantiene en el centro del bucket
+      existing.price = bucketPrice + (priceBucketSize / 2);
     } else {
-      volumeByPrice.set(bucketPrice, {
+      priceGroups.set(bucketPrice, {
         ...bar,
-        price: bucketPrice,
-        volume: bar.volume
+        price: bucketPrice + (priceBucketSize / 2)
       });
     }
   });
 
-  const groupedBars = Array.from(volumeByPrice.values());
+  const groupedBars = Array.from(priceGroups.values());
   let maxVolumeBar = groupedBars[0];
 
-  // Encontrar la barra con el volumen máximo
+  // Ahora agrupamos por coordenada Y para la visualización
+  const merged = new Map<number, Props['data'][0]>();
+
   groupedBars.forEach(bar => {
-    if (bar.volume > maxVolumeBar.volume) {
-      maxVolumeBar = bar;
+    const y = Math.round(getY(bar.price));
+    const key = Math.floor(y / tolerance) * tolerance;
+
+    if (merged.has(key)) {
+      const existing = merged.get(key)!;
+      const totalVolume = existing.volume + bar.volume;
+      existing.price = (existing.price * existing.volume + bar.price * bar.volume) / totalVolume;
+      existing.volume = totalVolume;
+
+      if (totalVolume > maxVolumeBar.volume) {
+        maxVolumeBar = existing;
+      }
+    } else {
+      merged.set(key, { ...bar });
+      if (bar.volume > maxVolumeBar.volume) {
+        maxVolumeBar = bar;
+      }
     }
   });
 
+  const mergedArray = Array.from(merged.values());
   const maxVolume = maxVolumeBar.volume;
 
-  // Normalizar volúmenes
-  const normalizedBars = groupedBars.map(bar => ({
-    ...bar,
-    normalizedVolume: bar.volume / maxVolume
-  }));
-
-  // Ordenar por precio
-  normalizedBars.sort((a, b) => a.price - b.price);
-
   return {
-    bars: normalizedBars,
+    bars: mergedArray.map(bar => ({
+      ...bar,
+      normalizedVolume: bar.volume / maxVolume
+    })),
     maxVolumeBar
   };
 };
