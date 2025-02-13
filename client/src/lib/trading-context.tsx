@@ -14,6 +14,7 @@ interface TimeRange {
 }
 
 interface Order {
+  id: string;  // Añadido id para identificación única
   symbol: string;
   side: 'BUY' | 'SELL';
   quantity: number;
@@ -74,7 +75,12 @@ export function TradingProvider({ children }: { children: ReactNode }) {
   const placeOrder = async (order: Order) => {
     try {
       console.log('Colocando orden:', order);
-      setActiveOrders(prev => [...prev, order]);
+      // Asegurarse de que la orden tiene un id único
+      const orderWithId = {
+        ...order,
+        id: crypto.randomUUID()
+      };
+      setActiveOrders(prev => [...prev, orderWithId]);
     } catch (error) {
       console.error('Error al colocar la orden:', error);
       throw error;

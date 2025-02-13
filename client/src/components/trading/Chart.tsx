@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { createChart, Time, ISeriesApi, CandlestickData } from 'lightweight-charts';
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +17,7 @@ import {
 import SecondaryIndicator from './SecondaryIndicator';
 import { Input } from "@/components/ui/input";
 import { useState as useState2, useEffect as useEffect2, useRef as useRef2 } from 'react';
+import { DominanceControl } from './DominanceControl';
 
 interface PriceCoordinates {
   currentPrice: number;
@@ -43,7 +44,6 @@ interface OHLCVData {
   volume: number;
   time: Time;
 }
-
 
 interface Props {
   data: {
@@ -120,6 +120,8 @@ export default function Chart() {
   const [activeIndicator, setActiveIndicator] = useState<ActiveIndicator>('none');
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
   const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
+  const [dominancePercentage, setDominancePercentage] = useState<number>(5); // 5% default
+
 
   const { socket } = useSocketIO({
     onProfileData: (profileData) => {
@@ -692,6 +694,47 @@ export default function Chart() {
     }
   }, [grouping]);
 
+  const dominanceData = useMemo(() => {
+    if (!marketData.orderbook || !marketData.orderbook.bids || !marketData.orderbook.asks) {
+      return {
+        bidsTotalInRange: 0,
+        asksTotalInRange: 0,
+        dominancePercentage: 50,
+        btcAmount: 0
+      };
+    }
+
+    // Calcular el rango de precios basado en el porcentaje
+    const currentMidPrice = (
+      parseFloat(marketData.orderbook.bids[0]?.Price || '0') + 
+      parseFloat(marketData.orderbook.asks[0]?.Price || '0')
+    ) / 2;
+
+    const rangePriceDistance = currentMidPrice * (dominancePercentage / 100);
+    const rangeMinPrice = currentMidPrice - rangePriceDistance;
+    const rangeMaxPrice = currentMidPrice + rangePriceDistance;
+
+    // Sumar volúmenes en el rango
+    const bidsInRange = marketData.orderbook.bids
+      .filter(bid => parseFloat(bid.Price) >= rangeMinPrice)
+      .reduce((sum, bid) => sum + parseFloat(bid.Quantity), 0);
+
+    const asksInRange = marketData.orderbook.asks
+      .filter(ask => parseFloat(ask.Price) <= rangeMaxPrice)
+      .reduce((sum, ask) => sum + parseFloat(ask.Quantity), 0);
+
+    const totalVolumeInRange = bidsInRange + asksInRange;
+    const calculatedDominancePercentage = totalVolumeInRange === 0 ? 50 : (bidsInRange / totalVolumeInRange) * 100;
+
+    return {
+      bidsTotalInRange: bidsInRange,
+      asksTotalInRange: asksInRange,
+      dominancePercentage: calculatedDominancePercentage,
+      btcAmount: Math.floor(totalVolumeInRange)
+    };
+  }, [marketData.orderbook, dominancePercentage]);
+
+
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
       <div className="absolute top-2 left-2 z-10 flex items-center gap-2">
@@ -846,6 +889,13 @@ export default function Chart() {
         >
           A
         </Button>
+      </div>
+      <div className="absolute top-14 right-2 z-10 w-64">
+        <DominanceControl
+          percentage={dominancePercentage}
+          onPercentageChange={setDominancePercentage}
+          dominanceData={dominanceData}
+        />
       </div>
     </div>
   );
