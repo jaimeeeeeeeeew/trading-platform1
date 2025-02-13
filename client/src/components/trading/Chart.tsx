@@ -44,6 +44,15 @@ interface OHLCVData {
   time: Time;
 }
 
+interface GroupedCandle {
+  time: Time;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
 const INTERVALS = {
   '1m': { label: '1m', minutes: 1 },
   '5m': { label: '5m', minutes: 5 },
@@ -78,7 +87,7 @@ interface Props {
   priceCoordinate: number | null;
   priceCoordinates: PriceCoordinates | null;
   maxVisibleBars: number;
-  priceBucketSize?: number;  // New prop
+  priceBucketSize?: number;
 }
 
 export default function Chart() {
@@ -97,7 +106,8 @@ export default function Chart() {
   const [maxVisibleBars, setMaxVisibleBars] = useState<number>(200);
   const [customBars, setCustomBars] = useState<string>("");
   const [showCustomInput, setShowCustomInput] = useState(false);
-  const [priceBucketSize, setPriceBucketSize] = useState<number>(10);  // New state
+  const [priceBucketSize, setPriceBucketSize] = useState<number>(10);
+  const [grouping, setGrouping] = useState<'1' | '5' | '10'>('1');
 
   const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
 
@@ -147,6 +157,29 @@ export default function Chart() {
     }
   };
 
+  const groupCandles = (candles: CandlestickData[], groupSize: number): GroupedCandle[] => {
+    if (groupSize === 1) return candles as GroupedCandle[];
+
+    const grouped: GroupedCandle[] = [];
+    for (let i = 0; i < candles.length; i += groupSize) {
+      const group = candles.slice(i, i + groupSize);
+      if (group.length === 0) continue;
+
+      const groupedCandle: GroupedCandle = {
+        time: group[0].time,
+        open: group[0].open,
+        high: Math.max(...group.map(c => c.high)),
+        low: Math.min(...group.map(c => c.low)),
+        close: group[group.length - 1].close,
+        volume: group.reduce((sum, c) => sum + (c.volume || 0), 0)
+      };
+
+      grouped.push(groupedCandle);
+    }
+
+    return grouped;
+  };
+
   const handleIntervalChange = async (newInterval: IntervalKey) => {
     try {
       if (isLoading) return;
@@ -186,10 +219,12 @@ export default function Chart() {
             volume: candle.volume || 0
           }));
 
-          candlestickSeriesRef.current.setData(formattedCandlesticks);
+          // Aplicar agrupamiento a los datos históricos
+          const groupedCandlesticks = groupCandles(formattedCandlesticks, parseInt(grouping));
+          candlestickSeriesRef.current.setData(groupedCandlesticks);
           handleAutoFit();
 
-          historicalDataRef.current = formattedCandlesticks.map(c => ({
+          historicalDataRef.current = groupedCandlesticks.map(c => ({
             close: c.close,
             volume: c.volume
           }));
@@ -250,9 +285,12 @@ export default function Chart() {
             };
 
             if (candlestickSeriesRef.current) {
-              candlestickSeriesRef.current.update(bar);
-              const lastCandle = { close: parseFloat(kline.c), volume: parseFloat(kline.v) };
-              historicalDataRef.current = [...historicalDataRef.current.slice(-1499), lastCandle];
+              // Aplicar agrupamiento en tiempo real
+              const lastCandles = historicalDataRef.current.slice(-parseInt(grouping));
+              const groupedBar = groupCandles([...lastCandles, bar], parseInt(grouping))[0];
+
+              candlestickSeriesRef.current.update(groupedBar);
+              historicalDataRef.current = [...historicalDataRef.current.slice(-1499), groupedBar];
               updateVolumeProfile(historicalDataRef.current);
             }
           }
@@ -316,10 +354,11 @@ export default function Chart() {
           volume: candle.volume || 0
         }));
 
-        candlestickSeriesRef.current.setData(formattedCandlesticks);
+        const groupedCandlesticks = groupCandles(formattedCandlesticks, parseInt(grouping));
+        candlestickSeriesRef.current.setData(groupedCandlesticks);
         handleAutoFit();
 
-        historicalDataRef.current = formattedCandlesticks.map(c => ({
+        historicalDataRef.current = groupedCandlesticks.map(c => ({
           close: c.close,
           volume: c.volume
         }));
@@ -329,7 +368,7 @@ export default function Chart() {
 
         toast({
           title: 'Data Loaded',
-          description: `Loaded ${formattedCandlesticks.length} historical candles for ${interval}`,
+          description: `Loaded ${groupedCandlesticks.length} historical candles for ${interval}`,
         });
       }
     } catch (error) {
@@ -687,6 +726,20 @@ export default function Chart() {
             ))}
           </SelectContent>
         </Select>
+
+        <Select
+          value={grouping}
+          onValueChange={(value) => setGrouping(value as '1' | '5' | '10')}
+        >
+          <SelectTrigger className="w-28 bg-background">
+            <SelectValue placeholder="Group" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">No Group</SelectItem>
+            <SelectItem value="5">Group x5</SelectItem>
+            <SelectItem value="10">Group x10</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {crosshairData && (
@@ -754,7 +807,7 @@ export default function Chart() {
               priceCoordinate={priceCoordinate}
               priceCoordinates={priceCoordinates}
               maxVisibleBars={maxVisibleBars}
-              priceBucketSize={priceBucketSize}  // Add new prop
+              priceBucketSize={priceBucketSize}
             />
           </div>
         )}
