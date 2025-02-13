@@ -135,7 +135,7 @@ export const VolumeProfile = ({
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      const margin = { top: 20, right: 30, bottom: 20, left: 10 };
+      const margin = { top: 20, right: -65, bottom: 20, left: 0 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
