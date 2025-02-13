@@ -19,7 +19,7 @@ export function useSocketIO({
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const socketRef = useRef<Socket | null>(null);
   const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 10; // Aumentado a 10 intentos
+  const maxReconnectAttempts = 10;
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messageBufferRef = useRef<any[]>([]);
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -61,11 +61,11 @@ export function useSocketIO({
       const socket = io(window.location.origin, {
         path: '/trading-socket',
         transports: ['websocket'],
-        timeout: 60000,           // Aumentado a 60 segundos
+        timeout: 60000,
         reconnection: true,
         reconnectionAttempts: maxReconnectAttempts,
-        reconnectionDelay: 2000,  // 2 segundos inicial
-        reconnectionDelayMax: 10000, // Máximo 10 segundos
+        reconnectionDelay: 2000,
+        reconnectionDelayMax: 10000,
         randomizationFactor: 0.5,
         autoConnect: true,
         forceNew: true
@@ -118,6 +118,12 @@ export function useSocketIO({
 
             console.log('📗 Top 5 Bids:', bids.slice(0, 5));
             console.log('📕 Top 5 Asks:', asks.slice(0, 5));
+            console.log('📊 Dominance Stats:', {
+              bidsTotalInRange: data.bidsTotalInRange,
+              asksTotalInRange: data.asksTotalInRange,
+              dominancePercentage: data.dominancePercentage,
+              btcAmount: data.btcAmount
+            });
 
             const midPrice = (parseFloat(data.bids[0]?.Price || '0') + parseFloat(data.asks[0]?.Price || '0')) / 2;
             if (midPrice && onPriceUpdate) {
@@ -125,13 +131,6 @@ export function useSocketIO({
             }
 
             onProfileData([...bids, ...asks]);
-            console.log('📊 Volume Profile Data:', {
-              levels: bids.length + asks.length,
-              bidLevels: bids.length,
-              askLevels: asks.length,
-              sampleBid: bids[0],
-              sampleAsk: asks[asks.length - 1]
-            });
           }
         } catch (error) {
           console.error('Error processing orderbook update:', error);

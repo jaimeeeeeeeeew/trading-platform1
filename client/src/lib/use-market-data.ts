@@ -12,11 +12,20 @@ interface OrderbookData {
     Quantity: string;
   }>;
   timestamp: string;
+  bidsTotalInRange: number;     // Total de bids en la distancia definida
+  asksTotalInRange: number;     // Total de asks en la distancia definida
+  futuresLongDeltas: number;    // Deltas futuros en largo
+  futuresShortDeltas: number;   // Deltas futuros en corto
+  spotLongDeltas: number;       // Deltas largos en spot
+  spotShortDeltas: number;      // Deltas cortos en spot
+  dominancePercentage: number;  // Porcentaje de dominancia actual
+  btcAmount: number;            // Monto de BTC sin decimales
 }
 
 interface MarketData {
   orderbook: OrderbookData;
   currentPrice: number;
+  dominanceRange: number;      // Porcentaje para el cálculo de dominancia (ej: 5%)
 }
 
 export function useMarketData() {
@@ -24,14 +33,31 @@ export function useMarketData() {
     orderbook: {
       bids: [],
       asks: [],
-      timestamp: ''
+      timestamp: '',
+      bidsTotalInRange: 0,
+      asksTotalInRange: 0,
+      futuresLongDeltas: 0,
+      futuresShortDeltas: 0,
+      spotLongDeltas: 0,
+      spotShortDeltas: 0,
+      dominancePercentage: 50, // 50% es neutral
+      btcAmount: 0
     },
-    currentPrice: 0
+    currentPrice: 0,
+    dominanceRange: 5 // 5% por defecto
   });
 
   const [error, setError] = useState(false);
   const { toast } = useToast();
   const { socket, connectionState, reconnect } = useSocketIO();
+
+  // Función para actualizar el rango de dominancia
+  const setDominanceRange = (newRange: number) => {
+    setData(prev => ({
+      ...prev,
+      dominanceRange: newRange
+    }));
+  };
 
   useEffect(() => {
     if (!socket) return;
@@ -44,7 +70,9 @@ export function useMarketData() {
         bids_count: newData.bids.length,
         asks_count: newData.asks.length,
         first_bid: newData.bids[0],
-        first_ask: newData.asks[0]
+        first_ask: newData.asks[0],
+        dominance: newData.dominancePercentage,
+        btc_amount: newData.btcAmount
       });
 
       try {
@@ -55,22 +83,19 @@ export function useMarketData() {
         const sortedBids = [...newData.bids].sort((a, b) => parseFloat(b.Price) - parseFloat(a.Price));
         const sortedAsks = [...newData.asks].sort((a, b) => parseFloat(a.Price) - parseFloat(b.Price));
 
-        console.log('📗 Top 5 Bids:', sortedBids.slice(0, 5).map(bid => ({
-          Price: parseFloat(bid.Price),
-          Volume: parseFloat(bid.Quantity)
-        })));
-
-        console.log('📕 Top 5 Asks:', sortedAsks.slice(0, 5).map(ask => ({
-          Price: parseFloat(ask.Price),
-          Volume: parseFloat(ask.Quantity)
-        })));
+        console.log('📗 Dominance Stats:', {
+          bidsTotalInRange: newData.bidsTotalInRange,
+          asksTotalInRange: newData.asksTotalInRange,
+          dominancePercentage: newData.dominancePercentage,
+          btcAmount: newData.btcAmount
+        });
 
         setData(prev => ({
           ...prev,
           orderbook: {
+            ...newData,
             bids: sortedBids,
-            asks: sortedAsks,
-            timestamp: newData.timestamp
+            asks: sortedAsks
           },
           currentPrice: sortedBids[0] && sortedAsks[0]
             ? (parseFloat(sortedBids[0].Price) + parseFloat(sortedAsks[0].Price)) / 2
@@ -99,7 +124,6 @@ export function useMarketData() {
       return [];
     }
 
-    // Convertir directamente los datos sin bucketing
     const allLevels: Array<{ price: number; volume: number; side: 'bid' | 'ask' }> = [
       ...data.orderbook.bids.map(bid => ({
         price: parseFloat(bid.Price),
@@ -113,30 +137,14 @@ export function useMarketData() {
       }))
     ];
 
-    // Ordenar por precio de mayor a menor
     allLevels.sort((a, b) => b.price - a.price);
 
-    // Encontrar el volumen máximo para normalización
     const maxVolume = Math.max(...allLevels.map(level => level.volume));
 
-    // Normalizar volúmenes
     const normalizedLevels = allLevels.map(level => ({
       ...level,
       normalizedVolume: level.volume / maxVolume
     }));
-
-    console.log('📊 Volume Profile Data:', {
-      levels: normalizedLevels.length,
-      bidLevels: normalizedLevels.filter(v => v.side === 'bid').length,
-      askLevels: normalizedLevels.filter(v => v.side === 'ask').length,
-      sampleBid: normalizedLevels.find(v => v.side === 'bid'),
-      sampleAsk: normalizedLevels.find(v => v.side === 'ask'),
-      maxVolume,
-      priceRange: {
-        min: Math.min(...normalizedLevels.map(v => v.price)),
-        max: Math.max(...normalizedLevels.map(v => v.price))
-      }
-    });
 
     return normalizedLevels;
   }, [data.orderbook]);
@@ -146,6 +154,7 @@ export function useMarketData() {
     volumeProfile,
     error,
     connectionState,
-    reconnect
+    reconnect,
+    setDominanceRange
   };
 }

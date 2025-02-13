@@ -3,6 +3,20 @@ import type { Server as HTTPServer } from 'http';
 
 let io: Server;
 
+interface OrderbookData {
+  bids: Array<{ Price: string; Quantity: string }>;
+  asks: Array<{ Price: string; Quantity: string }>;
+  timestamp: string;
+  bidsTotalInRange: number;
+  asksTotalInRange: number;
+  futuresLongDeltas: number;
+  futuresShortDeltas: number;
+  spotLongDeltas: number;
+  spotShortDeltas: number;
+  dominancePercentage: number;
+  btcAmount: number;
+}
+
 export function setupSocketServer(httpServer: HTTPServer) {
   io = new Server(httpServer, {
     path: '/trading-socket',
@@ -13,12 +27,11 @@ export function setupSocketServer(httpServer: HTTPServer) {
       allowedHeaders: ["*"]
     },
     allowEIO3: true,
-    pingTimeout: 120000,        // Aumentado a 120 segundos
-    pingInterval: 25000,        // Aumentado a 25 segundos
+    pingTimeout: 120000,
+    pingInterval: 25000,
     transports: ['websocket'],
-    connectTimeout: 120000,     // Aumentado a 120 segundos
-    maxHttpBufferSize: 1e8,     // 100MB para datos grandes
-    retries: 5                  // Número máximo de reintentos
+    connectTimeout: 120000,
+    maxHttpBufferSize: 1e8
   });
 
   console.log('🎧 Socket.IO server initialized and listening...');
@@ -26,41 +39,49 @@ export function setupSocketServer(httpServer: HTTPServer) {
   io.on('connection', (socket) => {
     console.log('🟢 New client connected - ID:', socket.id);
 
-    // Buffer para almacenar datos durante desconexiones
     let messageBuffer: any[] = [];
     let isReconnecting = false;
 
-    socket.on('orderbook_data', (data) => {
+    socket.on('orderbook_data', (data: OrderbookData) => {
       try {
-        // Log summary
+        // Log summary con nuevos campos
         console.log('📊 Received orderbook data:', {
           timestamp: data.timestamp,
           bids_count: data.bids?.length || 0,
-          asks_count: data.asks?.length || 0
+          asks_count: data.asks?.length || 0,
+          dominance: data.dominancePercentage,
+          btc_amount: data.btcAmount,
+          bids_total_range: data.bidsTotalInRange,
+          asks_total_range: data.asksTotalInRange
         });
 
-        // Si está reconectando, almacenar en buffer
         if (isReconnecting) {
           messageBuffer.push({ type: 'orderbook_data', data });
           return;
         }
 
-        // Log detailed data (first 5 entries of each)
+        // Log de deltas
+        console.log('📈 Delta Information:', {
+          futures_long: data.futuresLongDeltas,
+          futures_short: data.futuresShortDeltas,
+          spot_long: data.spotLongDeltas,
+          spot_short: data.spotShortDeltas
+        });
+
         if (data.bids?.length) {
           console.log('📗 Top 5 Bids:');
-          data.bids.slice(0, 5).forEach((bid: any) => {
+          data.bids.slice(0, 5).forEach((bid) => {
             console.log(`   Price: ${bid.Price}, Volume: ${bid.Quantity}`);
           });
         }
 
         if (data.asks?.length) {
           console.log('📕 Top 5 Asks:');
-          data.asks.slice(0, 5).forEach((ask: any) => {
+          data.asks.slice(0, 5).forEach((ask) => {
             console.log(`   Price: ${ask.Price}, Volume: ${ask.Quantity}`);
           });
         }
 
-        // Broadcast the data to all connected clients except sender
         socket.broadcast.emit('orderbook_update', data);
       } catch (error) {
         console.error('Error processing orderbook data:', error);
