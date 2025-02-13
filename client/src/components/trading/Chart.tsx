@@ -672,24 +672,11 @@ export default function Chart() {
     handleVolumeProfileUpdate();
   }, [orderbookVolumeProfile, visiblePriceRange]);
 
-
   useEffect(() => {
     if (!candlestickSeriesRef.current || !historicalDataRef.current) return;
 
     try {
-      const rawData = historicalDataRef.current.map((candle, index) => ({
-        time: Math.floor(Date.now() / 1000 - (historicalDataRef.current.length - index) * 60) as Time,
-        open: candle.close, 
-        high: candle.close,
-        low: candle.close,
-        close: candle.close,
-        volume: candle.volume
-      }));
-
-      if (candlestickSeriesRef.current) {
-        candlestickSeriesRef.current.setData(rawData);
-      }
-
+      // Solo actualizar el toast de notificación
       toast({
         title: 'Grouping Updated',
         description: `Changed grouping to ${grouping === '1' ? 'none' : `${grouping}x`}`,
