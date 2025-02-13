@@ -715,10 +715,9 @@ export default function Chart() {
             <SelectValue placeholder="Group" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="1">Sin agrupar</SelectItem>
+            <SelectItem value="5">$5 Group</SelectItem>
             <SelectItem value="10">$10 Group</SelectItem>
-            <SelectItem value="50">$50 Group</SelectItem>
-            <SelectItem value="100">$100 Group</SelectItem>
-            <SelectItem value="200">$200 Group</SelectItem>
           </SelectContent>
         </Select>
 

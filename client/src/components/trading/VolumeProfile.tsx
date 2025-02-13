@@ -18,6 +18,7 @@ interface Props {
   priceCoordinate: number | null;
   priceCoordinates: PriceCoordinates | null;
   maxVisibleBars: number;
+  priceBucketSize: number;  // Tamaño del grupo para las barras
 }
 
 interface PriceCoordinates {
@@ -59,6 +60,7 @@ export const VolumeProfile = ({
   priceCoordinate,
   priceCoordinates,
   maxVisibleBars,
+  priceBucketSize,
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const prevDataRef = useRef<Props['data']>([]);
@@ -116,12 +118,39 @@ export const VolumeProfile = ({
         d.price <= visiblePriceRange.max
       );
 
-      const bids = visibleData.filter(d => d.side === 'bid');
-      const asks = visibleData.filter(d => d.side === 'ask');
+      // Agrupar datos según el tamaño del grupo seleccionado
+      const groupedData = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
 
-      // Altura fija de $10 para cada barra
+      visibleData.forEach(d => {
+        const groupPrice = Math.floor(d.price / priceBucketSize) * priceBucketSize;
+        if (!groupedData.has(groupPrice)) {
+          groupedData.set(groupPrice, { volume: 0, side: d.side });
+        }
+        const group = groupedData.get(groupPrice)!;
+        if (group.side === d.side) {
+          group.volume += d.volume;
+        }
+      });
+
+      // Convertir el Map a array y normalizar volúmenes
+      const processedData = Array.from(groupedData.entries()).map(([price, data]) => ({
+        price,
+        volume: data.volume,
+        side: data.side
+      }));
+
+      const maxVolume = Math.max(...processedData.map(d => d.volume));
+      const normalizedData = processedData.map(d => ({
+        ...d,
+        normalizedVolume: d.volume / maxVolume
+      }));
+
+      const bids = normalizedData.filter(d => d.side === 'bid');
+      const asks = normalizedData.filter(d => d.side === 'ask');
+
+      // Calcular altura de barra basada en el tamaño del grupo
       const barHeight = Math.abs(
-        priceToY(currentPrice + 10) - priceToY(currentPrice)
+        priceToY(currentPrice + priceBucketSize) - priceToY(currentPrice)
       );
 
       // Renderizar barras de bids
@@ -194,7 +223,7 @@ export const VolumeProfile = ({
         cancelAnimationFrame(renderRequestRef.current);
       }
     };
-  }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars]);
+  }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars, priceBucketSize]);
 
   return (
     <div
