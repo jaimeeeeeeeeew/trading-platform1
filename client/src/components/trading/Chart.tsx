@@ -725,6 +725,22 @@ export default function Chart() {
             <SelectItem value="10">Group x10</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select
+          value={activeIndicator}
+          onValueChange={(value) => setActiveIndicator(value as ActiveIndicator)}
+        >
+          <SelectTrigger className="w-32 bg-background">
+            <SelectValue placeholder="Indicadores" defaultValue="Indicadores">Indicadores</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Ninguno</SelectItem>
+            <SelectItem value="rsi">RSI</SelectItem>
+            <SelectItem value="funding">Funding Rate</SelectItem>
+            <SelectItem value="longShort">Long/Short Ratio</SelectItem>
+            <SelectItem value="deltaCvd">Delta CVD</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {crosshairData && (
@@ -751,23 +767,6 @@ export default function Chart() {
         </div>
       )}
 
-      <div className="absolute top-2 right-24 z-10">
-        <Select
-          value={activeIndicator}
-          onValueChange={(value) => setActiveIndicator(value as ActiveIndicator)}
-        >
-          <SelectTrigger className="w-32 bg-background">
-            <SelectValue placeholder="Indicadores" defaultValue="Indicadores">Indicadores</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Ninguno</SelectItem>
-            <SelectItem value="rsi">RSI</SelectItem>
-            <SelectItem value="funding">Funding Rate</SelectItem>
-            <SelectItem value="longShort">Long/Short Ratio</SelectItem>
-            <SelectItem value="deltaCvd">Delta CVD</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
