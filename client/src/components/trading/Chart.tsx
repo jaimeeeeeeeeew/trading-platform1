@@ -44,31 +44,6 @@ interface OHLCVData {
   time: Time;
 }
 
-interface GroupedCandle {
-  time: Time;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
-
-const INTERVALS = {
-  '1m': { label: '1m', minutes: 1 },
-  '5m': { label: '5m', minutes: 5 },
-  '15m': { label: '15m', minutes: 15 },
-  '1h': { label: '1H', minutes: 60 },
-  '4h': { label: '4H', minutes: 240 },
-  '1d': { label: '1D', minutes: 1440 },
-} as const;
-
-type IntervalKey = keyof typeof INTERVALS;
-type ActiveIndicator = 'none' | 'rsi' | 'funding' | 'longShort' | 'deltaCvd';
-
-interface UseSocketIOOptions {
-  onProfileData?: (data: Array<{ price: number; volume: number; side: 'bid' | 'ask' }>) => void;
-  onPriceUpdate?: (price: number) => void;
-}
 
 interface Props {
   data: {
@@ -87,7 +62,23 @@ interface Props {
   priceCoordinate: number | null;
   priceCoordinates: PriceCoordinates | null;
   maxVisibleBars: number;
-  priceBucketSize?: number;
+}
+
+const INTERVALS = {
+  '1m': { label: '1m', minutes: 1 },
+  '5m': { label: '5m', minutes: 5 },
+  '15m': { label: '15m', minutes: 15 },
+  '1h': { label: '1H', minutes: 60 },
+  '4h': { label: '4H', minutes: 240 },
+  '1d': { label: '1D', minutes: 1440 },
+} as const;
+
+type IntervalKey = keyof typeof INTERVALS;
+type ActiveIndicator = 'none' | 'rsi' | 'funding' | 'longShort' | 'deltaCvd';
+
+interface UseSocketIOOptions {
+  onProfileData?: (data: Array<{ price: number; volume: number; side: 'bid' | 'ask' }>) => void;
+  onPriceUpdate?: (price: number) => void;
 }
 
 export default function Chart() {
@@ -157,29 +148,6 @@ export default function Chart() {
     }
   };
 
-  const groupCandles = (candles: CandlestickData[], groupSize: number): GroupedCandle[] => {
-    if (groupSize === 1) return candles as GroupedCandle[];
-    if (!candles || candles.length === 0) return [];
-
-    const grouped: GroupedCandle[] = [];
-    for (let i = 0; i < candles.length; i += groupSize) {
-      const group = candles.slice(i, Math.min(i + groupSize, candles.length));
-      if (group.length === 0) continue;
-
-      const groupedCandle: GroupedCandle = {
-        time: group[0].time,
-        open: group[0].open,
-        high: Math.max(...group.map(c => c.high)),
-        low: Math.min(...group.map(c => c.low)),
-        close: group[group.length - 1].close,
-        volume: group.reduce((sum, c) => sum + (c.volume || 0), 0)
-      };
-
-      grouped.push(groupedCandle);
-    }
-
-    return grouped;
-  };
 
   const handleIntervalChange = async (newInterval: IntervalKey) => {
     try {
@@ -220,12 +188,10 @@ export default function Chart() {
             volume: candle.volume || 0
           }));
 
-          // Aplicar agrupamiento a los datos históricos
-          const groupedCandlesticks = groupCandles(formattedCandlesticks, parseInt(grouping));
-          candlestickSeriesRef.current.setData(groupedCandlesticks);
+          candlestickSeriesRef.current.setData(formattedCandlesticks);
           handleAutoFit();
 
-          historicalDataRef.current = groupedCandlesticks.map(c => ({
+          historicalDataRef.current = formattedCandlesticks.map(c => ({
             close: c.close,
             volume: c.volume
           }));
@@ -286,29 +252,12 @@ export default function Chart() {
             };
 
             if (candlestickSeriesRef.current) {
-              const groupSize = parseInt(grouping);
-              const lastBars = historicalDataRef.current
-                .slice(-groupSize + 1)
-                .map((bar, index) => ({
-                  time: Math.floor(Date.now() / 1000 - (groupSize - index - 1) * 60) as Time,
-                  open: bar.close,
-                  high: bar.close,
-                  low: bar.close,
-                  close: bar.close,
-                  volume: bar.volume
-                }));
-
-              const barsToGroup = [...lastBars, newBar];
-              const groupedBar = groupCandles(barsToGroup, groupSize)[0];
-
-              if (groupedBar) {
-                candlestickSeriesRef.current.update(groupedBar);
-                historicalDataRef.current = [...historicalDataRef.current.slice(-(1500 - groupSize)), {
-                  close: groupedBar.close,
-                  volume: groupedBar.volume
-                }];
-                updateVolumeProfile(historicalDataRef.current);
-              }
+              candlestickSeriesRef.current.update(newBar);
+              historicalDataRef.current = [...historicalDataRef.current.slice(-1500), {
+                close: newBar.close,
+                volume: newBar.volume
+              }];
+              updateVolumeProfile(historicalDataRef.current);
             }
           }
         } catch (error) {
@@ -371,11 +320,10 @@ export default function Chart() {
           volume: candle.volume || 0
         }));
 
-        const groupedCandlesticks = groupCandles(formattedCandlesticks, parseInt(grouping));
-        candlestickSeriesRef.current.setData(groupedCandlesticks);
+        candlestickSeriesRef.current.setData(formattedCandlesticks);
         handleAutoFit();
 
-        historicalDataRef.current = groupedCandlesticks.map(c => ({
+        historicalDataRef.current = formattedCandlesticks.map(c => ({
           close: c.close,
           volume: c.volume
         }));
@@ -385,7 +333,7 @@ export default function Chart() {
 
         toast({
           title: 'Data Loaded',
-          description: `Loaded ${groupedCandlesticks.length} historical candles for ${interval}`,
+          description: `Loaded ${formattedCandlesticks.length} historical candles for ${interval}`,
         });
       }
     } catch (error) {
@@ -724,24 +672,22 @@ export default function Chart() {
     handleVolumeProfileUpdate();
   }, [orderbookVolumeProfile, visiblePriceRange]);
 
-  // Add new effect to handle grouping changes
+
   useEffect(() => {
     if (!candlestickSeriesRef.current || !historicalDataRef.current) return;
 
     try {
       const rawData = historicalDataRef.current.map((candle, index) => ({
         time: Math.floor(Date.now() / 1000 - (historicalDataRef.current.length - index) * 60) as Time,
-        open: candle.close, // Using close as open since we don't have the original OHLC data
+        open: candle.close, 
         high: candle.close,
         low: candle.close,
         close: candle.close,
         volume: candle.volume
       }));
 
-      const groupedData = groupCandles(rawData, parseInt(grouping));
-
       if (candlestickSeriesRef.current) {
-        candlestickSeriesRef.current.setData(groupedData);
+        candlestickSeriesRef.current.setData(rawData);
       }
 
       toast({
@@ -859,7 +805,7 @@ export default function Chart() {
               priceCoordinate={priceCoordinate}
               priceCoordinates={priceCoordinates}
               maxVisibleBars={maxVisibleBars}
-              priceBucketSize={priceBucketSize}
+              grouping={grouping}
             />
           </div>
         )}

@@ -18,6 +18,7 @@ interface Props {
   priceCoordinate: number | null;
   priceCoordinates: PriceCoordinates | null;
   maxVisibleBars: number;
+  grouping: '1' | '5' | '10';
 }
 
 interface PriceCoordinates {
@@ -29,7 +30,6 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-// Función mejorada para determinar cambios significativos
 const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], threshold = 0.05) => {
   if (!prevBars || !newBars || prevBars.length !== newBars.length) return true;
 
@@ -49,6 +49,47 @@ const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], 
   return false;
 };
 
+const groupVolumeData = (data: Props['data'], groupSize: number) => {
+  if (groupSize === 1) return data;
+
+  // Create price groups
+  const groups = new Map<number, {
+    volume: number;
+    side: 'bid' | 'ask';
+    price: number
+  }>();
+
+  // Group data by rounded price
+  data.forEach(item => {
+    const roundedPrice = Math.round(item.price / (10 * groupSize)) * (10 * groupSize);
+    const existing = groups.get(roundedPrice);
+
+    if (existing) {
+      existing.volume += item.volume;
+      // Keep the side of the larger volume
+      if (item.volume > existing.volume / 2) {
+        existing.side = item.side;
+      }
+    } else {
+      groups.set(roundedPrice, {
+        volume: item.volume,
+        side: item.side,
+        price: roundedPrice
+      });
+    }
+  });
+
+  // Convert back to array and normalize volumes
+  const groupedData = Array.from(groups.values());
+  const maxVolume = Math.max(...groupedData.map(item => item.volume));
+
+  return groupedData.map(item => ({
+    price: item.price,
+    volume: item.volume,
+    normalizedVolume: item.volume / maxVolume,
+    side: item.side
+  }));
+};
 
 export const VolumeProfile = ({
   data,
@@ -59,6 +100,7 @@ export const VolumeProfile = ({
   priceCoordinate,
   priceCoordinates,
   maxVisibleBars,
+  grouping
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const prevDataRef = useRef<Props['data']>([]);
@@ -75,6 +117,10 @@ export const VolumeProfile = ({
         return;
       }
       prevDataRef.current = data;
+
+      // Apply grouping to the data
+      const groupSize = parseInt(grouping);
+      const groupedData = groupVolumeData(data, groupSize);
 
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
@@ -111,7 +157,7 @@ export const VolumeProfile = ({
       };
 
       // Filtrar datos dentro del rango visible
-      const visibleData = data.filter(d => 
+      const visibleData = groupedData.filter(d => 
         d.price >= visiblePriceRange.min && 
         d.price <= visiblePriceRange.max
       );
@@ -119,9 +165,9 @@ export const VolumeProfile = ({
       const bids = visibleData.filter(d => d.side === 'bid');
       const asks = visibleData.filter(d => d.side === 'ask');
 
-      // Altura fija de $10 para cada barra
+      // Altura de barra basada en el grouping
       const barHeight = Math.abs(
-        priceToY(currentPrice + 10) - priceToY(currentPrice)
+        priceToY(currentPrice + (10 * parseInt(grouping))) - priceToY(currentPrice)
       );
 
       // Renderizar barras de bids
@@ -194,7 +240,7 @@ export const VolumeProfile = ({
         cancelAnimationFrame(renderRequestRef.current);
       }
     };
-  }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars]);
+  }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars, grouping]);
 
   return (
     <div
