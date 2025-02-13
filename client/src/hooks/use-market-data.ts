@@ -99,48 +99,22 @@ export function useMarketData() {
       return [];
     }
 
-    const PRICE_BUCKET_SIZE = 10;
+    // Procesar bids y asks directamente sin agrupación
+    const allLevels: Array<{ price: number; volume: number; side: 'bid' | 'ask' }> = [
+      ...data.orderbook.bids.map(bid => ({
+        price: parseFloat(bid.Price),
+        volume: parseFloat(bid.Quantity),
+        side: 'bid' as const
+      })),
+      ...data.orderbook.asks.map(ask => ({
+        price: parseFloat(ask.Price),
+        volume: parseFloat(ask.Quantity),
+        side: 'ask' as const
+      }))
+    ];
 
-    const getPriceBucket = (price: number) => 
-      Math.floor(price / PRICE_BUCKET_SIZE) * PRICE_BUCKET_SIZE;
-
-    // Procesar bids y asks por separado
-    const volumeByPrice: Record<number, { volume: number; side: 'bid' | 'ask' }> = {};
-
-    // Procesar bids
-    data.orderbook.bids.forEach(bid => {
-      const price = parseFloat(bid.Price);
-      const volume = parseFloat(bid.Quantity);
-      const bucket = getPriceBucket(price);
-
-      if (!volumeByPrice[bucket]) {
-        volumeByPrice[bucket] = { volume: 0, side: 'bid' };
-      }
-      if (volumeByPrice[bucket].side === 'bid') {
-        volumeByPrice[bucket].volume += volume;
-      }
-    });
-
-    // Procesar asks
-    data.orderbook.asks.forEach(ask => {
-      const price = parseFloat(ask.Price);
-      const volume = parseFloat(ask.Quantity);
-      const bucket = getPriceBucket(price);
-
-      if (!volumeByPrice[bucket]) {
-        volumeByPrice[bucket] = { volume: 0, side: 'ask' };
-      }
-      if (volumeByPrice[bucket].side === 'ask') {
-        volumeByPrice[bucket].volume += volume;
-      }
-    });
-
-    // Convertir a array y ordenar por precio
-    const allLevels = Object.entries(volumeByPrice).map(([price, data]) => ({
-      price: Number(price),
-      volume: data.volume,
-      side: data.side
-    })).sort((a, b) => b.price - a.price);
+    // Ordenar por precio de mayor a menor
+    allLevels.sort((a, b) => b.price - a.price);
 
     // Encontrar el volumen máximo para normalización
     const maxVolume = Math.max(...allLevels.map(level => level.volume));
