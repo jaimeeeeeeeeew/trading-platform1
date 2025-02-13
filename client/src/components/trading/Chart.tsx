@@ -80,6 +80,7 @@ export default function Chart() {
 
   const [priceCoordinate, setPriceCoordinate] = useState<number | null>(null);
   const [priceCoordinates, setPriceCoordinates] = useState<PriceCoordinates | null>(null);
+
   const [secondaryIndicators, setSecondaryIndicators] = useState<SecondaryIndicators>({
     fundingRate: [],
     longShortRatio: [],
@@ -87,6 +88,7 @@ export default function Chart() {
     rsi: [],
     timestamps: []
   });
+
   const [activeIndicator, setActiveIndicator] = useState<ActiveIndicator>('none');
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
 
@@ -340,6 +342,27 @@ export default function Chart() {
       if (!currentPrice || isNaN(currentPrice)) return;
 
       setCurrentChartPrice(currentPrice);
+
+      // Update visible price range
+      setVisiblePriceRange({
+        min: currentPrice * 0.85,
+        max: currentPrice * 1.15
+      });
+
+      // Update volume profile data from orderbook
+      if (orderbookVolumeProfile && orderbookVolumeProfile.length > 0) {
+        const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
+        const normalizedData = orderbookVolumeProfile
+          .filter(data => data.price >= currentPrice * 0.85 && data.price <= currentPrice * 1.15)
+          .map(data => ({
+            price: data.price,
+            volume: data.volume,
+            normalizedVolume: data.volume / maxVolume,
+            side: data.side
+          }));
+
+        setVolumeProfileData(normalizedData);
+      }
     } catch (error) {
       console.error('Error updating volume profile:', error);
     }
@@ -478,15 +501,21 @@ export default function Chart() {
     const handleVolumeProfileUpdate = () => {
       if (!candlestickSeriesRef.current) return;
 
-      const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
-      const normalizedData = orderbookVolumeProfile
-        .filter(data => data.price >= visiblePriceRange.min && data.price <= visiblePriceRange.max)
-        .map(data => ({
-          ...data,
-          normalizedVolume: data.volume / maxVolume
-        }));
+      try {
+        const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
+        const normalizedData = orderbookVolumeProfile
+          .filter(data => data.price >= visiblePriceRange.min && data.price <= visiblePriceRange.max)
+          .map(data => ({
+            price: data.price,
+            volume: data.volume,
+            normalizedVolume: data.volume / maxVolume,
+            side: data.side
+          }));
 
-      setVolumeProfileData(normalizedData);
+        setVolumeProfileData(normalizedData);
+      } catch (error) {
+        console.error('Error updating volume profile:', error);
+      }
     };
 
     handleVolumeProfileUpdate();
