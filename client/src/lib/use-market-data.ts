@@ -19,44 +19,7 @@ interface MarketData {
   currentPrice: number;
 }
 
-interface GroupedLevel {
-  price: number;
-  volume: number;
-  orders: number;
-}
-
-const groupOrderbook = (orders: Array<{ Price: string; Quantity: string }>, bucketSize: number) => {
-  const groupedLevels = new Map<number, GroupedLevel>();
-
-  orders.forEach(order => {
-    const price = parseFloat(order.Price);
-    const quantity = parseFloat(order.Quantity);
-    // Redondear al siguiente múltiplo de bucketSize
-    const bucketPrice = Math.ceil(price / bucketSize) * bucketSize;
-
-    if (!groupedLevels.has(bucketPrice)) {
-      groupedLevels.set(bucketPrice, {
-        price: bucketPrice,
-        volume: 0,
-        orders: 0
-      });
-    }
-
-    const level = groupedLevels.get(bucketPrice)!;
-    level.volume += quantity;
-    level.orders += 1;
-  });
-
-  return Array.from(groupedLevels.values())
-    .sort((a, b) => b.price - a.price)
-    .map(level => ({
-      Price: level.price.toString(),
-      Quantity: level.volume.toString()
-    }));
-};
-
 export function useMarketData() {
-  const [bucketSize, setBucketSize] = useState(50); // Valor por defecto de agrupamiento
   const [data, setData] = useState<MarketData>({
     orderbook: {
       bids: [],
@@ -89,15 +52,15 @@ export function useMarketData() {
           throw new Error('Invalid orderbook data structure');
         }
 
-        const groupedBids = groupOrderbook(newData.bids, bucketSize);
-        const groupedAsks = groupOrderbook(newData.asks, bucketSize);
+        const sortedBids = [...newData.bids].sort((a, b) => parseFloat(b.Price) - parseFloat(a.Price));
+        const sortedAsks = [...newData.asks].sort((a, b) => parseFloat(a.Price) - parseFloat(b.Price));
 
-        console.log('📗 Top 5 Bids:', groupedBids.slice(0, 5).map(bid => ({
+        console.log('📗 Top 5 Bids:', sortedBids.slice(0, 5).map(bid => ({
           Price: parseFloat(bid.Price),
           Volume: parseFloat(bid.Quantity)
         })));
 
-        console.log('📕 Top 5 Asks:', groupedAsks.slice(0, 5).map(ask => ({
+        console.log('📕 Top 5 Asks:', sortedAsks.slice(0, 5).map(ask => ({
           Price: parseFloat(ask.Price),
           Volume: parseFloat(ask.Quantity)
         })));
@@ -105,12 +68,12 @@ export function useMarketData() {
         setData(prev => ({
           ...prev,
           orderbook: {
-            bids: groupedBids,
-            asks: groupedAsks,
+            bids: sortedBids,
+            asks: sortedAsks,
             timestamp: newData.timestamp
           },
-          currentPrice: groupedBids[0] && groupedAsks[0]
-            ? (parseFloat(groupedBids[0].Price) + parseFloat(groupedAsks[0].Price)) / 2
+          currentPrice: sortedBids[0] && sortedAsks[0]
+            ? (parseFloat(sortedBids[0].Price) + parseFloat(sortedAsks[0].Price)) / 2
             : prev.currentPrice
         }));
         setError(false);
@@ -128,7 +91,7 @@ export function useMarketData() {
     return () => {
       socket.off('orderbook_update');
     };
-  }, [socket, toast, bucketSize]);
+  }, [socket, toast]);
 
   const volumeProfile = useMemo(() => {
     if (!data.orderbook.bids.length && !data.orderbook.asks.length) {
@@ -136,6 +99,7 @@ export function useMarketData() {
       return [];
     }
 
+    // Convertir directamente los datos sin bucketing
     const allLevels: Array<{ price: number; volume: number; side: 'bid' | 'ask' }> = [
       ...data.orderbook.bids.map(bid => ({
         price: parseFloat(bid.Price),
@@ -149,9 +113,13 @@ export function useMarketData() {
       }))
     ];
 
+    // Ordenar por precio de mayor a menor
     allLevels.sort((a, b) => b.price - a.price);
+
+    // Encontrar el volumen máximo para normalización
     const maxVolume = Math.max(...allLevels.map(level => level.volume));
 
+    // Normalizar volúmenes
     const normalizedLevels = allLevels.map(level => ({
       ...level,
       normalizedVolume: level.volume / maxVolume
@@ -162,7 +130,12 @@ export function useMarketData() {
       bidLevels: normalizedLevels.filter(v => v.side === 'bid').length,
       askLevels: normalizedLevels.filter(v => v.side === 'ask').length,
       sampleBid: normalizedLevels.find(v => v.side === 'bid'),
-      sampleAsk: normalizedLevels.find(v => v.side === 'ask')
+      sampleAsk: normalizedLevels.find(v => v.side === 'ask'),
+      maxVolume,
+      priceRange: {
+        min: Math.min(...normalizedLevels.map(v => v.price)),
+        max: Math.max(...normalizedLevels.map(v => v.price))
+      }
     });
 
     return normalizedLevels;
@@ -173,8 +146,6 @@ export function useMarketData() {
     volumeProfile,
     error,
     connectionState,
-    reconnect,
-    bucketSize,
-    setBucketSize // Exportamos la función para cambiar el tamaño del agrupamiento
+    reconnect
   };
 }
