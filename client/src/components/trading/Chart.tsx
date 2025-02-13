@@ -142,7 +142,6 @@ export default function Chart() {
 
   const cleanupWebSocket = () => {
     if (wsRef.current) {
-      console.log('🔄 Limpiando conexión WebSocket anterior');
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -226,21 +225,14 @@ export default function Chart() {
 
   const initializeWebSocket = (symbol: string) => {
     try {
-      console.log('🔌 Iniciando nueva conexión WebSocket para:', symbol);
       cleanupWebSocket();
 
       const wsUrl = `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@kline_${interval}`;
-      console.log('🔗 URL WebSocket:', wsUrl);
-
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('✅ WebSocket conectado para intervalo:', interval);
-        toast({
-          title: 'Conexión establecida',
-          description: `WebSocket conectado para ${symbol}`,
-        });
+        console.log('WebSocket connected for interval:', interval);
       };
 
       ws.onmessage = (event) => {
@@ -265,35 +257,19 @@ export default function Chart() {
             }
           }
         } catch (error) {
-          console.error('❌ Error procesando mensaje:', error);
+          console.error('Error processing message:', error);
         }
       };
 
       ws.onerror = (error) => {
-        console.error('❌ Error WebSocket:', error);
-        toast({
-          title: 'Error de conexión',
-          description: 'Error en la conexión WebSocket. Intentando reconectar...',
-          variant: 'destructive',
-        });
+        console.error('WebSocket error:', error);
       };
 
       ws.onclose = () => {
-        console.log('🔴 WebSocket desconectado. Intentando reconectar en 5 segundos...');
-        setTimeout(() => {
-          if (currentSymbol) {
-            console.log('🔄 Intentando reconexión para:', currentSymbol);
-            initializeWebSocket(formatSymbolForBinance(currentSymbol));
-          }
-        }, 5000);
+        console.log('WebSocket disconnected');
       };
     } catch (error) {
-      console.error('❌ Error inicializando WebSocket:', error);
-      toast({
-        title: 'Error',
-        description: 'Error al inicializar la conexión WebSocket',
-        variant: 'destructive',
-      });
+      console.error('Error initializing WebSocket:', error);
     }
   };
 

@@ -40,7 +40,7 @@ export function useSocketIO({
     };
 
     const initializeSocket = () => {
-      console.log('🎧 Initializing socket connection...');
+      console.log('Initializing socket connection...');
       setConnectionState('connecting');
 
       cleanup();
@@ -60,13 +60,13 @@ export function useSocketIO({
       socketRef.current = socket;
 
       socket.on('connect', () => {
-        console.log('🟢 Connected to server');
+        console.log('Connected to server');
         setConnectionState('connected');
         reconnectAttempts.current = 0;
       });
 
       socket.on('disconnect', (reason) => {
-        console.log('🔴 Disconnected from server:', reason);
+        console.log('Disconnected from server:', reason);
         setConnectionState('disconnected');
 
         if (reason === 'io server disconnect') {
@@ -75,64 +75,36 @@ export function useSocketIO({
       });
 
       socket.on('error', (error) => {
-        console.error('❌ Socket Error:', error);
+        console.error('Socket Error:', error);
         handleError();
       });
 
       socket.on('connect_error', (error) => {
-        console.log('⚠️ Connection error:', error.message);
+        console.log('Connection error:', error.message);
         handleError();
       });
 
       socket.on('orderbook_update', (data) => {
         try {
           if (onProfileData) {
-            // Procesar bids y asks con bucketing de $10
-            const BUCKET_SIZE = 10;
-            const volumeByPrice = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
+            const bids = data.bids.map((bid: any) => ({
+              price: parseFloat(bid.Price),
+              volume: parseFloat(bid.Quantity),
+              side: 'bid' as const
+            }));
 
-            // Procesar bids
-            data.bids.forEach((bid: any) => {
-              const price = Math.floor(parseFloat(bid.Price) / BUCKET_SIZE) * BUCKET_SIZE;
-              const volume = parseFloat(bid.Quantity);
+            const asks = data.asks.map((ask: any) => ({
+              price: parseFloat(ask.Price),
+              volume: parseFloat(ask.Quantity),
+              side: 'ask' as const
+            }));
 
-              const existing = volumeByPrice.get(price) || { volume: 0, side: 'bid' };
-              volumeByPrice.set(price, { 
-                volume: existing.volume + volume,
-                side: 'bid'
-              });
-            });
-
-            // Procesar asks
-            data.asks.forEach((ask: any) => {
-              const price = Math.floor(parseFloat(ask.Price) / BUCKET_SIZE) * BUCKET_SIZE;
-              const volume = parseFloat(ask.Quantity);
-
-              const existing = volumeByPrice.get(price) || { volume: 0, side: 'ask' };
-              volumeByPrice.set(price, {
-                volume: existing.volume + volume,
-                side: 'ask'
-              });
-            });
-
-            // Convertir a array y ordenar por precio
-            const profileData = Array.from(volumeByPrice.entries())
-              .map(([price, data]) => ({
-                price,
-                volume: data.volume,
-                side: data.side
-              }))
-              .sort((a, b) => a.price - b.price);
-
-            // Calcular precio medio para onPriceUpdate
-            if (data.bids[0] && data.asks[0]) {
-              const midPrice = (parseFloat(data.bids[0].Price) + parseFloat(data.asks[0].Price)) / 2;
-              if (onPriceUpdate) {
-                onPriceUpdate(midPrice);
-              }
+            const midPrice = (parseFloat(data.bids[0]?.Price || '0') + parseFloat(data.asks[0]?.Price || '0')) / 2;
+            if (midPrice && onPriceUpdate) {
+              onPriceUpdate(midPrice);
             }
 
-            onProfileData(profileData);
+            onProfileData([...bids, ...asks]);
           }
         } catch (error) {
           console.error('Error processing orderbook update:', error);
@@ -144,12 +116,12 @@ export function useSocketIO({
       reconnectAttempts.current++;
 
       if (reconnectAttempts.current >= maxReconnectAttempts) {
-        console.log('🔄 Max reconnection attempts reached, stopping...');
+        console.log('Max reconnection attempts reached, stopping...');
         cleanup();
         setConnectionState('error');
         onError?.();
       } else {
-        console.log(`🔄 Reconnecting... Attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+        console.log(`Reconnecting... Attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
         setConnectionState('connecting');
 
         if (reconnectTimeoutRef.current) {
@@ -171,7 +143,7 @@ export function useSocketIO({
   const reconnect = () => {
     reconnectAttempts.current = 0;
     if (socketRef.current) {
-      console.log('🔄 Forcing reconnection...');
+      console.log('Forcing reconnection...');
       socketRef.current.connect();
     }
   };

@@ -11,10 +11,8 @@ app.use(express.urlencoded({ extended: false }));
 
 // Middleware para CORS y headers necesarios para WebSocket
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'content-type');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   next();
 });
 
@@ -50,16 +48,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  console.log('🚀 Iniciando servidor...');
   const server = registerRoutes(app);
 
   // Inicializar Socket.IO con el servidor HTTP existente
-  const io = setupSocketServer(server);
-  console.log('🔌 Socket.IO configurado y listo');
+  setupSocketServer(server);
 
   // Error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('❌ Error:', err);
+    console.error('Error:', err);
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     res.status(status).json({ message });
@@ -73,7 +69,6 @@ app.use((req, res, next) => {
 
   const PORT = 5000;
   server.listen(PORT, "0.0.0.0", () => {
-    console.log(`🌐 Servidor corriendo en http://0.0.0.0:${PORT}`);
-    console.log('✨ Ambiente:', app.get("env"));
+    log(`Server running on port ${PORT}`);
   });
 })();
