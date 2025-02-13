@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 
 interface Props {
@@ -30,48 +30,43 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], threshold = 0.1) => {
-  if (!prevBars || !newBars || Math.abs(prevBars.length - newBars.length) > 10) return true;
+const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], threshold = 0.05) => {
+  if (!prevBars || !newBars || prevBars.length !== newBars.length) return true;
 
-  // Reducir el muestreo para mayor rendimiento
-  const sampleSize = Math.min(20, prevBars.length);
+  const sampleSize = Math.min(50, prevBars.length);
   const step = Math.max(1, Math.floor(prevBars.length / sampleSize));
 
-  let significantChanges = 0;
-  const maxChanges = 3; // Número de cambios significativos permitidos antes de actualizar
-
-  for (let i = 0; i < prevBars.length && significantChanges < maxChanges; i += step) {
+  for (let i = 0; i < prevBars.length; i += step) {
     const prevBar = prevBars[i];
     const newBar = newBars[i];
     if (!prevBar || !newBar) continue;
 
-    if (Math.abs(newBar.volume - prevBar.volume) / prevBar.volume > threshold) {
-      significantChanges++;
+    if (Math.abs(newBar.volume - prevBar.volume) / prevBar.volume > threshold ||
+        Math.abs(newBar.price - prevBar.price) > threshold) {
+      return true;
     }
   }
-
-  return significantChanges >= maxChanges;
+  return false;
 };
 
 const groupVolumeData = (data: Props['data'], groupSize: number) => {
   if (groupSize === 1) return data;
 
+  // Create price groups
   const groups = new Map<number, {
     volume: number;
     side: 'bid' | 'ask';
-    price: number;
-    count: number;
+    price: number
   }>();
 
-  // Agrupar datos por precio redondeado
+  // Group data by rounded price
   data.forEach(item => {
     const roundedPrice = Math.round(item.price / (10 * groupSize)) * (10 * groupSize);
     const existing = groups.get(roundedPrice);
 
     if (existing) {
       existing.volume += item.volume;
-      existing.count++;
-      // Mantener el lado con mayor volumen
+      // Keep the side of the larger volume
       if (item.volume > existing.volume / 2) {
         existing.side = item.side;
       }
@@ -79,17 +74,16 @@ const groupVolumeData = (data: Props['data'], groupSize: number) => {
       groups.set(roundedPrice, {
         volume: item.volume,
         side: item.side,
-        price: roundedPrice,
-        count: 1
+        price: roundedPrice
       });
     }
   });
 
-  // Convertir a array y normalizar volúmenes
-  const groupedArray = Array.from(groups.values());
-  const maxVolume = Math.max(...groupedArray.map(item => item.volume));
+  // Convert back to array and normalize volumes
+  const groupedData = Array.from(groups.values());
+  const maxVolume = Math.max(...groupedData.map(item => item.volume));
 
-  return groupedArray.map(item => ({
+  return groupedData.map(item => ({
     price: item.price,
     volume: item.volume,
     normalizedVolume: item.volume / maxVolume,
@@ -110,32 +104,23 @@ export const VolumeProfile = ({
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const prevDataRef = useRef<Props['data']>([]);
-  const renderTimeoutRef = useRef<number | null>(null);
-
-  // Memoizar los datos agrupados
-  const groupedData = useMemo(() => {
-    if (!data || data.length === 0) return [];
-    return groupVolumeData(data, parseInt(grouping));
-  }, [data, grouping]);
-
-  // Memoizar los datos visibles y filtrados
-  const visibleData = useMemo(() => {
-    return groupedData.filter(d =>
-      d.price >= visiblePriceRange.min &&
-      d.price <= visiblePriceRange.max
-    );
-  }, [groupedData, visiblePriceRange]);
+  const updateTimeoutRef = useRef<number | null>(null);
+  const renderRequestRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!svgRef.current || !visibleData || visibleData.length === 0 || !priceCoordinates) {
+    if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
       return;
     }
 
     const renderChart = () => {
-      if (!hasSignificantChanges(prevDataRef.current, visibleData)) {
+      if (!hasSignificantChanges(prevDataRef.current, data)) {
         return;
       }
-      prevDataRef.current = visibleData;
+      prevDataRef.current = data;
+
+      // Apply grouping to the data
+      const groupSize = parseInt(grouping);
+      const groupedData = groupVolumeData(data, groupSize);
 
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
@@ -157,35 +142,57 @@ export const VolumeProfile = ({
 
       const priceToY = (price: number) => {
         if (!priceCoordinates) return 0;
-        const ratio = (price - currentPrice) / (priceCoordinates.maxPrice - priceCoordinates.minPrice);
-        return priceCoordinates.currentY - margin.top + (ratio * (priceCoordinates.minY - priceCoordinates.maxY));
+
+        if (price === currentPrice) {
+          return priceCoordinates.currentY - margin.top;
+        }
+
+        if (price > currentPrice) {
+          const askRatio = (price - currentPrice) / (priceCoordinates.maxPrice - currentPrice);
+          return priceCoordinates.currentY - margin.top - (askRatio * (priceCoordinates.currentY - priceCoordinates.maxY));
+        }
+
+        const bidRatio = (currentPrice - price) / (currentPrice - priceCoordinates.minPrice);
+        return priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
       };
+
+      // Filtrar datos dentro del rango visible
+      const visibleData = groupedData.filter(d => 
+        d.price >= visiblePriceRange.min && 
+        d.price <= visiblePriceRange.max
+      );
 
       const bids = visibleData.filter(d => d.side === 'bid');
       const asks = visibleData.filter(d => d.side === 'ask');
 
-      const barHeight = Math.max(1, innerHeight / maxVisibleBars);
+      // Altura de barra basada en el grouping
+      const barHeight = Math.abs(
+        priceToY(currentPrice + (10 * parseInt(grouping))) - priceToY(currentPrice)
+      );
 
-      // Renderizar barras en lotes para mejor rendimiento
-      const renderBars = (data: typeof visibleData, className: string, fill: string) => {
-        const batchSize = 50;
-        for (let i = 0; i < data.length; i += batchSize) {
-          const batch = data.slice(i, i + batchSize);
-          g.selectAll(`.${className}-${i}`)
-            .data(batch)
-            .join('rect')
-            .attr('class', `volume-bar ${className}`)
-            .attr('x', d => xScale(d.normalizedVolume))
-            .attr('y', d => priceToY(d.price) - barHeight / 2)
-            .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
-            .attr('height', barHeight * 0.9)
-            .attr('fill', fill)
-            .attr('opacity', 0.9);
-        }
-      };
+      // Renderizar barras de bids
+      g.selectAll('.bid-bars')
+        .data(bids)
+        .join('rect')
+        .attr('class', 'volume-bar bid')
+        .attr('x', d => xScale(d.normalizedVolume))
+        .attr('y', d => priceToY(d.price) - barHeight / 2)
+        .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
+        .attr('height', barHeight * 0.9)
+        .attr('fill', '#26a69a')
+        .attr('opacity', 0.9);
 
-      renderBars(bids, 'bid', '#26a69a');
-      renderBars(asks, 'ask', '#ef5350');
+      // Renderizar barras de asks
+      g.selectAll('.ask-bars')
+        .data(asks)
+        .join('rect')
+        .attr('class', 'volume-bar ask')
+        .attr('x', d => xScale(d.normalizedVolume))
+        .attr('y', d => priceToY(d.price) - barHeight / 2)
+        .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
+        .attr('height', barHeight * 0.9)
+        .attr('fill', '#ef5350')
+        .attr('opacity', 0.9);
 
       // Renderizar línea de precio actual
       if (priceCoordinates.currentPrice && priceCoordinates.currentY) {
@@ -212,21 +219,28 @@ export const VolumeProfile = ({
       }
     };
 
-    // Throttle rendering
-    if (renderTimeoutRef.current) {
-      clearTimeout(renderTimeoutRef.current);
+    const scheduleRender = () => {
+      if (renderRequestRef.current) {
+        cancelAnimationFrame(renderRequestRef.current);
+      }
+      renderRequestRef.current = requestAnimationFrame(renderChart);
+    };
+
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
     }
 
-    renderTimeoutRef.current = window.setTimeout(() => {
-      requestAnimationFrame(renderChart);
-    }, 100); // Limitar actualizaciones a cada 100ms
+    updateTimeoutRef.current = window.setTimeout(scheduleRender, 50);
 
     return () => {
-      if (renderTimeoutRef.current) {
-        clearTimeout(renderTimeoutRef.current);
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+      if (renderRequestRef.current) {
+        cancelAnimationFrame(renderRequestRef.current);
       }
     };
-  }, [visibleData, width, height, currentPrice, priceCoordinates, maxVisibleBars]);
+  }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars, grouping]);
 
   return (
     <div
