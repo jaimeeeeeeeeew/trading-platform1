@@ -61,6 +61,26 @@ interface UseSocketIOOptions {
   onPriceUpdate?: (price: number) => void;
 }
 
+interface Props {
+  data: {
+    price: number;
+    volume: number;
+    normalizedVolume: number;
+    side: 'bid' | 'ask';
+  }[];
+  width: number;
+  height: number;
+  visiblePriceRange: {
+    min: number;
+    max: number;
+  };
+  currentPrice: number;
+  priceCoordinate: number | null;
+  priceCoordinates: PriceCoordinates | null;
+  maxVisibleBars: number;
+  priceBucketSize?: number;  // New prop
+}
+
 export default function Chart() {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
@@ -77,6 +97,7 @@ export default function Chart() {
   const [maxVisibleBars, setMaxVisibleBars] = useState<number>(200);
   const [customBars, setCustomBars] = useState<string>("");
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [priceBucketSize, setPriceBucketSize] = useState<number>(10);  // New state
 
   const { data: marketData, volumeProfile: orderbookVolumeProfile } = useMarketData();
 
@@ -684,6 +705,23 @@ export default function Chart() {
           </SelectContent>
         </Select>
 
+        <Select
+          value={priceBucketSize.toString()}
+          onValueChange={(value) => {
+            setPriceBucketSize(Number(value));
+          }}
+        >
+          <SelectTrigger className="w-24 bg-background">
+            <SelectValue placeholder="Group" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="10">$10 Group</SelectItem>
+            <SelectItem value="50">$50 Group</SelectItem>
+            <SelectItem value="100">$100 Group</SelectItem>
+            <SelectItem value="200">$200 Group</SelectItem>
+          </SelectContent>
+        </Select>
+
       </div>
 
       {crosshairData && (
@@ -751,6 +789,7 @@ export default function Chart() {
               priceCoordinate={priceCoordinate}
               priceCoordinates={priceCoordinates}
               maxVisibleBars={maxVisibleBars}
+              priceBucketSize={priceBucketSize}  // Add new prop
             />
           </div>
         )}

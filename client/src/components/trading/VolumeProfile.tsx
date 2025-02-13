@@ -18,6 +18,7 @@ interface Props {
   priceCoordinate: number | null;
   priceCoordinates: PriceCoordinates | null;
   maxVisibleBars: number;
+  priceBucketSize?: number;  // New prop
 }
 
 interface PriceCoordinates {
@@ -51,13 +52,41 @@ const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], 
 };
 
 // Función optimizada para combinar barras superpuestas
-const mergeOverlappingBars = (bars: Props['data'], getY: (price: number) => number, tolerance: number = 3) => {
+const mergeOverlappingBars = (
+  bars: Props['data'], 
+  getY: (price: number) => number, 
+  tolerance: number = 3,
+  priceBucketSize: number = 10  // Add priceBucketSize parameter
+) => {
   if (!bars || bars.length === 0) return { bars: [], maxVolumeBar: null };
 
-  const merged = new Map<number, Props['data'][0]>();
-  let maxVolumeBar = bars[0];
+  // Agrupar por buckets de precio primero
+  const priceGroups = new Map<number, Props['data'][0]>();
 
   bars.forEach(bar => {
+    const bucketPrice = Math.floor(bar.price / priceBucketSize) * priceBucketSize;
+
+    if (priceGroups.has(bucketPrice)) {
+      const existing = priceGroups.get(bucketPrice)!;
+      const totalVolume = existing.volume + bar.volume;
+      existing.volume = totalVolume;
+      // El precio se mantiene en el centro del bucket
+      existing.price = bucketPrice + (priceBucketSize / 2);
+    } else {
+      priceGroups.set(bucketPrice, {
+        ...bar,
+        price: bucketPrice + (priceBucketSize / 2)
+      });
+    }
+  });
+
+  const groupedBars = Array.from(priceGroups.values());
+  let maxVolumeBar = groupedBars[0];
+
+  // Ahora agrupamos por coordenada Y para la visualización
+  const merged = new Map<number, Props['data'][0]>();
+
+  groupedBars.forEach(bar => {
     const y = Math.round(getY(bar.price));
     const key = Math.floor(y / tolerance) * tolerance;
 
@@ -111,7 +140,8 @@ export const VolumeProfile = ({
   currentPrice,
   priceCoordinate,
   priceCoordinates,
-  maxVisibleBars
+  maxVisibleBars,
+  priceBucketSize
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const prevDataRef = useRef<Props['data']>([]);
@@ -187,13 +217,15 @@ export const VolumeProfile = ({
       const { bars: mergedAsks, maxVolumeBar: maxAskBar } = mergeOverlappingBars(
         getVisibleBars(asks, height, priceToY, viewport),
         priceToY,
-        barHeight
+        barHeight,
+        priceBucketSize  // Pass the priceBucketSize
       );
 
       const { bars: mergedBids, maxVolumeBar: maxBidBar } = mergeOverlappingBars(
         getVisibleBars(bids, height, priceToY, viewport),
         priceToY,
-        barHeight
+        barHeight,
+        priceBucketSize  // Pass the priceBucketSize
       );
 
       const maxVolumeBar = maxAskBar && maxBidBar
@@ -289,7 +321,7 @@ export const VolumeProfile = ({
         cancelAnimationFrame(renderRequestRef.current);
       }
     };
-  }, [processedData, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars]);
+  }, [processedData, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars, priceBucketSize]);
 
   return (
     <div
