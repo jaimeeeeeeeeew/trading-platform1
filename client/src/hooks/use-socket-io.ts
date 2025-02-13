@@ -70,7 +70,6 @@ export function useSocketIO({
         setConnectionState('disconnected');
 
         if (reason === 'io server disconnect') {
-          // Si el servidor desconectó intencionalmente, reconectar manualmente
           socket.connect();
         }
       });
@@ -88,24 +87,52 @@ export function useSocketIO({
       socket.on('orderbook_update', (data) => {
         try {
           if (onProfileData) {
-            const bids = data.bids.map((bid: any) => ({
-              price: parseFloat(bid.Price),
-              volume: parseFloat(bid.Quantity),
-              side: 'bid' as const
-            }));
+            // Procesar bids y asks con bucketing de $10
+            const BUCKET_SIZE = 10;
+            const volumeByPrice = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
 
-            const asks = data.asks.map((ask: any) => ({
-              price: parseFloat(ask.Price),
-              volume: parseFloat(ask.Quantity),
-              side: 'ask' as const
-            }));
+            // Procesar bids
+            data.bids.forEach((bid: any) => {
+              const price = Math.floor(parseFloat(bid.Price) / BUCKET_SIZE) * BUCKET_SIZE;
+              const volume = parseFloat(bid.Quantity);
 
-            const midPrice = (parseFloat(data.bids[0]?.Price || '0') + parseFloat(data.asks[0]?.Price || '0')) / 2;
-            if (midPrice && onPriceUpdate) {
-              onPriceUpdate(midPrice);
+              const existing = volumeByPrice.get(price) || { volume: 0, side: 'bid' };
+              volumeByPrice.set(price, { 
+                volume: existing.volume + volume,
+                side: 'bid'
+              });
+            });
+
+            // Procesar asks
+            data.asks.forEach((ask: any) => {
+              const price = Math.floor(parseFloat(ask.Price) / BUCKET_SIZE) * BUCKET_SIZE;
+              const volume = parseFloat(ask.Quantity);
+
+              const existing = volumeByPrice.get(price) || { volume: 0, side: 'ask' };
+              volumeByPrice.set(price, {
+                volume: existing.volume + volume,
+                side: 'ask'
+              });
+            });
+
+            // Convertir a array y ordenar por precio
+            const profileData = Array.from(volumeByPrice.entries())
+              .map(([price, data]) => ({
+                price,
+                volume: data.volume,
+                side: data.side
+              }))
+              .sort((a, b) => a.price - b.price);
+
+            // Calcular precio medio para onPriceUpdate
+            if (data.bids[0] && data.asks[0]) {
+              const midPrice = (parseFloat(data.bids[0].Price) + parseFloat(data.asks[0].Price)) / 2;
+              if (onPriceUpdate) {
+                onPriceUpdate(midPrice);
+              }
             }
 
-            onProfileData([...bids, ...asks]);
+            onProfileData(profileData);
           }
         } catch (error) {
           console.error('Error processing orderbook update:', error);
