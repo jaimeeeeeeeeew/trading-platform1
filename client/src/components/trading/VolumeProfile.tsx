@@ -118,44 +118,59 @@ export const VolumeProfile = ({
         d.price <= visiblePriceRange.max
       );
 
-      // Agrupar datos según el tamaño del grupo seleccionado
-      const groupedData = new Map<number, { volume: number; side: 'bid' | 'ask' }>();
+      // Separar bids y asks
+      const bidsData = visibleData.filter(d => d.side === 'bid').sort((a, b) => b.price - a.price);
+      const asksData = visibleData.filter(d => d.side === 'ask').sort((a, b) => a.price - b.price);
 
-      visibleData.forEach(d => {
-        const groupPrice = Math.floor(d.price / priceBucketSize) * priceBucketSize;
-        if (!groupedData.has(groupPrice)) {
-          groupedData.set(groupPrice, { volume: 0, side: d.side });
+      // Función para agrupar datos
+      const groupData = (data: typeof visibleData, groupSize: number) => {
+        const result: typeof visibleData = [];
+
+        for (let i = 0; i < data.length; i += groupSize) {
+          const group = data.slice(i, i + groupSize);
+          if (group.length > 0) {
+            const totalVolume = group.reduce((sum, bar) => sum + bar.volume, 0);
+            const avgPrice = group.reduce((sum, bar) => sum + bar.price * bar.volume, 0) / totalVolume;
+
+            result.push({
+              price: avgPrice,
+              volume: totalVolume,
+              normalizedVolume: 0, // Se normalizará después
+              side: group[0].side
+            });
+          }
         }
-        const group = groupedData.get(groupPrice)!;
-        if (group.side === d.side) {
-          group.volume += d.volume;
-        }
-      });
 
-      // Convertir el Map a array y normalizar volúmenes
-      const processedData = Array.from(groupedData.entries()).map(([price, data]) => ({
-        price,
-        volume: data.volume,
-        side: data.side
-      }));
+        return result;
+      };
 
-      const maxVolume = Math.max(...processedData.map(d => d.volume));
-      const normalizedData = processedData.map(d => ({
+      // Agrupar datos según el tamaño seleccionado
+      const groupSize = priceBucketSize === 50 ? 5 : priceBucketSize === 100 ? 10 : 1;
+      const groupedBids = groupSize === 1 ? bidsData : groupData(bidsData, groupSize);
+      const groupedAsks = groupSize === 1 ? asksData : groupData(asksData, groupSize);
+
+      // Normalizar volúmenes
+      const allVolumes = [...groupedBids, ...groupedAsks].map(d => d.volume);
+      const maxVolume = Math.max(...allVolumes);
+
+      const normalizedBids = groupedBids.map(d => ({
         ...d,
         normalizedVolume: d.volume / maxVolume
       }));
 
-      const bids = normalizedData.filter(d => d.side === 'bid');
-      const asks = normalizedData.filter(d => d.side === 'ask');
+      const normalizedAsks = groupedAsks.map(d => ({
+        ...d,
+        normalizedVolume: d.volume / maxVolume
+      }));
 
-      // Calcular altura de barra basada en el tamaño del grupo
+      // Calcular altura de barra
       const barHeight = Math.abs(
-        priceToY(currentPrice + priceBucketSize) - priceToY(currentPrice)
+        priceToY(currentPrice + 10) - priceToY(currentPrice)
       );
 
       // Renderizar barras de bids
       g.selectAll('.bid-bars')
-        .data(bids)
+        .data(normalizedBids)
         .join('rect')
         .attr('class', 'volume-bar bid')
         .attr('x', d => xScale(d.normalizedVolume))
@@ -167,7 +182,7 @@ export const VolumeProfile = ({
 
       // Renderizar barras de asks
       g.selectAll('.ask-bars')
-        .data(asks)
+        .data(normalizedAsks)
         .join('rect')
         .attr('class', 'volume-bar ask')
         .attr('x', d => xScale(d.normalizedVolume))
