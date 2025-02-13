@@ -18,7 +18,6 @@ interface Props {
   priceCoordinate: number | null;
   priceCoordinates: PriceCoordinates | null;
   maxVisibleBars: number;
-  priceBucketSize: number;  // Tamaño del grupo para las barras
 }
 
 interface PriceCoordinates {
@@ -60,7 +59,6 @@ export const VolumeProfile = ({
   priceCoordinate,
   priceCoordinates,
   maxVisibleBars,
-  priceBucketSize,
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const prevDataRef = useRef<Props['data']>([]);
@@ -118,59 +116,17 @@ export const VolumeProfile = ({
         d.price <= visiblePriceRange.max
       );
 
-      // Separar bids y asks
-      const bidsData = visibleData.filter(d => d.side === 'bid').sort((a, b) => b.price - a.price);
-      const asksData = visibleData.filter(d => d.side === 'ask').sort((a, b) => a.price - b.price);
+      const bids = visibleData.filter(d => d.side === 'bid');
+      const asks = visibleData.filter(d => d.side === 'ask');
 
-      // Función para agrupar datos
-      const groupData = (data: typeof visibleData, groupSize: number) => {
-        const result: typeof visibleData = [];
-
-        for (let i = 0; i < data.length; i += groupSize) {
-          const group = data.slice(i, i + groupSize);
-          if (group.length > 0) {
-            const totalVolume = group.reduce((sum, bar) => sum + bar.volume, 0);
-            const avgPrice = group.reduce((sum, bar) => sum + bar.price * bar.volume, 0) / totalVolume;
-
-            result.push({
-              price: avgPrice,
-              volume: totalVolume,
-              normalizedVolume: 0, // Se normalizará después
-              side: group[0].side
-            });
-          }
-        }
-
-        return result;
-      };
-
-      // Agrupar datos según el tamaño seleccionado
-      const groupSize = priceBucketSize === 50 ? 5 : priceBucketSize === 100 ? 10 : 1;
-      const groupedBids = groupSize === 1 ? bidsData : groupData(bidsData, groupSize);
-      const groupedAsks = groupSize === 1 ? asksData : groupData(asksData, groupSize);
-
-      // Normalizar volúmenes
-      const allVolumes = [...groupedBids, ...groupedAsks].map(d => d.volume);
-      const maxVolume = Math.max(...allVolumes);
-
-      const normalizedBids = groupedBids.map(d => ({
-        ...d,
-        normalizedVolume: d.volume / maxVolume
-      }));
-
-      const normalizedAsks = groupedAsks.map(d => ({
-        ...d,
-        normalizedVolume: d.volume / maxVolume
-      }));
-
-      // Calcular altura de barra
+      // Altura fija de $10 para cada barra
       const barHeight = Math.abs(
         priceToY(currentPrice + 10) - priceToY(currentPrice)
       );
 
       // Renderizar barras de bids
       g.selectAll('.bid-bars')
-        .data(normalizedBids)
+        .data(bids)
         .join('rect')
         .attr('class', 'volume-bar bid')
         .attr('x', d => xScale(d.normalizedVolume))
@@ -182,7 +138,7 @@ export const VolumeProfile = ({
 
       // Renderizar barras de asks
       g.selectAll('.ask-bars')
-        .data(normalizedAsks)
+        .data(asks)
         .join('rect')
         .attr('class', 'volume-bar ask')
         .attr('x', d => xScale(d.normalizedVolume))
@@ -238,7 +194,7 @@ export const VolumeProfile = ({
         cancelAnimationFrame(renderRequestRef.current);
       }
     };
-  }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars, priceBucketSize]);
+  }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars]);
 
   return (
     <div
