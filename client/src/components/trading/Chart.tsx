@@ -159,10 +159,11 @@ export default function Chart() {
 
   const groupCandles = (candles: CandlestickData[], groupSize: number): GroupedCandle[] => {
     if (groupSize === 1) return candles as GroupedCandle[];
+    if (!candles || candles.length === 0) return [];
 
     const grouped: GroupedCandle[] = [];
     for (let i = 0; i < candles.length; i += groupSize) {
-      const group = candles.slice(i, i + groupSize);
+      const group = candles.slice(i, Math.min(i + groupSize, candles.length));
       if (group.length === 0) continue;
 
       const groupedCandle: GroupedCandle = {
@@ -275,7 +276,7 @@ export default function Chart() {
           const data = JSON.parse(event.data);
           if (data.e === 'kline' && data.k.i === interval && data.s === symbol.toUpperCase()) {
             const kline = data.k;
-            const bar = {
+            const newBar = {
               time: Math.floor(kline.t / 1000) as Time,
               open: parseFloat(kline.o),
               high: parseFloat(kline.h),
@@ -285,13 +286,29 @@ export default function Chart() {
             };
 
             if (candlestickSeriesRef.current) {
-              // Aplicar agrupamiento en tiempo real
-              const lastCandles = historicalDataRef.current.slice(-parseInt(grouping));
-              const groupedBar = groupCandles([...lastCandles, bar], parseInt(grouping))[0];
+              const groupSize = parseInt(grouping);
+              const lastBars = historicalDataRef.current
+                .slice(-groupSize + 1)
+                .map((bar, index) => ({
+                  time: Math.floor(Date.now() / 1000 - (groupSize - index - 1) * 60) as Time,
+                  open: bar.close,
+                  high: bar.close,
+                  low: bar.close,
+                  close: bar.close,
+                  volume: bar.volume
+                }));
 
-              candlestickSeriesRef.current.update(groupedBar);
-              historicalDataRef.current = [...historicalDataRef.current.slice(-1499), groupedBar];
-              updateVolumeProfile(historicalDataRef.current);
+              const barsToGroup = [...lastBars, newBar];
+              const groupedBar = groupCandles(barsToGroup, groupSize)[0];
+
+              if (groupedBar) {
+                candlestickSeriesRef.current.update(groupedBar);
+                historicalDataRef.current = [...historicalDataRef.current.slice(-(1500 - groupSize)), {
+                  close: groupedBar.close,
+                  volume: groupedBar.volume
+                }];
+                updateVolumeProfile(historicalDataRef.current);
+              }
             }
           }
         } catch (error) {
@@ -706,6 +723,41 @@ export default function Chart() {
 
     handleVolumeProfileUpdate();
   }, [orderbookVolumeProfile, visiblePriceRange]);
+
+  // Add new effect to handle grouping changes
+  useEffect(() => {
+    if (!candlestickSeriesRef.current || !historicalDataRef.current) return;
+
+    try {
+      const rawData = historicalDataRef.current.map((candle, index) => ({
+        time: Math.floor(Date.now() / 1000 - (historicalDataRef.current.length - index) * 60) as Time,
+        open: candle.close, // Using close as open since we don't have the original OHLC data
+        high: candle.close,
+        low: candle.close,
+        close: candle.close,
+        volume: candle.volume
+      }));
+
+      const groupedData = groupCandles(rawData, parseInt(grouping));
+
+      if (candlestickSeriesRef.current) {
+        candlestickSeriesRef.current.setData(groupedData);
+      }
+
+      toast({
+        title: 'Grouping Updated',
+        description: `Changed grouping to ${grouping === '1' ? 'none' : `${grouping}x`}`,
+      });
+
+    } catch (error) {
+      console.error('Error updating grouping:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update grouping',
+        variant: 'destructive',
+      });
+    }
+  }, [grouping]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
