@@ -56,17 +56,18 @@ const vertexShader = `
     // Mantener coordenada X invertida (derecha a izquierda)
     float x = -position.x;
 
-    // Mapear precio al espacio de coordenadas del gráfico
+    // Transformación de coordenadas de precio a coordenadas de pantalla
     float y = position.y;
     float priceRange = priceMax - priceMin;
-    float coordRange = maxY - minY;
 
-    // Corregir la dirección del mapeo de coordenadas
+    // Normalizar el precio al rango [0,1]
     float normalizedPrice = (y - priceMin) / priceRange;
-    y = maxY - (normalizedPrice * coordRange);
 
-    // Normalizar al espacio de coordenadas de WebGL
-    y = (y / viewportHeight) * 2.0 - 1.0;
+    // Convertir a coordenadas de pantalla usando el mismo sistema que el gráfico principal
+    float screenY = mix(maxY, minY, normalizedPrice);
+
+    // Convertir a coordenadas NDC (Normalized Device Coordinates)
+    y = (screenY / viewportHeight) * 2.0 - 1.0;
 
     // Aplicar escala y traslación
     x = x * scale.x + translate.x;
@@ -111,6 +112,7 @@ export const VolumeProfileGL = ({
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
     );
 
+    // Agrupar datos por precio
     const groupedData = new Map();
     filteredData.forEach(item => {
       const key = Math.floor(item.price / groupSize) * groupSize;
@@ -158,23 +160,21 @@ export const VolumeProfileGL = ({
       const volumes: number[] = [];
 
       const barWidth = 0.2;
-      const barSpacing = barWidth * 0.1;
 
       processedData.forEach((bar) => {
         const xStart = 0;
         const volumeWidth = bar.normalizedVolume * barWidth * 2;
-
-        // Calcular altura de barra manteniendo la dirección correcta
-        const barHeight = (bar.side === 'ask' ? 1 : -1) * Math.abs(bar.price * 0.0001);
         const yPos = bar.price;
 
+        // Vertices para cada barra (usando triangle strip)
         positions.push(
           xStart, yPos,
           xStart + volumeWidth, yPos,
-          xStart, yPos + barHeight,
-          xStart + volumeWidth, yPos + barHeight
+          xStart, yPos + (bar.side === 'ask' ? 1 : -1) * groupSize,
+          xStart + volumeWidth, yPos + (bar.side === 'ask' ? 1 : -1) * groupSize
         );
 
+        // Información de lado y volumen para cada vértice
         const sideValue = bar.side === 'ask' ? 1 : 0;
         for (let i = 0; i < 4; i++) {
           sides.push(sideValue);
