@@ -19,7 +19,7 @@ export const DominanceControl = ({
   dominanceData 
 }: DominanceControlProps) => {
   const { bidsTotalInRange, asksTotalInRange, dominancePercentage, btcAmount } = dominanceData;
-  
+
   // Calcular el color de la barra de dominancia
   const getProgressColor = (dominance: number) => {
     if (dominance > 50) {
@@ -31,17 +31,14 @@ export const DominanceControl = ({
   };
 
   return (
-    <Card className="p-4 space-y-4">
+    <Card className="p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h4 className="text-sm font-medium leading-none">Rango de análisis</h4>
-          <p className="text-sm text-muted-foreground">
-            Ajusta el porcentaje para el cálculo de dominancia
-          </p>
+        <div>
+          <h4 className="text-[10px] font-medium leading-none">Dominancia</h4>
         </div>
-        <span className="text-2xl font-bold">{percentage}%</span>
+        <span className="text-lg font-bold">{percentage}%</span>
       </div>
-      
+
       <Slider
         value={[percentage]}
         onValueChange={([value]) => onPercentageChange(value)}
@@ -51,8 +48,8 @@ export const DominanceControl = ({
         className="w-full"
       />
 
-      <div className="space-y-2">
-        <div className="flex justify-between text-sm">
+      <div className="space-y-1">
+        <div className="flex justify-between text-xs">
           <span>Dominancia</span>
           <span>{dominancePercentage.toFixed(1)}%</span>
         </div>
@@ -62,20 +59,20 @@ export const DominanceControl = ({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 pt-2">
+      <div className="grid grid-cols-2 gap-2">
         <div className="text-center">
-          <div className="text-sm text-muted-foreground">Bids Total</div>
-          <div className="text-lg font-semibold text-green-500">{bidsTotalInRange.toFixed(2)}</div>
+          <div className="text-[10px] text-muted-foreground">Bids</div>
+          <div className="text-sm font-semibold text-green-500">{bidsTotalInRange.toFixed(2)}</div>
         </div>
         <div className="text-center">
-          <div className="text-sm text-muted-foreground">Asks Total</div>
-          <div className="text-lg font-semibold text-red-500">{asksTotalInRange.toFixed(2)}</div>
+          <div className="text-[10px] text-muted-foreground">Asks</div>
+          <div className="text-sm font-semibold text-red-500">{asksTotalInRange.toFixed(2)}</div>
         </div>
       </div>
 
-      <div className="pt-2 text-center">
-        <div className="text-sm text-muted-foreground">BTC Amount</div>
-        <div className="text-xl font-bold">{Math.floor(btcAmount)} BTC</div>
+      <div className="text-center border-t pt-2 border-border/20">
+        <div className="text-[10px] text-muted-foreground">BTC</div>
+        <div className="text-base font-bold">{Math.floor(btcAmount)}</div>
       </div>
     </Card>
   );
