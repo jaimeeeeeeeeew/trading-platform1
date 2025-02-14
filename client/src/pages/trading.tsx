@@ -26,14 +26,6 @@ export default function Trading() {
     );
   }
 
-  // Transformar los datos al formato que espera MetricsPanel
-  const metricsData = {
-    direccion: marketData?.direccion || 0,
-    dominancia: marketData?.dominancia || { left: 0, right: 0 },
-    delta_futuros: marketData?.delta_futuros || { positivo: 0, negativo: 0 },
-    delta_spot: marketData?.delta_spot || { positivo: 0, negativo: 0 }
-  };
-
   // Calcular los datos de dominancia basados en el orderbook y el porcentaje seleccionado
   const calculateDominanceData = () => {
     if (!marketData?.orderbook?.bids || !marketData?.orderbook?.asks) {
@@ -84,7 +76,6 @@ export default function Trading() {
         <div className="flex-1 flex flex-col gap-4">
           <div className="flex-1">
             <MetricsPanel
-              metrics={metricsData}
               className="h-full"
               dominanceData={dominanceData}
               dominancePercentage={dominancePercentage}
