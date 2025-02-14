@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useCallback } from 'react';
 import * as d3 from 'd3';
 
 interface Props {
@@ -30,15 +30,18 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-// Optimizada para mejor rendimiento
-const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], threshold = 0.1) => {
+// Optimizada con WeakMap para caché de resultados
+const volumeDataCache = new WeakMap();
+
+// Memoizado y optimizado para mejor rendimiento
+const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], threshold = 0.15) => {
   if (!prevBars || !newBars || Math.abs(prevBars.length - newBars.length) > 50) return true;
 
-  const sampleSize = 20; // Reducido para mejor rendimiento
+  const sampleSize = 10; // Reducido para mejor rendimiento
   const step = Math.max(1, Math.floor(prevBars.length / sampleSize));
 
   let significantChanges = 0;
-  const maxSignificantChanges = 3;
+  const maxSignificantChanges = 2;
 
   for (let i = 0; i < prevBars.length && significantChanges < maxSignificantChanges; i += step) {
     const prevBar = prevBars[i];
@@ -54,8 +57,13 @@ const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], 
   return significantChanges >= maxSignificantChanges;
 };
 
-// Memoizado para evitar recálculos innecesarios
+// Optimizado con memorización de resultados
 const groupVolumeData = (data: Props['data'], groupSize: number) => {
+  const cacheKey = JSON.stringify({ groupSize, length: data.length });
+  if (volumeDataCache.has(data) && volumeDataCache.get(data).key === cacheKey) {
+    return volumeDataCache.get(data).value;
+  }
+
   if (groupSize === 1) return data;
 
   const groups = new Map<number, {
@@ -65,34 +73,41 @@ const groupVolumeData = (data: Props['data'], groupSize: number) => {
     count: number;
   }>();
 
-  data.forEach(item => {
-    const roundedPrice = Math.round(item.price / (10 * groupSize)) * (10 * groupSize);
-    const existing = groups.get(roundedPrice);
+  // Procesamiento por lotes para mejor rendimiento
+  const batchSize = 100;
+  for (let i = 0; i < data.length; i += batchSize) {
+    const batch = data.slice(i, i + batchSize);
+    batch.forEach(item => {
+      const roundedPrice = Math.round(item.price / (10 * groupSize)) * (10 * groupSize);
+      const existing = groups.get(roundedPrice);
 
-    if (existing) {
-      existing.volume += item.volume;
-      existing.count++;
-      if (item.volume > existing.volume / existing.count) {
-        existing.side = item.side;
+      if (existing) {
+        existing.volume += item.volume;
+        existing.count++;
+        if (item.volume > existing.volume / existing.count) {
+          existing.side = item.side;
+        }
+      } else {
+        groups.set(roundedPrice, {
+          volume: item.volume,
+          side: item.side,
+          price: roundedPrice,
+          count: 1
+        });
       }
-    } else {
-      groups.set(roundedPrice, {
-        volume: item.volume,
-        side: item.side,
-        price: roundedPrice,
-        count: 1
-      });
-    }
-  });
+    });
+  }
 
   const maxVolume = Math.max(...Array.from(groups.values()).map(item => item.volume));
-
-  return Array.from(groups.values()).map(item => ({
+  const result = Array.from(groups.values()).map(item => ({
     price: item.price,
     volume: item.volume,
     normalizedVolume: item.volume / maxVolume,
     side: item.side
   }));
+
+  volumeDataCache.set(data, { key: cacheKey, value: result });
+  return result;
 };
 
 export const VolumeProfile = ({
@@ -108,15 +123,25 @@ export const VolumeProfile = ({
 }: Props) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const prevDataRef = useRef<Props['data']>([]);
-  const updateTimeoutRef = useRef<number | null>(null);
-  const renderRequestRef = useRef<number | null>(null);
+  const renderTimeoutRef = useRef<number | null>(null);
   const lastRenderTimeRef = useRef<number>(0);
+  const prevGroupedDataRef = useRef<Props['data']>([]);
 
-  // Memoizar los datos agrupados
-  const groupedData = useMemo(() => {
+  // Memoizar los datos agrupados con useCallback para mejor rendimiento
+  const processVolumeData = useCallback(() => {
     const groupSize = parseInt(grouping);
-    return groupVolumeData(data, groupSize);
-  }, [data, grouping]);
+    if (!data || data.length === 0) return [];
+
+    const filteredData = data.filter(d => 
+      d.price >= visiblePriceRange.min && 
+      d.price <= visiblePriceRange.max
+    );
+
+    return groupVolumeData(filteredData, groupSize);
+  }, [data, grouping, visiblePriceRange]);
+
+  // Memoizar los datos procesados
+  const groupedData = useMemo(() => processVolumeData(), [processVolumeData]);
 
   useEffect(() => {
     if (!svgRef.current || !groupedData || groupedData.length === 0 || !priceCoordinates) {
@@ -125,16 +150,16 @@ export const VolumeProfile = ({
 
     const renderChart = () => {
       const now = Date.now();
-      if (now - lastRenderTimeRef.current < 100) { // Throttle a 100ms
+      if (now - lastRenderTimeRef.current < 150) { // Throttle aumentado a 150ms
         return;
       }
 
-      if (!hasSignificantChanges(prevDataRef.current, groupedData)) {
+      if (!hasSignificantChanges(prevGroupedDataRef.current, groupedData)) {
         return;
       }
 
       lastRenderTimeRef.current = now;
-      prevDataRef.current = groupedData;
+      prevGroupedDataRef.current = groupedData;
 
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
@@ -170,67 +195,47 @@ export const VolumeProfile = ({
         return priceCoordinates.currentY - margin.top + (bidRatio * (priceCoordinates.minY - priceCoordinates.currentY));
       };
 
-      // Filtrar datos dentro del rango visible
-      const visibleData = groupedData.filter(d => 
-        d.price >= visiblePriceRange.min && 
-        d.price <= visiblePriceRange.max
-      );
-
-      const bids = visibleData.filter(d => d.side === 'bid');
-      const asks = visibleData.filter(d => d.side === 'ask');
-
       const barHeight = Math.abs(
         priceToY(currentPrice + (10 * parseInt(grouping))) - priceToY(currentPrice)
       );
 
-      // Renderizar barras de bids
-      g.selectAll('.bid-bars')
-        .data(bids)
-        .join('rect')
-        .attr('class', 'volume-bar bid')
-        .attr('x', d => xScale(d.normalizedVolume))
-        .attr('y', d => priceToY(d.price) - barHeight / 2)
-        .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
-        .attr('height', barHeight * 0.9)
-        .attr('fill', '#26a69a')
-        .attr('opacity', 0.9);
+      const bids = groupedData.filter(d => d.side === 'bid');
+      const asks = groupedData.filter(d => d.side === 'ask');
 
-      // Renderizar barras de asks
-      g.selectAll('.ask-bars')
-        .data(asks)
-        .join('rect')
-        .attr('class', 'volume-bar ask')
-        .attr('x', d => xScale(d.normalizedVolume))
-        .attr('y', d => priceToY(d.price) - barHeight / 2)
-        .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
-        .attr('height', barHeight * 0.9)
-        .attr('fill', '#ef5350')
-        .attr('opacity', 0.9);
+      // Renderizar barras por lotes para mejor rendimiento
+      const renderBars = (data: typeof groupedData, className: string, fill: string) => {
+        const batchSize = 50;
+        for (let i = 0; i < data.length; i += batchSize) {
+          const batch = data.slice(i, i + batchSize);
+          g.selectAll(`.${className}-batch-${i}`)
+            .data(batch)
+            .join('rect')
+            .attr('class', `volume-bar ${className}`)
+            .attr('x', d => xScale(d.normalizedVolume))
+            .attr('y', d => priceToY(d.price) - barHeight / 2)
+            .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
+            .attr('height', barHeight * 0.9)
+            .attr('fill', fill)
+            .attr('opacity', 0.9);
+        }
+      };
+
+      renderBars(bids, 'bid', '#26a69a');
+      renderBars(asks, 'ask', '#ef5350');
     };
 
-    const scheduleRender = () => {
-      if (renderRequestRef.current) {
-        cancelAnimationFrame(renderRequestRef.current);
-      }
-      renderRequestRef.current = requestAnimationFrame(renderChart);
-    };
-
-    if (updateTimeoutRef.current) {
-      clearTimeout(updateTimeoutRef.current);
+    if (renderTimeoutRef.current) {
+      clearTimeout(renderTimeoutRef.current);
     }
 
-    // Throttle las actualizaciones a 100ms
-    updateTimeoutRef.current = window.setTimeout(scheduleRender, 100);
+    renderTimeoutRef.current = window.setTimeout(renderChart, 150);
 
     return () => {
-      if (updateTimeoutRef.current) {
-        clearTimeout(updateTimeoutRef.current);
-      }
-      if (renderRequestRef.current) {
-        cancelAnimationFrame(renderRequestRef.current);
+      if (renderTimeoutRef.current) {
+        clearTimeout(renderTimeoutRef.current);
       }
     };
-  }, [groupedData, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars, grouping]);
+  }, [groupedData, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars, grouping, processVolumeData]);
 
   return (
     <div
