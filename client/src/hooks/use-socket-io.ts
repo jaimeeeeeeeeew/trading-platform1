@@ -19,12 +19,20 @@ export function useSocketIO({
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const socketRef = useRef<Socket | null>(null);
   const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 10;
+  const maxReconnectAttempts = 5; // Reducido de 10 a 5 intentos
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messageBufferRef = useRef<any[]>([]);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const lastUpdateTimeRef = useRef<number>(0);
   const updateThrottleRef = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef = useRef(true); // Para evitar actualizaciones en componentes desmontados
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
@@ -42,28 +50,33 @@ export function useSocketIO({
         updateThrottleRef.current = null;
       }
       if (socketRef.current) {
-        socketRef.current.disconnect();
+        socketRef.current.removeAllListeners();
+        socketRef.current.close();
         socketRef.current = null;
       }
       messageBufferRef.current = [];
     };
 
     const processBufferedMessages = () => {
-      const maxBufferSize = 100;
+      const maxBufferSize = 50; // Reducido de 100 a 50
       if (messageBufferRef.current.length > maxBufferSize) {
         messageBufferRef.current = messageBufferRef.current.slice(-maxBufferSize);
       }
 
-      console.log('Processing buffered messages:', messageBufferRef.current.length);
-      while (messageBufferRef.current.length > 0) {
-        const msg = messageBufferRef.current.shift();
-        if (msg && socketRef.current) {
-          socketRef.current.emit(msg.type, msg.data);
+      if (messageBufferRef.current.length > 0) {
+        console.log('Processing buffered messages:', messageBufferRef.current.length);
+        while (messageBufferRef.current.length > 0) {
+          const msg = messageBufferRef.current.shift();
+          if (msg && socketRef.current?.connected) {
+            socketRef.current.emit(msg.type, msg.data);
+          }
         }
       }
     };
 
     const initializeSocket = () => {
+      if (!mountedRef.current) return;
+
       console.log('🎧 Initializing socket connection...');
       setConnectionState('connecting');
 
@@ -72,12 +85,12 @@ export function useSocketIO({
       const socket = io(window.location.origin, {
         path: '/trading-socket',
         transports: ['websocket'],
-        timeout: 60000,
+        timeout: 20000, // Reducido de 60000 a 20000
         reconnection: true,
         reconnectionAttempts: maxReconnectAttempts,
-        reconnectionDelay: 2000,
-        reconnectionDelayMax: 10000,
-        randomizationFactor: 0.5,
+        reconnectionDelay: 1000, // Reducido de 2000 a 1000
+        reconnectionDelayMax: 5000, // Reducido de 10000 a 5000
+        randomizationFactor: 0.3, // Reducido de 0.5 a 0.3
         autoConnect: true,
         forceNew: true
       });
@@ -85,33 +98,32 @@ export function useSocketIO({
       socketRef.current = socket;
 
       socket.on('connect', () => {
+        if (!mountedRef.current) return;
         console.log('🟢 Connected to server');
         setConnectionState('connected');
         reconnectAttempts.current = 0;
         setIsReconnecting(false);
-
-        if (messageBufferRef.current.length > 0) {
-          processBufferedMessages();
-        }
+        processBufferedMessages();
       });
 
       socket.on('disconnect', (reason) => {
+        if (!mountedRef.current) return;
         console.log('🔴 Disconnected from server:', reason);
         setConnectionState('disconnected');
 
-        if (reason === 'io server disconnect') {
+        if (reason === 'io server disconnect' || reason === 'transport close') {
           setIsReconnecting(true);
-          socket.connect();
+          handleError();
         }
       });
 
       const throttleUpdate = (callback: () => void) => {
         const now = Date.now();
-        if (now - lastUpdateTimeRef.current < 100) { // Throttle a 100ms
+        if (now - lastUpdateTimeRef.current < 150) { // Aumentado de 100ms a 150ms
           if (updateThrottleRef.current) {
             clearTimeout(updateThrottleRef.current);
           }
-          updateThrottleRef.current = setTimeout(callback, 100);
+          updateThrottleRef.current = setTimeout(callback, 150);
           return;
         }
         lastUpdateTimeRef.current = now;
@@ -119,10 +131,13 @@ export function useSocketIO({
       };
 
       socket.on('orderbook_update', (data) => {
+        if (!mountedRef.current) return;
         try {
           throttleUpdate(() => {
             if (isReconnecting) {
-              messageBufferRef.current.push({ type: 'orderbook_update', data });
+              if (messageBufferRef.current.length < 50) { // Limite del buffer
+                messageBufferRef.current.push({ type: 'orderbook_update', data });
+              }
               return;
             }
 
@@ -153,27 +168,32 @@ export function useSocketIO({
       });
 
       socket.on('error', (error) => {
+        if (!mountedRef.current) return;
         console.error('❌ Socket Error:', error);
         handleError();
       });
 
       socket.on('connect_error', (error) => {
+        if (!mountedRef.current) return;
         console.log('⚠️ Connection error:', error.message);
         handleError();
       });
 
       socket.on('reconnect_attempt', (attempt) => {
+        if (!mountedRef.current) return;
         console.log(`🔄 Reconnection attempt ${attempt}/${maxReconnectAttempts}`);
         setIsReconnecting(true);
       });
 
       socket.on('reconnect', (attempt) => {
+        if (!mountedRef.current) return;
         console.log(`🔄 Reconnected after ${attempt} attempts`);
         setIsReconnecting(false);
         processBufferedMessages();
       });
 
       socket.on('reconnect_failed', () => {
+        if (!mountedRef.current) return;
         console.log('❌ Failed to reconnect after all attempts');
         setIsReconnecting(false);
         messageBufferRef.current = [];
@@ -182,6 +202,8 @@ export function useSocketIO({
     };
 
     const handleError = () => {
+      if (!mountedRef.current) return;
+
       reconnectAttempts.current++;
 
       if (reconnectAttempts.current >= maxReconnectAttempts) {
@@ -199,9 +221,11 @@ export function useSocketIO({
           clearTimeout(reconnectTimeoutRef.current);
         }
 
-        const delay = Math.min(2000 * Math.pow(2, reconnectAttempts.current - 1), 10000);
+        const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts.current - 1), 5000);
         reconnectTimeoutRef.current = setTimeout(() => {
-          initializeSocket();
+          if (mountedRef.current) {
+            initializeSocket();
+          }
         }, delay);
       }
     };
@@ -212,6 +236,8 @@ export function useSocketIO({
   }, [enabled, onError, onProfileData, onPriceUpdate]);
 
   const reconnect = () => {
+    if (!mountedRef.current) return;
+
     reconnectAttempts.current = 0;
     setIsReconnecting(false);
     if (socketRef.current) {
