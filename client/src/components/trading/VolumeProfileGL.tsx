@@ -53,7 +53,7 @@ const vertexShader = `
     vSide = side;
     vVolume = volume;
 
-    // Invierte la coordenada X para que crezca hacia la izquierda
+    // Invertir la coordenada X para que crezca hacia la izquierda
     float x = -position.x;
 
     // Mapear el precio al rango de coordenadas del gráfico principal
@@ -61,8 +61,8 @@ const vertexShader = `
     float priceRange = priceMax - priceMin;
     float coordRange = maxY - minY;
 
-    // Invertir la dirección de las coordenadas Y para que coincida con el gráfico
-    y = maxY - (((y - priceMin) / priceRange) * coordRange);
+    // Calcular la coordenada Y manteniendo la dirección del gráfico principal
+    y = minY + (((y - priceMin) / priceRange) * coordRange);
     y = y / viewportHeight;
 
     // Escalar y trasladar manteniendo proporciones
@@ -103,13 +103,6 @@ export const VolumeProfileGL = ({
 
   const processedData = useMemo(() => {
     if (!data || data.length === 0 || !priceCoordinates) return null;
-
-    console.log('Processing WebGL data:', {
-      dataLength: data.length,
-      priceRange: visiblePriceRange,
-      currentPrice,
-      coordinates: priceCoordinates
-    });
 
     const groupSize = parseInt(grouping);
     const filteredData = data.filter(
@@ -168,10 +161,8 @@ export const VolumeProfileGL = ({
       processedData.forEach((bar) => {
         const xStart = 0;
         const volumeWidth = bar.normalizedVolume * barWidth * 2;
-
         const barHeight = (bar.price * 0.00005);
 
-        // Añadir vértices para la barra con la altura ajustada
         positions.push(
           xStart, bar.price,                    // Inicio
           xStart + volumeWidth, bar.price,      // Fin
@@ -179,7 +170,6 @@ export const VolumeProfileGL = ({
           xStart + volumeWidth, bar.price + barHeight  // Fin superior
         );
 
-        // Side y volumen para cada vértice
         const sideValue = bar.side === 'ask' ? 1 : 0;
         for (let i = 0; i < 4; i++) {
           sides.push(sideValue);
@@ -197,8 +187,8 @@ export const VolumeProfileGL = ({
         },
         uniforms: {
           aspectRatio: width / height,
-          scale: [3.0, 1.0],    // Escala horizontal aumentada
-          translate: [0.95, 0],   // Mover a la derecha
+          scale: [3.0, 1.0],
+          translate: [0.95, 0],
           yScale: height,
           yOffset: 0,
           viewportHeight: height,
@@ -206,8 +196,8 @@ export const VolumeProfileGL = ({
           maxY: priceCoordinates.maxY,
           priceMin: visiblePriceRange.min,
           priceMax: visiblePriceRange.max,
-          bidColor: [0.149, 0.65, 0.604],  // #26a69a
-          askColor: [0.937, 0.325, 0.314],  // #ef5350
+          bidColor: [0.149, 0.65, 0.604],
+          askColor: [0.937, 0.325, 0.314],
           opacity: 0.8
         },
         count: positions.length / 2,
