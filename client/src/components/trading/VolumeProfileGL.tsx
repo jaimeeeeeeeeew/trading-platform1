@@ -49,13 +49,13 @@ const vertexShader = `
     vSide = side;
     vVolume = volume;
 
-    // Ajustar la escala y posición para que las barras sean más visibles
-    float x = (position.x * scale.x + translate.x) * 2.0 - 1.0;
-    float y = (position.y * yScale + yOffset) / viewportHeight * 2.0 - 1.0;
+    // Modificar el cálculo para hacer las barras más anchas y visibles
+    float x = position.x * scale.x + translate.x;
+    float y = position.y;
 
-    // Limitar las coordenadas al área visible
-    x = clamp(x, -1.0, 1.0);
-    y = clamp(y, -1.0, 1.0);
+    // Expandir el rango de coordenadas para hacer las barras más visibles
+    x = (x * 2.0 - 1.0) * 0.8; // Reducir a 80% del ancho para dejar margen
+    y = (y * 2.0 - 1.0);
 
     gl_Position = vec4(x, y, 0, 1);
   }
@@ -71,8 +71,8 @@ const fragmentShader = `
 
   void main() {
     vec3 color = vSide > 0.5 ? askColor : bidColor;
-    // Aumentar la opacidad mínima para asegurar visibilidad
-    float alpha = max(opacity * vVolume, 0.3);
+    // Aumentar la opacidad base para asegurar visibilidad
+    float alpha = max(opacity * vVolume, 0.4);
     gl_FragColor = vec4(color, alpha);
   }
 `;
@@ -95,8 +95,7 @@ export const VolumeProfileGL = ({
     console.log('Processing WebGL data:', {
       dataLength: data.length,
       priceRange: visiblePriceRange,
-      currentPrice,
-      priceCoords: priceCoordinates
+      currentPrice
     });
 
     const groupSize = parseInt(grouping);
@@ -104,14 +103,37 @@ export const VolumeProfileGL = ({
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
     );
 
-    return filteredData;
+    // Agrupar datos para reducir el número de barras
+    const groupedData = new Map();
+    filteredData.forEach(item => {
+      const key = Math.floor(item.price / groupSize) * groupSize;
+      if (!groupedData.has(key)) {
+        groupedData.set(key, {
+          price: key,
+          volume: 0,
+          side: item.side
+        });
+      }
+      const group = groupedData.get(key);
+      group.volume += item.volume;
+    });
+
+    const result = Array.from(groupedData.values());
+
+    // Normalizar volúmenes después de agrupar
+    const maxVolume = Math.max(...result.map(d => d.volume));
+    return result.map(d => ({
+      ...d,
+      normalizedVolume: d.volume / maxVolume
+    }));
+
   }, [data, visiblePriceRange, grouping, priceCoordinates]);
 
   useEffect(() => {
     if (!canvasRef.current || !processedData || processedData.length === 0 || !priceCoordinates) return;
 
     try {
-      // Initialize REGL if not already done
+      // Initialize REGL
       if (!reglRef.current) {
         reglRef.current = REGL({
           canvas: canvasRef.current,
@@ -121,41 +143,37 @@ export const VolumeProfileGL = ({
             depth: true,
             stencil: true
           },
-          // Forzar el contexto WebGL
           optionalExtensions: ['OES_standard_derivatives']
         });
       }
 
       const regl = reglRef.current;
 
-      // Preparar datos de vértices
+      // Preparar datos de vértices con barras más anchas
       const positions: number[] = [];
       const sides: number[] = [];
       const volumes: number[] = [];
 
-      const barWidth = 0.8 / processedData.length; // Ajustar ancho de barras
-      const barSpacing = 0.2 / processedData.length;
+      // Aumentar el ancho de las barras
+      const barWidth = 1.0 / processedData.length; // Usar todo el ancho disponible
+      const barSpacing = barWidth * 0.1; // 10% de espacio entre barras
 
       processedData.forEach((bar, index) => {
+        // Normalizar precio al rango [0,1]
         const normalizedY = (bar.price - visiblePriceRange.min) / 
           (visiblePriceRange.max - visiblePriceRange.min);
 
-        console.log('Bar data:', {
-          price: bar.price,
-          normalizedY,
-          volume: bar.normalizedVolume,
-          side: bar.side
-        });
-
         // Crear rectángulo para cada barra
-        const xStart = index * (barWidth + barSpacing);
-        const xEnd = xStart + barWidth;
+        const xStart = index * (barWidth - barSpacing);
+        const xEnd = xStart + (barWidth - barSpacing);
+        const volumeWidth = bar.normalizedVolume;
 
+        // Vertices para la barra (usando triangle strip)
         positions.push(
-          xStart, normalizedY,           // Inicio barra
-          xEnd, normalizedY,             // Fin barra
-          xStart, normalizedY + 0.002,   // Inicio superior
-          xEnd, normalizedY + 0.002      // Fin superior
+          xStart, normalizedY,              // Inicio barra
+          xStart + volumeWidth, normalizedY, // Fin barra con ancho proporcional al volumen
+          xStart, normalizedY + 0.005,      // Inicio superior (altura aumentada)
+          xStart + volumeWidth, normalizedY + 0.005 // Fin superior
         );
 
         // Side y volumen para cada vértice
@@ -166,7 +184,7 @@ export const VolumeProfileGL = ({
         }
       });
 
-      // Crear comando REGL con tipos
+      // Crear comando REGL
       const drawBars = regl({
         vert: vertexShader,
         frag: fragmentShader,
@@ -177,8 +195,8 @@ export const VolumeProfileGL = ({
         },
         uniforms: {
           aspectRatio: width / height,
-          scale: [0.9, 1],              // Aumentar escala horizontal
-          translate: [0.05, 0],         // Mover ligeramente a la derecha
+          scale: [1.5, 1],              // Aumentar escala horizontal
+          translate: [0.3, 0],          // Mover más a la derecha
           yScale: height,
           yOffset: 0,
           viewportHeight: height,
@@ -211,17 +229,7 @@ export const VolumeProfileGL = ({
           depth: 1
         });
 
-        drawBars({
-          aspectRatio: width / height,
-          scale: [0.9, 1],
-          translate: [0.05, 0],
-          yScale: height,
-          yOffset: 0,
-          viewportHeight: height,
-          bidColor: [0.149, 0.65, 0.604],
-          askColor: [0.937, 0.325, 0.314],
-          opacity: 0.9
-        });
+        drawBars();
       });
 
       return () => {
@@ -233,7 +241,7 @@ export const VolumeProfileGL = ({
     } catch (error) {
       console.error('Error in WebGL rendering:', error);
     }
-  }, [processedData, width, height, visiblePriceRange, priceCoordinates, currentPrice]);
+  }, [processedData, width, height, visiblePriceRange, priceCoordinates]);
 
   return (
     <div
