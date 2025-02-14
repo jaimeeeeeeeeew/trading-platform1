@@ -25,14 +25,15 @@ export const DominanceControl = ({
 
   // Efecto para actualizar la tendencia basada en la dominancia
   useEffect(() => {
-    // Por ahora, simplemente alternamos entre ALCISTA y BAJISTA
-    // para probar la interfaz
-    if (dominancePercentage > 50) {
+    // Invertimos la lógica: más compras = BAJISTA, más ventas = ALCISTA
+    if (bidsTotalInRange > asksTotalInRange) {
+      setTrend('BAJISTA');
+    } else if (asksTotalInRange > bidsTotalInRange) {
       setTrend('ALCISTA');
     } else {
-      setTrend('BAJISTA');
+      setTrend(null);
     }
-  }, [dominancePercentage]);
+  }, [bidsTotalInRange, asksTotalInRange]);
 
   const getProgressStyles = (dominance: number) => {
     if (dominance > 50) {
