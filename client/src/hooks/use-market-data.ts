@@ -72,8 +72,8 @@ export function useMarketData() {
             asks: sortedAsks,
             timestamp: newData.timestamp
           },
-          currentPrice: sortedBids[0] && sortedAsks[0] 
-            ? (parseFloat(sortedBids[0].Price) + parseFloat(sortedAsks[0].Price)) / 2 
+          currentPrice: sortedBids[0] && sortedAsks[0]
+            ? (parseFloat(sortedBids[0].Price) + parseFloat(sortedAsks[0].Price)) / 2
             : prev.currentPrice
         }));
         setError(false);
@@ -99,7 +99,7 @@ export function useMarketData() {
       return [];
     }
 
-    // Procesar bids y asks directamente sin agrupación
+    // Primero recolectar todos los niveles
     const allLevels: Array<{ price: number; volume: number; side: 'bid' | 'ask' }> = [
       ...data.orderbook.bids.map(bid => ({
         price: parseFloat(bid.Price),
@@ -116,11 +116,25 @@ export function useMarketData() {
     // Ordenar por precio de mayor a menor
     allLevels.sort((a, b) => b.price - a.price);
 
-    // Encontrar el volumen máximo para normalización
-    const maxVolume = Math.max(...allLevels.map(level => level.volume));
+    // Calcular precio medio actual para establecer el rango visible
+    const currentPrice = data.currentPrice ||
+      (allLevels.length > 0 ? (allLevels[0].price + allLevels[allLevels.length - 1].price) / 2 : 0);
 
-    // Normalizar volúmenes
-    const normalizedLevels = allLevels.map(level => ({
+    const visibleRange = {
+      min: currentPrice * 0.85,
+      max: currentPrice * 1.15
+    };
+
+    // Filtrar niveles dentro del rango visible
+    const visibleLevels = allLevels.filter(
+      level => level.price >= visibleRange.min && level.price <= visibleRange.max
+    );
+
+    // Calcular el volumen máximo solo de los niveles visibles
+    const maxVolume = Math.max(...visibleLevels.map(level => level.volume));
+
+    // Normalizar usando solo el máximo de los niveles visibles
+    const normalizedLevels = visibleLevels.map(level => ({
       ...level,
       normalizedVolume: level.volume / maxVolume
     }));
@@ -130,17 +144,18 @@ export function useMarketData() {
       bidLevels: normalizedLevels.filter(v => v.side === 'bid').length,
       askLevels: normalizedLevels.filter(v => v.side === 'ask').length,
       sampleBid: normalizedLevels.find(v => v.side === 'bid'),
-      sampleAsk: normalizedLevels.find(v => v.side === 'ask')
+      sampleAsk: normalizedLevels.find(v => v.side === 'ask'),
+      visibleRange
     });
 
     return normalizedLevels;
-  }, [data.orderbook]);
+  }, [data.orderbook, data.currentPrice]);
 
-  return { 
-    data, 
-    volumeProfile, 
-    error, 
+  return {
+    data,
+    volumeProfile,
+    error,
     connectionState,
-    reconnect 
+    reconnect
   };
 }

@@ -58,13 +58,25 @@ const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], 
 };
 
 // Optimizado con memorización de resultados
-const groupVolumeData = (data: Props['data'], groupSize: number) => {
-  const cacheKey = JSON.stringify({ groupSize, length: data.length });
+const groupVolumeData = (data: Props['data'], groupSize: number, visibleRange: {min: number, max: number}) => {
+  const cacheKey = JSON.stringify({ groupSize, length: data.length, range: visibleRange });
   if (volumeDataCache.has(data) && volumeDataCache.get(data).key === cacheKey) {
     return volumeDataCache.get(data).value;
   }
 
-  if (groupSize === 1) return data;
+  if (groupSize === 1) {
+    // Filtrar y normalizar los datos dentro del rango visible
+    const visibleData = data.filter(d => d.price >= visibleRange.min && d.price <= visibleRange.max);
+    const maxVolume = Math.max(...visibleData.map(item => item.volume));
+
+    const normalizedData = visibleData.map(item => ({
+      ...item,
+      normalizedVolume: item.volume / maxVolume
+    }));
+
+    volumeDataCache.set(data, { key: cacheKey, value: normalizedData });
+    return normalizedData;
+  }
 
   const groups = new Map<number, {
     volume: number;
@@ -73,10 +85,12 @@ const groupVolumeData = (data: Props['data'], groupSize: number) => {
     count: number;
   }>();
 
-  // Procesamiento por lotes para mejor rendimiento
+  // Procesar solo los datos dentro del rango visible
+  const visibleData = data.filter(d => d.price >= visibleRange.min && d.price <= visibleRange.max);
+
   const batchSize = 100;
-  for (let i = 0; i < data.length; i += batchSize) {
-    const batch = data.slice(i, i + batchSize);
+  for (let i = 0; i < visibleData.length; i += batchSize) {
+    const batch = visibleData.slice(i, i + batchSize);
     batch.forEach(item => {
       const roundedPrice = Math.round(item.price / (10 * groupSize)) * (10 * groupSize);
       const existing = groups.get(roundedPrice);
@@ -132,12 +146,7 @@ export const VolumeProfile = ({
     const groupSize = parseInt(grouping);
     if (!data || data.length === 0) return [];
 
-    const filteredData = data.filter(d => 
-      d.price >= visiblePriceRange.min && 
-      d.price <= visiblePriceRange.max
-    );
-
-    return groupVolumeData(filteredData, groupSize);
+    return groupVolumeData(data, groupSize, visiblePriceRange);
   }, [data, grouping, visiblePriceRange]);
 
   // Memoizar los datos procesados
