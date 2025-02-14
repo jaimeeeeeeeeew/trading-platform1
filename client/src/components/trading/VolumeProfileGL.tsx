@@ -41,6 +41,10 @@ const vertexShader = `
   uniform float yScale;
   uniform float yOffset;
   uniform float viewportHeight;
+  uniform float minY;
+  uniform float maxY;
+  uniform float priceMin;
+  uniform float priceMax;
 
   varying float vSide;
   varying float vVolume;
@@ -52,6 +56,10 @@ const vertexShader = `
     // Invierte la coordenada X para que crezca hacia la izquierda
     float x = -position.x;
     float y = position.y;
+
+    // Mapear el precio al rango de coordenadas del gráfico principal
+    y = (y - priceMin) / (priceMax - priceMin);
+    y = mix(maxY, minY, y) / viewportHeight;
 
     // Escalar y trasladar manteniendo proporciones
     x = (x * scale.x + translate.x);
@@ -71,7 +79,7 @@ const fragmentShader = `
 
   void main() {
     vec3 color = vSide > 0.5 ? askColor : bidColor;
-    float alpha = max(opacity * vVolume, 0.2); // Opacidad mínima de 0.2
+    float alpha = max(opacity * vVolume, 0.2);
     gl_FragColor = vec4(color, alpha);
   }
 `;
@@ -94,7 +102,8 @@ export const VolumeProfileGL = ({
     console.log('Processing WebGL data:', {
       dataLength: data.length,
       priceRange: visiblePriceRange,
-      currentPrice
+      currentPrice,
+      coordinates: priceCoordinates
     });
 
     const groupSize = parseInt(grouping);
@@ -151,24 +160,24 @@ export const VolumeProfileGL = ({
       const sides: number[] = [];
       const volumes: number[] = [];
 
-      // Ajustar el ancho de las barras - aumentado significativamente
-      const barWidth = 0.2; // Ancho base aumentado de 0.02 a 0.2
+      // Ajustar el ancho de las barras
+      const barWidth = 0.2; // Ancho base
       const barSpacing = barWidth * 0.1; // 10% del ancho como espacio
 
-      processedData.forEach((bar, index) => {
-        const normalizedY = (bar.price - visiblePriceRange.min) / 
-          (visiblePriceRange.max - visiblePriceRange.min);
+      processedData.forEach((bar) => {
+        // Usar el precio directamente para la posición Y
+        const y = bar.price;
 
-        // Posicionar barras - ahora empezando desde 0 (izquierda)
+        // Posicionar barras desde la izquierda
         const xStart = 0;
-        const volumeWidth = bar.normalizedVolume * barWidth * 2; // Duplicar el ancho máximo
+        const volumeWidth = bar.normalizedVolume * barWidth * 2;
 
-        // Crear vértices para la barra con mayor altura
+        // Crear vértices para la barra
         positions.push(
-          xStart, normalizedY,                    // Inicio
-          xStart + volumeWidth, normalizedY,      // Fin
-          xStart, normalizedY + 0.003,            // Inicio superior (altura triplicada)
-          xStart + volumeWidth, normalizedY + 0.003 // Fin superior
+          xStart, y,                    // Inicio
+          xStart + volumeWidth, y,      // Fin
+          xStart, y + (bar.price * 0.0001), // Inicio superior con altura proporcional
+          xStart + volumeWidth, y + (bar.price * 0.0001)  // Fin superior
         );
 
         // Side y volumen para cada vértice
@@ -190,11 +199,15 @@ export const VolumeProfileGL = ({
         },
         uniforms: {
           aspectRatio: width / height,
-          scale: [3.0, 1.0],    // Escala horizontal aumentada (de 2.0 a 3.0)
-          translate: [0.95, 0],   // Mover más cerca del borde (de 0.8 a 0.95)
+          scale: [3.0, 1.0],
+          translate: [0.95, 0],
           yScale: height,
           yOffset: 0,
           viewportHeight: height,
+          minY: priceCoordinates.minY,
+          maxY: priceCoordinates.maxY,
+          priceMin: visiblePriceRange.min,
+          priceMax: visiblePriceRange.max,
           bidColor: [0.149, 0.65, 0.604],  // #26a69a
           askColor: [0.937, 0.325, 0.314],  // #ef5350
           opacity: 0.8
@@ -242,12 +255,12 @@ export const VolumeProfileGL = ({
     <div
       style={{
         position: 'absolute',
-        left: 0,  // Cambiado de 'right' a 'left'
+        left: 0,
         top: 0,
         width: `${width}px`,
         height: '100%',
         background: 'transparent',
-        borderRight: '1px solid rgba(255, 255, 255, 0.1)', // Cambiado de 'borderLeft' a 'borderRight'
+        borderRight: '1px solid rgba(255, 255, 255, 0.1)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -261,8 +274,7 @@ export const VolumeProfileGL = ({
         height={height * (window.devicePixelRatio || 1)}
         style={{
           width: `${width}px`,
-          height: `${height}px`,
-          border: '1px solid rgba(255, 255, 255, 0.1)' // Para debug
+          height: `${height}px`
         }}
       />
     </div>
