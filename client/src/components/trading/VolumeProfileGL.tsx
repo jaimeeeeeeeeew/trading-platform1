@@ -239,7 +239,7 @@ export const VolumeProfileGL = ({
     <div
       style={{
         position: 'absolute',
-        right: 0,
+        right: '65px',
         top: 0,
         width: `${width}px`,
         height: '100%',
