@@ -49,12 +49,12 @@ const vertexShader = `
     vSide = side;
     vVolume = volume;
 
-    // Ajustar coordenadas para el posicionamiento correcto
-    float x = position.x;
+    // Invierte la coordenada X para que crezca hacia la izquierda
+    float x = -position.x;
     float y = position.y;
 
     // Escalar y trasladar manteniendo proporciones
-    x = (x * scale.x + translate.x) * 0.3; // Reducir ancho total a 30%
+    x = (x * scale.x + translate.x);
     y = y * 2.0 - 1.0;
 
     gl_Position = vec4(x, y, 0, 1);
@@ -159,8 +159,8 @@ export const VolumeProfileGL = ({
         const normalizedY = (bar.price - visiblePriceRange.min) / 
           (visiblePriceRange.max - visiblePriceRange.min);
 
-        // Posicionar barras
-        const xStart = index * (barWidth + barSpacing);
+        // Posicionar barras - ahora empezando desde 0 (izquierda)
+        const xStart = 0;
         const volumeWidth = bar.normalizedVolume * barWidth; // Ancho proporcional al volumen
 
         // Crear vértices para la barra
@@ -191,7 +191,7 @@ export const VolumeProfileGL = ({
         uniforms: {
           aspectRatio: width / height,
           scale: [2.0, 1.0],    // Escala horizontal aumentada
-          translate: [0.5, 0],   // Mover a la derecha
+          translate: [0.8, 0],   // Mover a la izquierda (0.8 en lugar de -0.8 porque invertimos en el shader)
           yScale: height,
           yOffset: 0,
           viewportHeight: height,
@@ -242,12 +242,12 @@ export const VolumeProfileGL = ({
     <div
       style={{
         position: 'absolute',
-        right: 0,
+        left: 0,  // Cambiado de 'right' a 'left'
         top: 0,
         width: `${width}px`,
         height: '100%',
         background: 'transparent',
-        borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRight: '1px solid rgba(255, 255, 255, 0.1)', // Cambiado de 'borderLeft' a 'borderRight'
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
