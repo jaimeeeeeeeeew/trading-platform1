@@ -22,86 +22,69 @@ export function setupSocketServer(httpServer: HTTPServer) {
     path: '/trading-socket',
     cors: {
       origin: "*",
-      methods: ["GET", "POST", "OPTIONS"],
-      credentials: true,
-      allowedHeaders: ["*"]
+      methods: ["GET", "POST"],
+      credentials: true
     },
     allowEIO3: true,
-    pingTimeout: 120000,
-    pingInterval: 25000,
+    pingTimeout: 60000,      // Aumentado a 60 segundos
+    pingInterval: 25000,     // Reducido a 25 segundos
     transports: ['websocket'],
-    connectTimeout: 120000,
-    maxHttpBufferSize: 1e8
+    connectTimeout: 45000,   // Reducido a 45 segundos
+    maxHttpBufferSize: 1e8,
+    cleanupEmptyChildNamespaces: true
   });
 
   console.log('🎧 Socket.IO server initialized and listening...');
 
   io.on('connection', (socket) => {
+    let isProcessingMessage = false;
+    const messageQueue: any[] = [];
+
     console.log('🟢 New client connected - ID:', socket.id);
 
-    let messageBuffer: any[] = [];
-    let isReconnecting = false;
+    const processMessageQueue = async () => {
+      if (isProcessingMessage || messageQueue.length === 0) return;
+
+      isProcessingMessage = true;
+      const message = messageQueue.shift();
+
+      try {
+        if (message.type === 'orderbook_data') {
+          socket.broadcast.emit('orderbook_update', message.data);
+        } else if (message.type === 'market_data') {
+          socket.broadcast.emit('market_update', message.data);
+        }
+      } catch (error) {
+        console.error('Error processing message:', error);
+      } finally {
+        isProcessingMessage = false;
+        if (messageQueue.length > 0) {
+          setTimeout(processMessageQueue, 50); // Procesar siguiente mensaje después de 50ms
+        }
+      }
+    };
 
     socket.on('orderbook_data', (data: OrderbookData) => {
       try {
-        // Log summary con nuevos campos
-        console.log('📊 Received orderbook data:', {
-          timestamp: data.timestamp,
-          bids_count: data.bids?.length || 0,
-          asks_count: data.asks?.length || 0,
-          dominance: data.dominancePercentage,
-          btc_amount: data.btcAmount,
-          bids_total_range: data.bidsTotalInRange,
-          asks_total_range: data.asksTotalInRange
-        });
-
-        if (isReconnecting) {
-          messageBuffer.push({ type: 'orderbook_data', data });
-          return;
+        // Mantener el buffer de mensajes manejable
+        if (messageQueue.length > 50) {
+          messageQueue.length = 50; // Limitar a últimos 50 mensajes
         }
 
-        // Log de deltas
-        console.log('📈 Delta Information:', {
-          futures_long: data.futuresLongDeltas,
-          futures_short: data.futuresShortDeltas,
-          spot_long: data.spotLongDeltas,
-          spot_short: data.spotShortDeltas
-        });
+        messageQueue.push({ type: 'orderbook_data', data });
+        processMessageQueue();
 
-        if (data.bids?.length) {
-          console.log('📗 Top 5 Bids:');
-          data.bids.slice(0, 5).forEach((bid) => {
-            console.log(`   Price: ${bid.Price}, Volume: ${bid.Quantity}`);
-          });
-        }
-
-        if (data.asks?.length) {
-          console.log('📕 Top 5 Asks:');
-          data.asks.slice(0, 5).forEach((ask) => {
-            console.log(`   Price: ${ask.Price}, Volume: ${ask.Quantity}`);
-          });
-        }
-
-        socket.broadcast.emit('orderbook_update', data);
       } catch (error) {
-        console.error('Error processing orderbook data:', error);
+        console.error('Error queueing orderbook data:', error);
       }
     });
 
     socket.on('market_data', (data) => {
       try {
-        console.log('📈 Received market data:', data);
-
-        // Si está reconectando, almacenar en buffer
-        if (isReconnecting) {
-          messageBuffer.push({ type: 'market_data', data });
-          return;
-        }
-
-        // Broadcast the data to all connected clients except sender
-        socket.broadcast.emit('market_update', data);
+        messageQueue.push({ type: 'market_data', data });
+        processMessageQueue();
       } catch (error) {
-        console.error('Error processing market data:', error);
+        console.error('Error queueing market data:', error);
       }
     });
 
@@ -111,41 +94,35 @@ export function setupSocketServer(httpServer: HTTPServer) {
         reason
       });
 
-      if (reason === 'io server disconnect') {
-        // La desconexión fue iniciada por el servidor
-        socket.connect();
-      }
-    });
-
-    socket.on('reconnect', (attemptNumber) => {
-      console.log('🔄 Client reconnecting:', {
-        id: socket.id,
-        attempt: attemptNumber
-      });
-      isReconnecting = true;
-    });
-
-    socket.on('reconnect_failed', () => {
-      console.error('❌ Reconnection failed after all attempts');
-      messageBuffer = []; // Limpiar buffer
-      isReconnecting = false;
-    });
-
-    socket.on('reconnected', () => {
-      console.log('🔄 Client reconnected, processing buffered messages');
-      isReconnecting = false;
-
-      // Procesar mensajes almacenados en buffer
-      while (messageBuffer.length > 0) {
-        const msg = messageBuffer.shift();
-        if (msg) {
-          socket.broadcast.emit(`${msg.type}`, msg.data);
-        }
-      }
+      // Limpiar recursos
+      messageQueue.length = 0;
+      isProcessingMessage = false;
     });
 
     socket.on('error', (error) => {
       console.error('❌ Socket error:', socket.id, error);
+
+      // Intentar reconectar en caso de error
+      if (!socket.connected) {
+        socket.connect();
+      }
+    });
+
+    // Monitoreo de latencia
+    let lastPingTime = Date.now();
+
+    socket.on('ping', () => {
+      lastPingTime = Date.now();
+    });
+
+    socket.on('pong', () => {
+      const latency = Date.now() - lastPingTime;
+      if (latency > 1000) { // Si la latencia es mayor a 1 segundo
+        console.warn('⚠️ High latency detected:', {
+          socketId: socket.id,
+          latency: `${latency}ms`
+        });
+      }
     });
   });
 
