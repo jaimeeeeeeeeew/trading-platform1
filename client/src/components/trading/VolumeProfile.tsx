@@ -206,30 +206,6 @@ export const VolumeProfile = ({
         .attr('height', barHeight * 0.9)
         .attr('fill', '#ef5350')
         .attr('opacity', 0.9);
-
-      // Renderizar línea de precio actual
-      if (priceCoordinates.currentPrice && priceCoordinates.currentY) {
-        g.append('line')
-          .attr('class', 'price-line')
-          .attr('x1', -5)
-          .attr('x2', innerWidth)
-          .attr('y1', priceCoordinates.currentY - margin.top)
-          .attr('y2', priceCoordinates.currentY - margin.top)
-          .attr('stroke', '#ffffff')
-          .attr('stroke-width', 1.5)
-          .attr('stroke-dasharray', '2,2');
-
-        g.append('text')
-          .attr('class', 'current-price-label')
-          .attr('x', innerWidth + 5)
-          .attr('y', priceCoordinates.currentY - margin.top)
-          .attr('dy', '0.32em')
-          .attr('text-anchor', 'start')
-          .attr('fill', '#ffffff')
-          .attr('font-size', '11px')
-          .attr('font-weight', 'bold')
-          .text(priceCoordinates.currentPrice.toFixed(1));
-      }
     };
 
     const scheduleRender = () => {
