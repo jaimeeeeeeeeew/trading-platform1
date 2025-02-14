@@ -12,8 +12,8 @@ export const TrendAlert = ({ trend }: TrendAlertProps) => {
   useEffect(() => {
     if (trend) {
       setIsVisible(true);
-      const timer = setTimeout(() => setIsVisible(false), 5000);
-      return () => clearTimeout(timer);
+    } else {
+      setIsVisible(false);
     }
   }, [trend]);
 
