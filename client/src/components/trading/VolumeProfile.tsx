@@ -241,7 +241,7 @@ export const VolumeProfile = ({
     <div
       style={{
         position: 'absolute',
-        right: '65px',
+        right: '32px',
         top: 0,
         width: `${width}px`,
         height: '100%',
