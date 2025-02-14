@@ -886,15 +886,7 @@ const Chart = () => {
               />
             )}
             {activeIndicator === 'funding' && (
-              <div>
-                <SecondaryIndicator
-                  data={secondaryIndicators.fundingRate}
-                  timestamps={secondaryIndicators.timestamps}
-                  height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
-                  color="#26a69a"
-                  type="histogram"
-                />
-              </div>
+              <div />
             )}
             {activeIndicator === 'oi' && (
               <div>
