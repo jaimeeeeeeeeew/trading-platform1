@@ -40,7 +40,7 @@ class BinanceFundingService {
       }
 
       const data = await response.json();
-      
+
       // Transformar los datos al formato que necesitamos
       const fundingData: FundingRateData = {
         rates: data.map((item: any) => parseFloat(item.fundingRate) * 100), // Convertir a porcentaje
