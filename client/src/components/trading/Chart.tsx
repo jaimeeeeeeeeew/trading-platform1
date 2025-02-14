@@ -3,7 +3,7 @@ import { createChart, Time, ISeriesApi, CandlestickData } from 'lightweight-char
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { VolumeProfileGL } from './VolumeProfileGL';
+import { VolumeProfile } from './VolumeProfile';
 import { tradingViewService } from '@/lib/tradingview-service';
 import { useSocketIO } from '@/hooks/use-socket-io';
 import { useMarketData } from '@/hooks/use-market-data';
@@ -915,7 +915,7 @@ const Chart = () => {
               zIndex: 100
             }}
           >
-            <VolumeProfileGL
+            <VolumeProfile
               data={volumeProfileData}
               width={350}
               height={container.current.clientHeight}
