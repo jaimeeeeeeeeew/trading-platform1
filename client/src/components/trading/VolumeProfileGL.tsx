@@ -155,14 +155,14 @@ export const VolumeProfileGL = ({
 
       const regl = reglRef.current;
 
-      // Geometría base para una barra
+      // Geometría base para una barra (aumentada)
       const basePositions = [
-        -0.5, -0.02,
-        0.5, -0.02,
-        -0.5, 0.02,
-        -0.5, 0.02,
-        0.5, -0.02,
-        0.5, 0.02
+        -0.5, -0.1,  // Inferior izquierda
+        0.5, -0.1,   // Inferior derecha
+        -0.5, 0.1,   // Superior izquierda
+        -0.5, 0.1,   // Superior izquierda
+        0.5, -0.1,   // Inferior derecha
+        0.5, 0.1     // Superior derecha
       ];
 
       const instanceData = processedData.map(d => ({
@@ -198,8 +198,8 @@ export const VolumeProfileGL = ({
         },
 
         uniforms: {
-          scale: [2.0, 1.0], // Escala reducida para barras más visibles
-          translate: [0.7, 0], // Ajustado para mejor posicionamiento
+          scale: [4.0, 1.0],         // Escala aumentada
+          translate: [0.0, 0],       // Centrado
           viewportHeight: height,
           minY: priceCoordinates.minY,
           maxY: priceCoordinates.maxY,
@@ -207,7 +207,7 @@ export const VolumeProfileGL = ({
           priceMax: visiblePriceRange.max,
           bidColor: [0.149, 0.65, 0.604],
           askColor: [0.937, 0.325, 0.314],
-          opacity: 0.9 // Aumentada para mejor visibilidad
+          opacity: 0.9
         },
 
         count: 6,
