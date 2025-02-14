@@ -30,7 +30,6 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-// Shaders optimizados para renderizado horizontal
 const vertexShader = `
   precision mediump float;
   attribute vec2 position;
@@ -50,11 +49,13 @@ const vertexShader = `
     vSide = side;
     vVolume = volume;
 
-    // Transformar coordenadas del precio
+    // Ajustar la escala y posición para que las barras sean más visibles
+    float x = (position.x * scale.x + translate.x) * 2.0 - 1.0;
     float y = (position.y * yScale + yOffset) / viewportHeight * 2.0 - 1.0;
 
-    // Posicionar las barras horizontalmente a la derecha
-    float x = (position.x * scale.x + translate.x) * aspectRatio;
+    // Limitar las coordenadas al área visible
+    x = clamp(x, -1.0, 1.0);
+    y = clamp(y, -1.0, 1.0);
 
     gl_Position = vec4(x, y, 0, 1);
   }
@@ -70,7 +71,8 @@ const fragmentShader = `
 
   void main() {
     vec3 color = vSide > 0.5 ? askColor : bidColor;
-    float alpha = opacity * vVolume;
+    // Aumentar la opacidad mínima para asegurar visibilidad
+    float alpha = max(opacity * vVolume, 0.3);
     gl_FragColor = vec4(color, alpha);
   }
 `;
@@ -90,6 +92,13 @@ export const VolumeProfileGL = ({
   const processedData = useMemo(() => {
     if (!data || data.length === 0 || !priceCoordinates) return null;
 
+    console.log('Processing WebGL data:', {
+      dataLength: data.length,
+      priceRange: visiblePriceRange,
+      currentPrice,
+      priceCoords: priceCoordinates
+    });
+
     const groupSize = parseInt(grouping);
     const filteredData = data.filter(
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
@@ -101,119 +110,129 @@ export const VolumeProfileGL = ({
   useEffect(() => {
     if (!canvasRef.current || !processedData || processedData.length === 0 || !priceCoordinates) return;
 
-    // Initialize REGL if not already done
-    if (!reglRef.current) {
-      reglRef.current = REGL({
-        canvas: canvasRef.current,
-        attributes: { alpha: true, antialias: true }
-      });
-    }
+    try {
+      // Initialize REGL if not already done
+      if (!reglRef.current) {
+        reglRef.current = REGL({
+          canvas: canvasRef.current,
+          attributes: { 
+            alpha: true, 
+            antialias: true,
+            depth: true,
+            stencil: true
+          },
+          // Forzar el contexto WebGL
+          optionalExtensions: ['OES_standard_derivatives']
+        });
+      }
 
-    const regl = reglRef.current;
+      const regl = reglRef.current;
 
-    // Prepare vertex attributes
-    const positions: number[] = [];
-    const sides: number[] = [];
-    const volumes: number[] = [];
+      // Preparar datos de vértices
+      const positions: number[] = [];
+      const sides: number[] = [];
+      const volumes: number[] = [];
 
-    processedData.forEach(bar => {
-      const y = priceCoordinates ? (bar.price - visiblePriceRange.min) / 
-        (visiblePriceRange.max - visiblePriceRange.min) : 0;
+      const barWidth = 0.8 / processedData.length; // Ajustar ancho de barras
+      const barSpacing = 0.2 / processedData.length;
 
-      // Crear rectángulo horizontal
-      positions.push(
-        0, y,                            // Inicio de la barra
-        bar.normalizedVolume, y,         // Fin de la barra
-        0, y + 0.001,                    // Inicio de la barra (superior)
-        bar.normalizedVolume, y + 0.001  // Fin de la barra (superior)
-      );
+      processedData.forEach((bar, index) => {
+        const normalizedY = (bar.price - visiblePriceRange.min) / 
+          (visiblePriceRange.max - visiblePriceRange.min);
 
-      // Side (0 for bid, 1 for ask)
-      const sideValue = bar.side === 'ask' ? 1 : 0;
-      sides.push(sideValue, sideValue, sideValue, sideValue);
+        console.log('Bar data:', {
+          price: bar.price,
+          normalizedY,
+          volume: bar.normalizedVolume,
+          side: bar.side
+        });
 
-      // Volume for opacity
-      volumes.push(
-        bar.normalizedVolume,
-        bar.normalizedVolume,
-        bar.normalizedVolume,
-        bar.normalizedVolume
-      );
-    });
+        // Crear rectángulo para cada barra
+        const xStart = index * (barWidth + barSpacing);
+        const xEnd = xStart + barWidth;
 
-    // Create REGL command with proper TypeScript types
-    const drawBars = regl<{
-      aspectRatio: number;
-      scale: [number, number];
-      translate: [number, number];
-      yScale: number;
-      yOffset: number;
-      viewportHeight: number;
-      bidColor: [number, number, number];
-      askColor: [number, number, number];
-      opacity: number;
-    }>({
-      vert: vertexShader,
-      frag: fragmentShader,
-      attributes: {
-        position: positions,
-        side: sides,
-        volume: volumes
-      },
-      uniforms: {
-        aspectRatio: regl.prop<'aspectRatio'>('aspectRatio'),
-        scale: regl.prop<'scale'>('scale'),
-        translate: regl.prop<'translate'>('translate'),
-        yScale: regl.prop<'yScale'>('yScale'),
-        yOffset: regl.prop<'yOffset'>('yOffset'),
-        viewportHeight: regl.prop<'viewportHeight'>('viewportHeight'),
-        bidColor: regl.prop<'bidColor'>('bidColor'),
-        askColor: regl.prop<'askColor'>('askColor'),
-        opacity: regl.prop<'opacity'>('opacity')
-      },
-      count: positions.length / 2,
-      primitive: 'triangle strip',
-      blend: {
-        enable: true,
-        func: {
-          srcRGB: 'src alpha',
-          srcAlpha: 1,
-          dstRGB: 'one minus src alpha',
-          dstAlpha: 1
+        positions.push(
+          xStart, normalizedY,           // Inicio barra
+          xEnd, normalizedY,             // Fin barra
+          xStart, normalizedY + 0.002,   // Inicio superior
+          xEnd, normalizedY + 0.002      // Fin superior
+        );
+
+        // Side y volumen para cada vértice
+        const sideValue = bar.side === 'ask' ? 1 : 0;
+        for (let i = 0; i < 4; i++) {
+          sides.push(sideValue);
+          volumes.push(bar.normalizedVolume);
         }
-      }
-    });
-
-    // Render frame
-    regl.frame(() => {
-      regl.clear({
-        color: [0, 0, 0, 0],
-        depth: 1
       });
 
-      // Calcular escalas y offsets basados en las coordenadas de precio
-      const yScale = height / (priceCoordinates.maxY - priceCoordinates.minY);
-      const yOffset = priceCoordinates.currentY - (currentPrice - visiblePriceRange.min) * yScale;
-
-      drawBars({
-        aspectRatio: width / height,
-        scale: [0.8, 1],
-        translate: [0.2, 0],
-        yScale,
-        yOffset,
-        viewportHeight: height,
-        bidColor: [0.149, 0.65, 0.604], // #26a69a
-        askColor: [0.937, 0.325, 0.314], // #ef5350
-        opacity: 0.9
+      // Crear comando REGL con tipos
+      const drawBars = regl({
+        vert: vertexShader,
+        frag: fragmentShader,
+        attributes: {
+          position: positions,
+          side: sides,
+          volume: volumes
+        },
+        uniforms: {
+          aspectRatio: width / height,
+          scale: [0.9, 1],              // Aumentar escala horizontal
+          translate: [0.05, 0],         // Mover ligeramente a la derecha
+          yScale: height,
+          yOffset: 0,
+          viewportHeight: height,
+          bidColor: [0.149, 0.65, 0.604],  // #26a69a
+          askColor: [0.937, 0.325, 0.314],  // #ef5350
+          opacity: 0.9
+        },
+        count: positions.length / 2,
+        primitive: 'triangle strip',
+        blend: {
+          enable: true,
+          func: {
+            srcRGB: 'src alpha',
+            srcAlpha: 1,
+            dstRGB: 'one minus src alpha',
+            dstAlpha: 1
+          }
+        },
+        depth: {
+          enable: true,
+          mask: true,
+          func: 'less'
+        }
       });
-    });
 
-    return () => {
-      if (reglRef.current) {
-        reglRef.current.destroy();
-        reglRef.current = null;
-      }
-    };
+      // Renderizar frame
+      regl.frame(() => {
+        regl.clear({
+          color: [0, 0, 0, 0],
+          depth: 1
+        });
+
+        drawBars({
+          aspectRatio: width / height,
+          scale: [0.9, 1],
+          translate: [0.05, 0],
+          yScale: height,
+          yOffset: 0,
+          viewportHeight: height,
+          bidColor: [0.149, 0.65, 0.604],
+          askColor: [0.937, 0.325, 0.314],
+          opacity: 0.9
+        });
+      });
+
+      return () => {
+        if (reglRef.current) {
+          reglRef.current.destroy();
+          reglRef.current = null;
+        }
+      };
+    } catch (error) {
+      console.error('Error in WebGL rendering:', error);
+    }
   }, [processedData, width, height, visiblePriceRange, priceCoordinates, currentPrice]);
 
   return (
@@ -239,7 +258,8 @@ export const VolumeProfileGL = ({
         height={height * (window.devicePixelRatio || 1)}
         style={{
           width: `${width}px`,
-          height: `${height}px`
+          height: `${height}px`,
+          border: '1px solid rgba(255, 255, 255, 0.1)' // Temporal para debug
         }}
       />
     </div>
