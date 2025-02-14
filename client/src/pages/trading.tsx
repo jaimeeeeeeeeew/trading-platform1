@@ -4,10 +4,12 @@ import RiskCalculator from '@/components/trading/RiskCalculator';
 import { useAuth } from '@/hooks/use-auth';
 import { useMarketData } from '@/hooks/use-market-data';
 import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
 export default function Trading() {
   const { user } = useAuth();
   const { data: marketData, error: connectionError } = useMarketData();
+  const [dominancePercentage, setDominancePercentage] = useState(5); // Default 5%
 
   if (!user || connectionError) {
     return (
@@ -32,12 +34,46 @@ export default function Trading() {
     delta_spot: marketData?.delta_spot || { positivo: 0, negativo: 0 }
   };
 
-  const dominanceData = {
-    bidsTotalInRange: marketData?.orderbook?.bidsTotalInRange || 0,
-    asksTotalInRange: marketData?.orderbook?.asksTotalInRange || 0,
-    dominancePercentage: marketData?.orderbook?.dominancePercentage || 50,
-    btcAmount: marketData?.orderbook?.btcAmount || 0
+  // Calcular los datos de dominancia basados en el orderbook y el porcentaje seleccionado
+  const calculateDominanceData = () => {
+    if (!marketData?.orderbook?.bids || !marketData?.orderbook?.asks) {
+      return {
+        bidsTotalInRange: 0,
+        asksTotalInRange: 0,
+        dominancePercentage: 50,
+        btcAmount: 0
+      };
+    }
+
+    const currentMidPrice = (
+      parseFloat(marketData.orderbook.bids[0]?.Price || '0') + 
+      parseFloat(marketData.orderbook.asks[0]?.Price || '0')
+    ) / 2;
+
+    const rangePriceDistance = currentMidPrice * (dominancePercentage / 100);
+    const rangeMinPrice = currentMidPrice - rangePriceDistance;
+    const rangeMaxPrice = currentMidPrice + rangePriceDistance;
+
+    const bidsInRange = marketData.orderbook.bids
+      .filter(bid => parseFloat(bid.Price) >= rangeMinPrice)
+      .reduce((sum, bid) => sum + parseFloat(bid.Quantity), 0);
+
+    const asksInRange = marketData.orderbook.asks
+      .filter(ask => parseFloat(ask.Price) <= rangeMaxPrice)
+      .reduce((sum, ask) => sum + parseFloat(ask.Quantity), 0);
+
+    const totalVolumeInRange = bidsInRange + asksInRange;
+    const calculatedDominancePercentage = totalVolumeInRange === 0 ? 50 : (bidsInRange / totalVolumeInRange) * 100;
+
+    return {
+      bidsTotalInRange: bidsInRange,
+      asksTotalInRange: asksInRange,
+      dominancePercentage: calculatedDominancePercentage,
+      btcAmount: Math.floor(totalVolumeInRange)
+    };
   };
+
+  const dominanceData = calculateDominanceData();
 
   return (
     <div className="flex h-screen bg-background">
@@ -51,11 +87,8 @@ export default function Trading() {
               metrics={metricsData}
               className="h-full"
               dominanceData={dominanceData}
-              dominancePercentage={5}
-              onDominancePercentageChange={(value) => {
-                // TODO: Implementar la actualización del porcentaje
-                console.log('Nuevo porcentaje de dominancia:', value);
-              }}
+              dominancePercentage={dominancePercentage}
+              onDominancePercentageChange={setDominancePercentage}
             />
           </div>
           <div className="flex-1">
