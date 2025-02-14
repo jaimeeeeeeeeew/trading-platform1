@@ -50,12 +50,12 @@ export default function SecondaryIndicator({
     if (type === 'histogram') {
       console.log('📊 Creating histogram series');
       series = chart.addHistogramSeries({
-        color: color,
         priceFormat: {
-          type: 'price',
-          precision: 6,
-          minMove: 0.000001,
+          type: 'percent',
+          precision: 4,
+          minMove: 0.0001,
         },
+        color: color
       });
     } else {
       console.log('📈 Creating line series');

@@ -888,15 +888,8 @@ const Chart = () => {
             {activeIndicator === 'funding' && (
               <div className="w-full h-full">
                 <SecondaryIndicator
-                  data={[0.01, -0.02, 0.015, -0.01, 0.02, -0.015]} // Datos de prueba
-                  timestamps={[
-                    Date.now() - 5000000,
-                    Date.now() - 4000000,
-                    Date.now() - 3000000,
-                    Date.now() - 2000000,
-                    Date.now() - 1000000,
-                    Date.now()
-                  ]}
+                  data={secondaryIndicators.fundingRate}
+                  timestamps={secondaryIndicators.timestamps}
                   height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
                   color="#26a69a"
                   type="histogram"

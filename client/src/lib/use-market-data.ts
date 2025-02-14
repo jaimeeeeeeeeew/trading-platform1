@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSocketIO } from '@/hooks/use-socket-io';
+import { binanceFundingService } from './binance-funding-service';
 
 interface OrderbookData {
   bids: Array<{
@@ -62,7 +63,17 @@ export function useMarketData() {
   useEffect(() => {
     if (!socket) return;
 
-    console.log('Setting up orderbook listeners...');
+    console.log('Setting up orderbook and funding rate listeners...');
+
+    // Cargar datos históricos del funding rate
+    binanceFundingService.getHistoricalFundingRate().then((fundingData) => {
+      socket.emit('funding_rate', fundingData);
+    });
+
+    // Suscribirse a actualizaciones del funding rate
+    binanceFundingService.subscribeToFundingRate((fundingData) => {
+      socket.emit('funding_rate', fundingData);
+    });
 
     socket.on('orderbook_update', (newData: OrderbookData) => {
       console.log('📊 Received orderbook update:', {
@@ -115,6 +126,7 @@ export function useMarketData() {
 
     return () => {
       socket.off('orderbook_update');
+      binanceFundingService.unsubscribe();
     };
   }, [socket, toast]);
 
