@@ -25,12 +25,16 @@ export const DominanceControl = ({
 
   // Efecto para actualizar la tendencia basada en la dominancia
   useEffect(() => {
-    // Invertimos la lógica: más compras = BAJISTA, más ventas = ALCISTA
-    if (bidsTotalInRange > asksTotalInRange) {
+    // Verificar si hay el doble o más de compras que de ventas
+    if (bidsTotalInRange >= asksTotalInRange * 2) {
       setTrend('BAJISTA');
-    } else if (asksTotalInRange > bidsTotalInRange) {
+    } 
+    // Verificar si hay el doble o más de ventas que de compras
+    else if (asksTotalInRange >= bidsTotalInRange * 2) {
       setTrend('ALCISTA');
-    } else {
+    } 
+    // Si no se cumple ninguna condición, no mostrar tendencia
+    else {
       setTrend(null);
     }
   }, [bidsTotalInRange, asksTotalInRange]);
