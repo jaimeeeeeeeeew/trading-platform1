@@ -30,11 +30,8 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-// Vertex shader modificado para barras rectangulares
 const vertexShader = `
   precision mediump float;
-
-  // Atributos base para la geometría de la barra
   attribute vec2 basePosition;
   attribute float instancePrice;
   attribute float instanceVolume;
@@ -47,6 +44,7 @@ const vertexShader = `
   uniform float priceMax;
   uniform vec2 scale;
   uniform vec2 translate;
+  uniform float maxVolume;
 
   varying float vSide;
   varying float vVolume;
@@ -55,15 +53,15 @@ const vertexShader = `
     vSide = instanceSide;
     vVolume = instanceVolume;
 
-    // Ajustar el tamaño base de la barra
+    // Ajustar el ancho de las barras según el volumen normalizado
     vec2 position = basePosition;
-    position.x *= (instanceVolume * 1.2); // Factor de ancho para las barras
+    float normalizedWidth = (instanceVolume / maxVolume) * 0.8; // Reducir el factor a 0.8 para barras más delgadas
+    position.x *= normalizedWidth;
 
     float normalizedPrice = (instancePrice - priceMin) / (priceMax - priceMin);
     float screenY = minY + (normalizedPrice * (maxY - minY));
     float y = ((viewportHeight - screenY) / viewportHeight) * 2.0 - 1.0;
 
-    // Ajustar la posición X para las barras
     float x = position.x * scale.x + translate.x;
 
     gl_Position = vec4(x, y + position.y * scale.y, 0, 1);
@@ -80,9 +78,8 @@ const fragmentShader = `
 
   void main() {
     vec3 color = vSide > 0.5 ? askColor : bidColor;
-    // Aumentar la opacidad mínima para mejor visibilidad
-    float alpha = max(opacity * vVolume, 0.4);
-    gl_FragColor = vec4(color, alpha);
+    float dynamicOpacity = min(vVolume + 0.3, 0.85); // Aumentar opacidad mínima pero mantener un máximo
+    gl_FragColor = vec4(color, dynamicOpacity);
   }
 `;
 
@@ -103,31 +100,30 @@ export const VolumeProfileGL = ({
     const groupSize = parseInt(grouping);
     const groupedData = new Map();
 
-    // Filtrar y agrupar datos
-    data
-      .filter(d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max)
-      .forEach(item => {
-        const key = Math.floor(item.price / groupSize) * groupSize;
-        if (!groupedData.has(key)) {
-          groupedData.set(key, {
-            price: key,
-            volume: 0,
-            side: item.side
-          });
-        }
-        const group = groupedData.get(key);
-        group.volume += item.volume;
-      });
+    // Filtrar datos dentro del rango visible
+    const visibleData = data.filter(d => 
+      d.price >= visiblePriceRange.min && 
+      d.price <= visiblePriceRange.max
+    );
+
+    // Agrupar datos
+    visibleData.forEach(item => {
+      const key = Math.floor(item.price / groupSize) * groupSize;
+      if (!groupedData.has(key)) {
+        groupedData.set(key, {
+          price: key,
+          volume: 0,
+          side: item.side
+        });
+      }
+      const group = groupedData.get(key);
+      group.volume += item.volume;
+    });
 
     const result = Array.from(groupedData.values());
-    const maxVolume = Math.max(...result.map(d => d.volume));
 
-    console.log('Datos procesados:', {
-      totalBars: result.length,
-      maxVolume,
-      sampleBar: result[0],
-      priceRange: visiblePriceRange
-    });
+    // Encontrar el volumen máximo dentro del rango visible
+    const maxVolume = Math.max(...result.map(d => d.volume));
 
     return result.map(d => ({
       ...d,
@@ -153,6 +149,7 @@ export const VolumeProfileGL = ({
       }
 
       const regl = reglRef.current;
+      const maxVolume = Math.max(...processedData.map(d => d.volume));
 
       // Geometría base para una barra rectangular
       const basePositions = [
@@ -169,12 +166,6 @@ export const VolumeProfileGL = ({
         volume: d.normalizedVolume,
         side: d.side === 'ask' ? 1 : 0
       }));
-
-      console.log('Instance data:', {
-        numInstances: instanceData.length,
-        firstInstance: instanceData[0],
-        lastInstance: instanceData[instanceData.length - 1]
-      });
 
       const drawBars = regl({
         vert: vertexShader,
@@ -197,16 +188,17 @@ export const VolumeProfileGL = ({
         },
 
         uniforms: {
-          scale: [3.0, 1.0],        // Escala ajustada para barras
-          translate: [-0.5, 0],     // Centrado ajustado
+          scale: [2.0, 1.0],        // Escala ajustada para barras más visibles
+          translate: [-0.7, 0],     // Ajuste de posición
           viewportHeight: height,
           minY: priceCoordinates.minY,
           maxY: priceCoordinates.maxY,
           priceMin: visiblePriceRange.min,
           priceMax: visiblePriceRange.max,
+          maxVolume: maxVolume,
           bidColor: [0.149, 0.65, 0.604],  // Color verde para compras
           askColor: [0.937, 0.325, 0.314], // Color rojo para ventas
-          opacity: 0.85                     // Opacidad ajustada
+          opacity: 0.85                     // Opacidad base
         },
 
         count: 6,
