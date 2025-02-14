@@ -30,7 +30,7 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-// Vertex shader modificado para instancing con mejor visibilidad
+// Vertex shader modificado para barras rectangulares
 const vertexShader = `
   precision mediump float;
 
@@ -57,14 +57,13 @@ const vertexShader = `
 
     // Ajustar el tamaño base de la barra
     vec2 position = basePosition;
-    // Aumentar el ancho base de las barras
-    position.x *= (instanceVolume * 1.5); // Multiplicador de ancho aumentado
+    position.x *= (instanceVolume * 1.2); // Factor de ancho para las barras
 
     float normalizedPrice = (instancePrice - priceMin) / (priceMax - priceMin);
     float screenY = minY + (normalizedPrice * (maxY - minY));
     float y = ((viewportHeight - screenY) / viewportHeight) * 2.0 - 1.0;
 
-    // Ajustar la posición X para mejor visibilidad
+    // Ajustar la posición X para las barras
     float x = position.x * scale.x + translate.x;
 
     gl_Position = vec4(x, y + position.y * scale.y, 0, 1);
@@ -155,14 +154,14 @@ export const VolumeProfileGL = ({
 
       const regl = reglRef.current;
 
-      // Geometría base para una barra (aumentada)
+      // Geometría base para una barra rectangular
       const basePositions = [
-        -0.5, -0.1,  // Inferior izquierda
-        0.5, -0.1,   // Inferior derecha
-        -0.5, 0.1,   // Superior izquierda
-        -0.5, 0.1,   // Superior izquierda
-        0.5, -0.1,   // Inferior derecha
-        0.5, 0.1     // Superior derecha
+        -0.5, -0.05,  // Inferior izquierda
+        0.5, -0.05,   // Inferior derecha
+        -0.5, 0.05,   // Superior izquierda
+        -0.5, 0.05,   // Superior izquierda
+        0.5, -0.05,   // Inferior derecha
+        0.5, 0.05     // Superior derecha
       ];
 
       const instanceData = processedData.map(d => ({
@@ -198,16 +197,16 @@ export const VolumeProfileGL = ({
         },
 
         uniforms: {
-          scale: [4.0, 1.0],         // Escala aumentada
-          translate: [0.0, 0],       // Centrado
+          scale: [3.0, 1.0],        // Escala ajustada para barras
+          translate: [-0.5, 0],     // Centrado ajustado
           viewportHeight: height,
           minY: priceCoordinates.minY,
           maxY: priceCoordinates.maxY,
           priceMin: visiblePriceRange.min,
           priceMax: visiblePriceRange.max,
-          bidColor: [0.149, 0.65, 0.604],
-          askColor: [0.937, 0.325, 0.314],
-          opacity: 0.9
+          bidColor: [0.149, 0.65, 0.604],  // Color verde para compras
+          askColor: [0.937, 0.325, 0.314], // Color rojo para ventas
+          opacity: 0.85                     // Opacidad ajustada
         },
 
         count: 6,
