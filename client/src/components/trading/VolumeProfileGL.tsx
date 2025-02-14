@@ -49,13 +49,13 @@ const vertexShader = `
     vSide = side;
     vVolume = volume;
 
-    // Modificar el cálculo para hacer las barras más anchas y visibles
-    float x = position.x * scale.x + translate.x;
+    // Ajustar coordenadas para el posicionamiento correcto
+    float x = position.x;
     float y = position.y;
 
-    // Expandir el rango de coordenadas para hacer las barras más visibles
-    x = (x * 2.0 - 1.0) * 0.8; // Reducir a 80% del ancho para dejar margen
-    y = (y * 2.0 - 1.0);
+    // Escalar y trasladar manteniendo proporciones
+    x = (x * scale.x + translate.x) * 0.3; // Reducir ancho total a 30%
+    y = y * 2.0 - 1.0;
 
     gl_Position = vec4(x, y, 0, 1);
   }
@@ -71,8 +71,7 @@ const fragmentShader = `
 
   void main() {
     vec3 color = vSide > 0.5 ? askColor : bidColor;
-    // Aumentar la opacidad base para asegurar visibilidad
-    float alpha = max(opacity * vVolume, 0.4);
+    float alpha = max(opacity * vVolume, 0.2); // Opacidad mínima de 0.2
     gl_FragColor = vec4(color, alpha);
   }
 `;
@@ -103,7 +102,7 @@ export const VolumeProfileGL = ({
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
     );
 
-    // Agrupar datos para reducir el número de barras
+    // Agrupar datos
     const groupedData = new Map();
     filteredData.forEach(item => {
       const key = Math.floor(item.price / groupSize) * groupSize;
@@ -120,7 +119,7 @@ export const VolumeProfileGL = ({
 
     const result = Array.from(groupedData.values());
 
-    // Normalizar volúmenes después de agrupar
+    // Normalizar volúmenes
     const maxVolume = Math.max(...result.map(d => d.volume));
     return result.map(d => ({
       ...d,
@@ -133,7 +132,6 @@ export const VolumeProfileGL = ({
     if (!canvasRef.current || !processedData || processedData.length === 0 || !priceCoordinates) return;
 
     try {
-      // Initialize REGL
       if (!reglRef.current) {
         reglRef.current = REGL({
           canvas: canvasRef.current,
@@ -142,38 +140,35 @@ export const VolumeProfileGL = ({
             antialias: true,
             depth: true,
             stencil: true
-          },
-          optionalExtensions: ['OES_standard_derivatives']
+          }
         });
       }
 
       const regl = reglRef.current;
 
-      // Preparar datos de vértices con barras más anchas
+      // Preparar datos de vértices
       const positions: number[] = [];
       const sides: number[] = [];
       const volumes: number[] = [];
 
-      // Aumentar el ancho de las barras
-      const barWidth = 1.0 / processedData.length; // Usar todo el ancho disponible
-      const barSpacing = barWidth * 0.1; // 10% de espacio entre barras
+      // Ajustar el ancho de las barras
+      const barWidth = 0.02; // Ancho base más pequeño
+      const barSpacing = barWidth * 0.2; // 20% del ancho como espacio
 
       processedData.forEach((bar, index) => {
-        // Normalizar precio al rango [0,1]
         const normalizedY = (bar.price - visiblePriceRange.min) / 
           (visiblePriceRange.max - visiblePriceRange.min);
 
-        // Crear rectángulo para cada barra
-        const xStart = index * (barWidth - barSpacing);
-        const xEnd = xStart + (barWidth - barSpacing);
-        const volumeWidth = bar.normalizedVolume;
+        // Posicionar barras
+        const xStart = index * (barWidth + barSpacing);
+        const volumeWidth = bar.normalizedVolume * barWidth; // Ancho proporcional al volumen
 
-        // Vertices para la barra (usando triangle strip)
+        // Crear vértices para la barra
         positions.push(
-          xStart, normalizedY,              // Inicio barra
-          xStart + volumeWidth, normalizedY, // Fin barra con ancho proporcional al volumen
-          xStart, normalizedY + 0.005,      // Inicio superior (altura aumentada)
-          xStart + volumeWidth, normalizedY + 0.005 // Fin superior
+          xStart, normalizedY,                    // Inicio
+          xStart + volumeWidth, normalizedY,      // Fin
+          xStart, normalizedY + 0.001,            // Inicio superior
+          xStart + volumeWidth, normalizedY + 0.001 // Fin superior
         );
 
         // Side y volumen para cada vértice
@@ -195,14 +190,14 @@ export const VolumeProfileGL = ({
         },
         uniforms: {
           aspectRatio: width / height,
-          scale: [1.5, 1],              // Aumentar escala horizontal
-          translate: [0.3, 0],          // Mover más a la derecha
+          scale: [2.0, 1.0],    // Escala horizontal aumentada
+          translate: [0.5, 0],   // Mover a la derecha
           yScale: height,
           yOffset: 0,
           viewportHeight: height,
           bidColor: [0.149, 0.65, 0.604],  // #26a69a
           askColor: [0.937, 0.325, 0.314],  // #ef5350
-          opacity: 0.9
+          opacity: 0.8
         },
         count: positions.length / 2,
         primitive: 'triangle strip',
@@ -267,7 +262,7 @@ export const VolumeProfileGL = ({
         style={{
           width: `${width}px`,
           height: `${height}px`,
-          border: '1px solid rgba(255, 255, 255, 0.1)' // Temporal para debug
+          border: '1px solid rgba(255, 255, 255, 0.1)' // Para debug
         }}
       />
     </div>
