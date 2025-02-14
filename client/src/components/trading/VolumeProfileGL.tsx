@@ -55,11 +55,15 @@ const vertexShader = `
 
     // Invierte la coordenada X para que crezca hacia la izquierda
     float x = -position.x;
-    float y = position.y;
 
     // Mapear el precio al rango de coordenadas del gráfico principal
-    y = (y - priceMin) / (priceMax - priceMin);
-    y = mix(maxY, minY, y) / viewportHeight;
+    float y = position.y;
+    float priceRange = priceMax - priceMin;
+    float coordRange = maxY - minY;
+
+    // Convertir el precio a coordenada Y usando la misma escala que el gráfico principal
+    y = minY + (((y - priceMin) / priceRange) * coordRange);
+    y = y / viewportHeight;
 
     // Escalar y trasladar manteniendo proporciones
     x = (x * scale.x + translate.x);
@@ -112,7 +116,6 @@ export const VolumeProfileGL = ({
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
     );
 
-    // Agrupar datos para reducir barras
     const groupedData = new Map();
     filteredData.forEach(item => {
       const key = Math.floor(item.price / groupSize) * groupSize;
@@ -128,9 +131,8 @@ export const VolumeProfileGL = ({
     });
 
     const result = Array.from(groupedData.values());
-
-    // Normalizar volúmenes
     const maxVolume = Math.max(...result.map(d => d.volume));
+
     return result.map(d => ({
       ...d,
       normalizedVolume: d.volume / maxVolume
@@ -156,26 +158,25 @@ export const VolumeProfileGL = ({
 
       const regl = reglRef.current;
 
-      // Preparar vértices
       const positions: number[] = [];
       const sides: number[] = [];
       const volumes: number[] = [];
 
-      // Configurar tamaño de barras
       const barWidth = 0.2;
       const barSpacing = barWidth * 0.1;
 
       processedData.forEach((bar) => {
-        // Usar precio directamente
         const xStart = 0;
         const volumeWidth = bar.normalizedVolume * barWidth * 2;
 
-        // Crear vértices
+        const barHeight = (bar.price * 0.00005);
+
+        // Añadir vértices para la barra con la altura ajustada
         positions.push(
           xStart, bar.price,                    // Inicio
           xStart + volumeWidth, bar.price,      // Fin
-          xStart, bar.price + (bar.price * 0.00005), // Inicio superior
-          xStart + volumeWidth, bar.price + (bar.price * 0.00005)  // Fin superior
+          xStart, bar.price + barHeight,        // Inicio superior
+          xStart + volumeWidth, bar.price + barHeight  // Fin superior
         );
 
         // Side y volumen para cada vértice
@@ -186,7 +187,6 @@ export const VolumeProfileGL = ({
         }
       });
 
-      // Crear comando REGL
       const drawBars = regl({
         vert: vertexShader,
         frag: fragmentShader,
@@ -197,8 +197,8 @@ export const VolumeProfileGL = ({
         },
         uniforms: {
           aspectRatio: width / height,
-          scale: [3.0, 1.0],
-          translate: [0.95, 0],
+          scale: [3.0, 1.0],    // Escala horizontal aumentada
+          translate: [0.95, 0],   // Mover a la derecha
           yScale: height,
           yOffset: 0,
           viewportHeight: height,
@@ -228,7 +228,6 @@ export const VolumeProfileGL = ({
         }
       });
 
-      // Renderizar
       regl.frame(() => {
         regl.clear({
           color: [0, 0, 0, 0],
