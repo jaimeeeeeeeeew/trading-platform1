@@ -32,6 +32,13 @@ export default function Trading() {
     delta_spot: marketData?.delta_spot || { positivo: 0, negativo: 0 }
   };
 
+  const dominanceData = {
+    bidsTotalInRange: marketData?.orderbook?.bidsTotalInRange || 0,
+    asksTotalInRange: marketData?.orderbook?.asksTotalInRange || 0,
+    dominancePercentage: marketData?.orderbook?.dominancePercentage || 50,
+    btcAmount: marketData?.orderbook?.btcAmount || 0
+  };
+
   return (
     <div className="flex h-screen bg-background">
       <div className="flex-1 p-4 flex gap-4">
@@ -43,6 +50,12 @@ export default function Trading() {
             <MetricsPanel
               metrics={metricsData}
               className="h-full"
+              dominanceData={dominanceData}
+              dominancePercentage={5}
+              onDominancePercentageChange={(value) => {
+                // TODO: Implementar la actualización del porcentaje
+                console.log('Nuevo porcentaje de dominancia:', value);
+              }}
             />
           </div>
           <div className="flex-1">

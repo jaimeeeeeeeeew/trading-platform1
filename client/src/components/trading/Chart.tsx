@@ -17,7 +17,6 @@ import {
 import SecondaryIndicator from './SecondaryIndicator';
 import { Input } from "@/components/ui/input";
 import { useState as useState2, useEffect as useEffect2, useRef as useRef2 } from 'react';
-import { DominanceControl } from './DominanceControl';
 
 interface PriceCoordinates {
   currentPrice: number;
@@ -889,13 +888,6 @@ export default function Chart() {
         >
           A
         </Button>
-      </div>
-      <div className="absolute top-14 right-2 z-10 w-64">
-        <DominanceControl
-          percentage={dominancePercentage}
-          onPercentageChange={setDominancePercentage}
-          dominanceData={dominanceData}
-        />
       </div>
     </div>
   );
