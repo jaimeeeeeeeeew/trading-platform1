@@ -53,7 +53,7 @@ const vertexShader = `
     vSide = side;
     vVolume = volume;
 
-    // Invertir la coordenada X para que crezca hacia la izquierda
+    // Mantener coordenada X invertida para el perfil
     float x = -position.x;
 
     // Mapear el precio al rango de coordenadas del gráfico principal
@@ -61,13 +61,15 @@ const vertexShader = `
     float priceRange = priceMax - priceMin;
     float coordRange = maxY - minY;
 
-    // Invertir la dirección de las coordenadas Y respecto al gráfico principal
-    y = maxY - (((y - priceMin) / priceRange) * coordRange);
-    y = y / viewportHeight;
+    // Usar el mismo sistema de coordenadas que el gráfico principal
+    // Mapear directamente sin inversión
+    y = minY + (((y - priceMin) / priceRange) * coordRange);
 
-    // Escalar y trasladar manteniendo proporciones
-    x = (x * scale.x + translate.x);
-    y = y * 2.0 - 1.0;
+    // Normalizar al espacio de coordenadas de WebGL
+    y = (y / viewportHeight) * 2.0 - 1.0;
+
+    // Aplicar escala y traslación
+    x = x * scale.x + translate.x;
 
     gl_Position = vec4(x, y, 0, 1);
   }
@@ -164,10 +166,10 @@ export const VolumeProfileGL = ({
         const barHeight = (bar.price * 0.00005);
 
         positions.push(
-          xStart, bar.price,                    // Inicio
-          xStart + volumeWidth, bar.price,      // Fin
-          xStart, bar.price + barHeight,        // Inicio superior
-          xStart + volumeWidth, bar.price + barHeight  // Fin superior
+          xStart, bar.price,
+          xStart + volumeWidth, bar.price,
+          xStart, bar.price + barHeight,
+          xStart + volumeWidth, bar.price + barHeight
         );
 
         const sideValue = bar.side === 'ask' ? 1 : 0;
