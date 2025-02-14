@@ -30,7 +30,7 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-// WebGL shaders
+// WebGL shaders optimizados para renderizado horizontal
 const vertexShader = `
   precision mediump float;
   attribute vec2 position;
@@ -39,6 +39,8 @@ const vertexShader = `
   uniform float aspectRatio;
   uniform vec2 scale;
   uniform vec2 translate;
+  uniform float yScale;
+  uniform float yOffset;
 
   varying float vSide;
   varying float vVolume;
@@ -46,8 +48,16 @@ const vertexShader = `
   void main() {
     vSide = side;
     vVolume = volume;
-    vec2 pos = position * scale + translate;
+
+    // Rotar 90 grados y ajustar posición
+    vec2 pos = vec2(
+      position.y * scale.x + translate.x,
+      position.x * yScale + yOffset
+    );
+
+    // Ajustar por aspect ratio
     pos.x = pos.x * aspectRatio;
+
     gl_Position = vec4(pos, 0, 1);
   }
 `;
@@ -79,7 +89,7 @@ export const VolumeProfileGL = ({
   const reglRef = useRef<Regl | null>(null);
 
   const processedData = useMemo(() => {
-    if (!data || data.length === 0) return null;
+    if (!data || data.length === 0 || !priceCoordinates) return null;
 
     const groupSize = parseInt(grouping);
     const filteredData = data.filter(
@@ -87,10 +97,10 @@ export const VolumeProfileGL = ({
     );
 
     return filteredData;
-  }, [data, visiblePriceRange, grouping]);
+  }, [data, visiblePriceRange, grouping, priceCoordinates]);
 
   useEffect(() => {
-    if (!canvasRef.current || !processedData || processedData.length === 0) return;
+    if (!canvasRef.current || !processedData || processedData.length === 0 || !priceCoordinates) return;
 
     // Initialize REGL if not already done
     if (!reglRef.current) {
@@ -108,15 +118,16 @@ export const VolumeProfileGL = ({
     const volumes: number[] = [];
 
     processedData.forEach(bar => {
+      // Normalizar precio para el eje Y
       const normalizedPrice = (bar.price - visiblePriceRange.min) / 
         (visiblePriceRange.max - visiblePriceRange.min) * 2 - 1;
 
-      // Create rectangle for each bar
+      // Crear rectángulo horizontal
       positions.push(
-        normalizedPrice, -1,
-        normalizedPrice, bar.normalizedVolume * 2 - 1,
-        normalizedPrice + 0.002, -1,
-        normalizedPrice + 0.002, bar.normalizedVolume * 2 - 1
+        -1, normalizedPrice,
+        bar.normalizedVolume * 2 - 1, normalizedPrice,
+        -1, normalizedPrice + 0.002,
+        bar.normalizedVolume * 2 - 1, normalizedPrice + 0.002
       );
 
       // Side (0 for bid, 1 for ask)
@@ -137,6 +148,8 @@ export const VolumeProfileGL = ({
       aspectRatio: number;
       scale: [number, number];
       translate: [number, number];
+      yScale: number;
+      yOffset: number;
       bidColor: [number, number, number];
       askColor: [number, number, number];
       opacity: number;
@@ -152,6 +165,8 @@ export const VolumeProfileGL = ({
         aspectRatio: regl.prop<'aspectRatio'>('aspectRatio'),
         scale: regl.prop<'scale'>('scale'),
         translate: regl.prop<'translate'>('translate'),
+        yScale: regl.prop<'yScale'>('yScale'),
+        yOffset: regl.prop<'yOffset'>('yOffset'),
         bidColor: regl.prop<'bidColor'>('bidColor'),
         askColor: regl.prop<'askColor'>('askColor'),
         opacity: regl.prop<'opacity'>('opacity')
@@ -167,10 +182,18 @@ export const VolumeProfileGL = ({
         depth: 1
       });
 
+      // Calcular escalas y offsets basados en las coordenadas de precio
+      const priceRange = visiblePriceRange.max - visiblePriceRange.min;
+      const yScale = height / (priceCoordinates.maxY - priceCoordinates.minY);
+      const yOffset = -priceCoordinates.minY / yScale;
+
+
       drawBars({
         aspectRatio: width / height,
-        scale: [1, 1],
-        translate: [0, 0],
+        scale: [0.8, 1],
+        translate: [0.2, 0],
+        yScale,
+        yOffset,
         bidColor: [0.149, 0.65, 0.604], // #26a69a
         askColor: [0.937, 0.325, 0.314], // #ef5350
         opacity: 0.9
@@ -183,7 +206,7 @@ export const VolumeProfileGL = ({
         reglRef.current = null;
       }
     };
-  }, [processedData, width, height, visiblePriceRange]);
+  }, [processedData, width, height, visiblePriceRange, priceCoordinates]);
 
   return (
     <div
