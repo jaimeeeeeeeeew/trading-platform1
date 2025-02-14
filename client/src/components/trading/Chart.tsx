@@ -908,7 +908,7 @@ const Chart = () => {
           <div
             className="absolute right-0 top-0 h-full pointer-events-none"
             style={{
-              width: '450px',
+              width: '350px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -917,7 +917,7 @@ const Chart = () => {
           >
             <VolumeProfileGL
               data={volumeProfileData}
-              width={450}
+              width={350}
               height={container.current.clientHeight}
               visiblePriceRange={visiblePriceRange}
               currentPrice={currentChartPrice}
@@ -964,7 +964,7 @@ const Chart = () => {
                 />
               </div>
             )}
-            {activeIndicator === 'longShort' && (
+            {activeIndicator === 'longShort' &&(
               <SecondaryIndicator
                 data={secondaryIndicators.longShortRatio}
                 timestamps={secondaryIndicators.timestamps}
