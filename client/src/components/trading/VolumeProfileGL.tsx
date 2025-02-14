@@ -45,6 +45,7 @@ const vertexShader = `
   uniform vec2 scale;
   uniform vec2 translate;
   uniform float maxVolume;
+  uniform float screenMaxVolume;
 
   varying float vSide;
   varying float vVolume;
@@ -53,9 +54,9 @@ const vertexShader = `
     vSide = instanceSide;
     vVolume = instanceVolume;
 
-    // Ajustar el ancho de las barras según el volumen normalizado
+    // Normalizar el volumen usando el máximo visible en pantalla
+    float normalizedWidth = (instanceVolume / screenMaxVolume) * 0.8;
     vec2 position = basePosition;
-    float normalizedWidth = (instanceVolume / maxVolume) * 0.8; // Reducir el factor a 0.8 para barras más delgadas
     position.x *= normalizedWidth;
 
     float normalizedPrice = (instancePrice - priceMin) / (priceMax - priceMin);
@@ -78,7 +79,7 @@ const fragmentShader = `
 
   void main() {
     vec3 color = vSide > 0.5 ? askColor : bidColor;
-    float dynamicOpacity = min(vVolume + 0.3, 0.85); // Aumentar opacidad mínima pero mantener un máximo
+    float dynamicOpacity = min(vVolume + 0.3, 0.85);
     gl_FragColor = vec4(color, dynamicOpacity);
   }
 `;
@@ -122,14 +123,10 @@ export const VolumeProfileGL = ({
 
     const result = Array.from(groupedData.values());
 
-    // Encontrar el volumen máximo dentro del rango visible
-    const maxVolume = Math.max(...result.map(d => d.volume));
+    // Ordenar por precio para facilitar el cálculo del máximo visible
+    result.sort((a, b) => a.price - b.price);
 
-    return result.map(d => ({
-      ...d,
-      normalizedVolume: d.volume / maxVolume
-    }));
-
+    return result;
   }, [data, visiblePriceRange, grouping, priceCoordinates]);
 
   useEffect(() => {
@@ -149,21 +146,26 @@ export const VolumeProfileGL = ({
       }
 
       const regl = reglRef.current;
-      const maxVolume = Math.max(...processedData.map(d => d.volume));
 
-      // Geometría base para una barra rectangular
+      // Calcular el máximo volumen visible en pantalla
+      const screenMaxVolume = Math.max(
+        ...processedData
+          .filter(d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max)
+          .map(d => d.volume)
+      );
+
       const basePositions = [
-        -0.5, -0.05,  // Inferior izquierda
-        0.5, -0.05,   // Inferior derecha
-        -0.5, 0.05,   // Superior izquierda
-        -0.5, 0.05,   // Superior izquierda
-        0.5, -0.05,   // Inferior derecha
-        0.5, 0.05     // Superior derecha
+        -0.5, -0.05,
+        0.5, -0.05,
+        -0.5, 0.05,
+        -0.5, 0.05,
+        0.5, -0.05,
+        0.5, 0.05
       ];
 
       const instanceData = processedData.map(d => ({
         price: d.price,
-        volume: d.normalizedVolume,
+        volume: d.volume,
         side: d.side === 'ask' ? 1 : 0
       }));
 
@@ -188,17 +190,18 @@ export const VolumeProfileGL = ({
         },
 
         uniforms: {
-          scale: [2.0, 1.0],        // Escala ajustada para barras más visibles
-          translate: [-0.7, 0],     // Ajuste de posición
+          scale: [2.0, 1.0],
+          translate: [-0.7, 0],
           viewportHeight: height,
           minY: priceCoordinates.minY,
           maxY: priceCoordinates.maxY,
           priceMin: visiblePriceRange.min,
           priceMax: visiblePriceRange.max,
-          maxVolume: maxVolume,
-          bidColor: [0.149, 0.65, 0.604],  // Color verde para compras
-          askColor: [0.937, 0.325, 0.314], // Color rojo para ventas
-          opacity: 0.85                     // Opacidad base
+          maxVolume: Math.max(...instanceData.map(d => d.volume)),
+          screenMaxVolume: screenMaxVolume,
+          bidColor: [0.149, 0.65, 0.604],
+          askColor: [0.937, 0.325, 0.314],
+          opacity: 0.85
         },
 
         count: 6,
