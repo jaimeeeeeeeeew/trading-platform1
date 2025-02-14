@@ -23,6 +23,8 @@ export function useSocketIO({
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messageBufferRef = useRef<any[]>([]);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const lastUpdateTimeRef = useRef<number>(0);
+  const updateThrottleRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!enabled) {
@@ -35,6 +37,10 @@ export function useSocketIO({
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
+      if (updateThrottleRef.current) {
+        clearTimeout(updateThrottleRef.current);
+        updateThrottleRef.current = null;
+      }
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -43,6 +49,11 @@ export function useSocketIO({
     };
 
     const processBufferedMessages = () => {
+      const maxBufferSize = 100;
+      if (messageBufferRef.current.length > maxBufferSize) {
+        messageBufferRef.current = messageBufferRef.current.slice(-maxBufferSize);
+      }
+
       console.log('Processing buffered messages:', messageBufferRef.current.length);
       while (messageBufferRef.current.length > 0) {
         const msg = messageBufferRef.current.shift();
@@ -94,44 +105,48 @@ export function useSocketIO({
         }
       });
 
+      const throttleUpdate = (callback: () => void) => {
+        const now = Date.now();
+        if (now - lastUpdateTimeRef.current < 100) { // Throttle a 100ms
+          if (updateThrottleRef.current) {
+            clearTimeout(updateThrottleRef.current);
+          }
+          updateThrottleRef.current = setTimeout(callback, 100);
+          return;
+        }
+        lastUpdateTimeRef.current = now;
+        callback();
+      };
+
       socket.on('orderbook_update', (data) => {
         try {
-          console.log('📊 Received orderbook update:', data);
-
-          if (isReconnecting) {
-            messageBufferRef.current.push({ type: 'orderbook_update', data });
-            return;
-          }
-
-          if (onProfileData) {
-            const bids = data.bids.map((bid: any) => ({
-              price: parseFloat(bid.Price),
-              volume: parseFloat(bid.Quantity),
-              side: 'bid' as const
-            }));
-
-            const asks = data.asks.map((ask: any) => ({
-              price: parseFloat(ask.Price),
-              volume: parseFloat(ask.Quantity),
-              side: 'ask' as const
-            }));
-
-            console.log('📗 Top 5 Bids:', bids.slice(0, 5));
-            console.log('📕 Top 5 Asks:', asks.slice(0, 5));
-            console.log('📊 Dominance Stats:', {
-              bidsTotalInRange: data.bidsTotalInRange,
-              asksTotalInRange: data.asksTotalInRange,
-              dominancePercentage: data.dominancePercentage,
-              btcAmount: data.btcAmount
-            });
-
-            const midPrice = (parseFloat(data.bids[0]?.Price || '0') + parseFloat(data.asks[0]?.Price || '0')) / 2;
-            if (midPrice && onPriceUpdate) {
-              onPriceUpdate(midPrice);
+          throttleUpdate(() => {
+            if (isReconnecting) {
+              messageBufferRef.current.push({ type: 'orderbook_update', data });
+              return;
             }
 
-            onProfileData([...bids, ...asks]);
-          }
+            if (onProfileData) {
+              const bids = data.bids.map((bid: any) => ({
+                price: parseFloat(bid.Price),
+                volume: parseFloat(bid.Quantity),
+                side: 'bid' as const
+              }));
+
+              const asks = data.asks.map((ask: any) => ({
+                price: parseFloat(ask.Price),
+                volume: parseFloat(ask.Quantity),
+                side: 'ask' as const
+              }));
+
+              const midPrice = (parseFloat(data.bids[0]?.Price || '0') + parseFloat(data.asks[0]?.Price || '0')) / 2;
+              if (midPrice && onPriceUpdate) {
+                onPriceUpdate(midPrice);
+              }
+
+              onProfileData([...bids, ...asks]);
+            }
+          });
         } catch (error) {
           console.error('Error processing orderbook update:', error);
         }

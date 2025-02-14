@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import * as d3 from 'd3';
 
 interface Props {
@@ -30,60 +30,64 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], threshold = 0.05) => {
-  if (!prevBars || !newBars || prevBars.length !== newBars.length) return true;
+// Optimizada para mejor rendimiento
+const hasSignificantChanges = (prevBars: Props['data'], newBars: Props['data'], threshold = 0.1) => {
+  if (!prevBars || !newBars || Math.abs(prevBars.length - newBars.length) > 50) return true;
 
-  const sampleSize = Math.min(50, prevBars.length);
+  const sampleSize = 20; // Reducido para mejor rendimiento
   const step = Math.max(1, Math.floor(prevBars.length / sampleSize));
 
-  for (let i = 0; i < prevBars.length; i += step) {
+  let significantChanges = 0;
+  const maxSignificantChanges = 3;
+
+  for (let i = 0; i < prevBars.length && significantChanges < maxSignificantChanges; i += step) {
     const prevBar = prevBars[i];
     const newBar = newBars[i];
     if (!prevBar || !newBar) continue;
 
     if (Math.abs(newBar.volume - prevBar.volume) / prevBar.volume > threshold ||
-        Math.abs(newBar.price - prevBar.price) > threshold) {
-      return true;
+        Math.abs(newBar.price - prevBar.price) > threshold * prevBar.price) {
+      significantChanges++;
     }
   }
-  return false;
+
+  return significantChanges >= maxSignificantChanges;
 };
 
+// Memoizado para evitar recálculos innecesarios
 const groupVolumeData = (data: Props['data'], groupSize: number) => {
   if (groupSize === 1) return data;
 
-  // Create price groups
   const groups = new Map<number, {
     volume: number;
     side: 'bid' | 'ask';
-    price: number
+    price: number;
+    count: number;
   }>();
 
-  // Group data by rounded price
   data.forEach(item => {
     const roundedPrice = Math.round(item.price / (10 * groupSize)) * (10 * groupSize);
     const existing = groups.get(roundedPrice);
 
     if (existing) {
       existing.volume += item.volume;
-      // Keep the side of the larger volume
-      if (item.volume > existing.volume / 2) {
+      existing.count++;
+      if (item.volume > existing.volume / existing.count) {
         existing.side = item.side;
       }
     } else {
       groups.set(roundedPrice, {
         volume: item.volume,
         side: item.side,
-        price: roundedPrice
+        price: roundedPrice,
+        count: 1
       });
     }
   });
 
-  // Convert back to array and normalize volumes
-  const groupedData = Array.from(groups.values());
-  const maxVolume = Math.max(...groupedData.map(item => item.volume));
+  const maxVolume = Math.max(...Array.from(groups.values()).map(item => item.volume));
 
-  return groupedData.map(item => ({
+  return Array.from(groups.values()).map(item => ({
     price: item.price,
     volume: item.volume,
     normalizedVolume: item.volume / maxVolume,
@@ -106,21 +110,31 @@ export const VolumeProfile = ({
   const prevDataRef = useRef<Props['data']>([]);
   const updateTimeoutRef = useRef<number | null>(null);
   const renderRequestRef = useRef<number | null>(null);
+  const lastRenderTimeRef = useRef<number>(0);
+
+  // Memoizar los datos agrupados
+  const groupedData = useMemo(() => {
+    const groupSize = parseInt(grouping);
+    return groupVolumeData(data, groupSize);
+  }, [data, grouping]);
 
   useEffect(() => {
-    if (!svgRef.current || !data || data.length === 0 || !priceCoordinates) {
+    if (!svgRef.current || !groupedData || groupedData.length === 0 || !priceCoordinates) {
       return;
     }
 
     const renderChart = () => {
-      if (!hasSignificantChanges(prevDataRef.current, data)) {
+      const now = Date.now();
+      if (now - lastRenderTimeRef.current < 100) { // Throttle a 100ms
         return;
       }
-      prevDataRef.current = data;
 
-      // Apply grouping to the data
-      const groupSize = parseInt(grouping);
-      const groupedData = groupVolumeData(data, groupSize);
+      if (!hasSignificantChanges(prevDataRef.current, groupedData)) {
+        return;
+      }
+
+      lastRenderTimeRef.current = now;
+      prevDataRef.current = groupedData;
 
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
@@ -165,7 +179,6 @@ export const VolumeProfile = ({
       const bids = visibleData.filter(d => d.side === 'bid');
       const asks = visibleData.filter(d => d.side === 'ask');
 
-      // Altura de barra basada en el grouping
       const barHeight = Math.abs(
         priceToY(currentPrice + (10 * parseInt(grouping))) - priceToY(currentPrice)
       );
@@ -230,7 +243,8 @@ export const VolumeProfile = ({
       clearTimeout(updateTimeoutRef.current);
     }
 
-    updateTimeoutRef.current = window.setTimeout(scheduleRender, 50);
+    // Throttle las actualizaciones a 100ms
+    updateTimeoutRef.current = window.setTimeout(scheduleRender, 100);
 
     return () => {
       if (updateTimeoutRef.current) {
@@ -240,7 +254,7 @@ export const VolumeProfile = ({
         cancelAnimationFrame(renderRequestRef.current);
       }
     };
-  }, [data, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars, grouping]);
+  }, [groupedData, width, height, currentPrice, priceCoordinates, visiblePriceRange, maxVisibleBars, grouping]);
 
   return (
     <div
