@@ -652,10 +652,99 @@ const Chart = () => {
   }, [currentChartPrice, visiblePriceRange]);
 
   useEffect(() => {
-    if (!orderbookVolumeProfile.length) return;
+    if (!socket) return;
+
+    console.log('Setting up socket listeners for indicators and orderbook...');
+
+    const handleOrderbookUpdate = (data: any) => {
+      console.log('📊 Received raw orderbook data:', {
+        bids: data.bids?.length || 0,
+        asks: data.asks?.length || 0,
+        hasFunding: !!data.funding_df,
+        hasOI: !!data.oi_df
+      });
+
+      // Procesar orderbook para volume profile
+      if (data.bids && data.asks) {
+        const allOrders = [...data.bids, ...data.asks];
+        const maxVolume = Math.max(...allOrders.map(item => parseFloat(item.Quantity)));
+
+        const profile = allOrders.map(item => ({
+          price: parseFloat(item.Price),
+          volume: parseFloat(item.Quantity),
+          normalizedVolume: parseFloat(item.Quantity) / maxVolume,
+          side: data.bids.includes(item) ? 'bid' as const : 'ask' as const
+        }));
+
+        console.log('Volume profile processed:', {
+          totalItems: profile.length,
+          bids: profile.filter(p => p.side === 'bid').length,
+          asks: profile.filter(p => p.side === 'ask').length,
+          sample: profile.slice(0, 2)
+        });
+
+        setVolumeProfileData(profile);
+      }
+
+      // Procesar funding rate y OI
+      if (data.funding_df) {
+        try {
+          console.log('📈 Raw funding_df data:', data.funding_df);
+          const funding_data = data.funding_df;
+          const fundingRates = funding_data.map((item: any) => parseFloat(item.rate) * 100);
+          const fundingTimestamps = funding_data.map((item: any) => new Date(item.timestamp).getTime());
+
+          setSecondaryIndicators(prev => ({
+            ...prev,
+            fundingRate: fundingRates,
+            timestamps: fundingTimestamps
+          }));
+        } catch (error) {
+          console.error('❌ Error processing funding rate data:', error);
+        }
+      }
+
+      if (data.oi_df) {
+        try {
+          const oi_data = data.oi_df;
+          const oiValues = oi_data.map((item: any) => parseFloat(item.openInterest));
+          const oiTimestamps = oi_data.map((item: any) => new Date(item.timestamp).getTime());
+
+          setSecondaryIndicators(prev => ({
+            ...prev,
+            openInterest: oiValues,
+            timestamps: oiTimestamps
+          }));
+        } catch (error) {
+          console.error('Error processing open interest data:', error);
+        }
+      }
+    };
+
+    socket.on('orderbook_update', handleOrderbookUpdate);
+
+    return () => {
+      socket.off('orderbook_update', handleOrderbookUpdate);
+    };
+  }, [socket]);
+
+  useEffect(() => {
+    if (!orderbookVolumeProfile.length) {
+      console.log('⚠️ No orderbook volume profile data available');
+      return;
+    }
+
+    console.log('📊 Processing volume profile data:', {
+      dataPoints: orderbookVolumeProfile.length,
+      priceRange: visiblePriceRange,
+      sample: orderbookVolumeProfile.slice(0, 2)
+    });
 
     const handleVolumeProfileUpdate = () => {
-      if (!candlestickSeriesRef.current) return;
+      if (!candlestickSeriesRef.current) {
+        console.log('❌ Candlestick series not available');
+        return;
+      }
 
       const maxVolume = Math.max(...orderbookVolumeProfile.map(d => d.volume));
       const normalizedData = orderbookVolumeProfile
@@ -664,6 +753,13 @@ const Chart = () => {
           ...data,
           normalizedVolume: data.volume / maxVolume
         }));
+
+      console.log('📊 Processed volume profile:', {
+        originalLength: orderbookVolumeProfile.length,
+        filteredLength: normalizedData.length,
+        maxVolume,
+        sample: normalizedData.slice(0, 2)
+      });
 
       setVolumeProfileData(normalizedData);
     };
@@ -727,70 +823,6 @@ const Chart = () => {
       btcAmount: Math.floor(totalVolumeInRange)
     };
   }, [marketData.orderbook, dominancePercentage]);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    console.log('Setting up socket listeners for indicators...');
-
-    const handleFundingRate = (data: any) => {
-      console.log('Received orderbook data with funding and OI:', data);
-
-      if (data && data.funding_df) {
-        try {
-          // Procesar funding_df
-          const funding_data = data.funding_df;
-          const fundingRates = funding_data.map((item: any) => parseFloat(item.rate) * 100); // Convertir a porcentaje
-          const fundingTimestamps = funding_data.map((item: any) => new Date(item.timestamp).getTime());
-
-          setSecondaryIndicators(prev => ({
-            ...prev,
-            fundingRate: fundingRates,
-            timestamps: fundingTimestamps
-          }));
-
-          console.log('Processed funding rate data:', {
-            rates: fundingRates.length,
-            timestamps: fundingTimestamps.length,
-            firstRate: fundingRates[0],
-            lastRate: fundingRates[fundingRates.length - 1]
-          });
-        } catch (error) {
-          console.error('Error processing funding rate data:', error);
-        }
-      }
-
-      if (data && data.oi_df) {
-        try {
-          // Procesar oi_df
-          const oi_data = data.oi_df;
-          const oiValues = oi_data.map((item: any) => parseFloat(item.openInterest));
-          const oiTimestamps = oi_data.map((item: any) => new Date(item.timestamp).getTime());
-
-          setSecondaryIndicators(prev => ({
-            ...prev,
-            openInterest: oiValues,
-            timestamps: oiTimestamps
-          }));
-
-          console.log('Processed open interest data:', {
-            values: oiValues.length,
-            timestamps: oiTimestamps.length,
-            firstOI: oiValues[0],
-            lastOI: oiValues[oiValues.length - 1]
-          });
-        } catch (error) {
-          console.error('Error processing open interest data:', error);
-        }
-      }
-    };
-
-    socket.on('orderbook_update', handleFundingRate);
-
-    return () => {
-      socket.off('orderbook_update', handleFundingRate);
-    };
-  }, [socket]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
@@ -937,8 +969,7 @@ const Chart = () => {
                 data={secondaryIndicators.longShortRatio}
                 timestamps={secondaryIndicators.timestamps}
                 height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
-                color="#42a5f5"
-              />
+                color="#42a5f5"                />
             )}
             {activeIndicator === 'deltaCvd' && (
               <SecondaryIndicator
