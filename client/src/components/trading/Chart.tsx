@@ -3,7 +3,7 @@ import { createChart, Time, ISeriesApi, CandlestickData } from 'lightweight-char
 import { useTrading } from '@/lib/trading-context';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { VolumeProfile } from './VolumeProfile';
+import { VolumeProfileGL } from './VolumeProfileGL';
 import { tradingViewService } from '@/lib/tradingview-service';
 import { useSocketIO } from '@/hooks/use-socket-io';
 import { useMarketData } from '@/hooks/use-market-data';
@@ -915,7 +915,7 @@ const Chart = () => {
               zIndex: 100
             }}
           >
-            <VolumeProfile
+            <VolumeProfileGL
               data={volumeProfileData}
               width={450}
               height={container.current.clientHeight}
@@ -969,7 +969,8 @@ const Chart = () => {
                 data={secondaryIndicators.longShortRatio}
                 timestamps={secondaryIndicators.timestamps}
                 height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
-                color="#42a5f5"                />
+                color="#42a5f5"
+              />
             )}
             {activeIndicator === 'deltaCvd' && (
               <SecondaryIndicator

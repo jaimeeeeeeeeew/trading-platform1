@@ -199,8 +199,8 @@ export const VolumeProfile = ({
         priceToY(currentPrice + (10 * parseInt(grouping))) - priceToY(currentPrice)
       );
 
-      const bids = groupedData.filter(d => d.side === 'bid');
-      const asks = groupedData.filter(d => d.side === 'ask');
+      const bids = groupedData.filter((d: {side: 'bid' | 'ask'}) => d.side === 'bid');
+      const asks = groupedData.filter((d: {side: 'bid' | 'ask'}) => d.side === 'ask');
 
       // Renderizar barras por lotes para mejor rendimiento
       const renderBars = (data: typeof groupedData, className: string, fill: string) => {
@@ -210,10 +210,10 @@ export const VolumeProfile = ({
           g.selectAll(`.${className}-batch-${i}`)
             .data(batch)
             .join('rect')
-            .attr('class', `volume-bar ${className}`)
-            .attr('x', d => xScale(d.normalizedVolume))
-            .attr('y', d => priceToY(d.price) - barHeight / 2)
-            .attr('width', d => maxBarWidth - xScale(d.normalizedVolume))
+            .attr('class', (d: { normalizedVolume: number; price: number }) => `volume-bar ${className}`)
+            .attr('x', (d: { normalizedVolume: number }) => xScale(d.normalizedVolume))
+            .attr('y', (d: { price: number }) => priceToY(d.price) - barHeight / 2)
+            .attr('width', (d: { normalizedVolume: number }) => maxBarWidth - xScale(d.normalizedVolume))
             .attr('height', barHeight * 0.9)
             .attr('fill', fill)
             .attr('opacity', 0.9);
