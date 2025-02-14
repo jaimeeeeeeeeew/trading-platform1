@@ -151,9 +151,9 @@ export const VolumeProfileGL = ({
       const sides: number[] = [];
       const volumes: number[] = [];
 
-      // Ajustar el ancho de las barras
-      const barWidth = 0.02; // Ancho base más pequeño
-      const barSpacing = barWidth * 0.2; // 20% del ancho como espacio
+      // Ajustar el ancho de las barras - aumentado significativamente
+      const barWidth = 0.2; // Ancho base aumentado de 0.02 a 0.2
+      const barSpacing = barWidth * 0.1; // 10% del ancho como espacio
 
       processedData.forEach((bar, index) => {
         const normalizedY = (bar.price - visiblePriceRange.min) / 
@@ -161,14 +161,14 @@ export const VolumeProfileGL = ({
 
         // Posicionar barras - ahora empezando desde 0 (izquierda)
         const xStart = 0;
-        const volumeWidth = bar.normalizedVolume * barWidth; // Ancho proporcional al volumen
+        const volumeWidth = bar.normalizedVolume * barWidth * 2; // Duplicar el ancho máximo
 
-        // Crear vértices para la barra
+        // Crear vértices para la barra con mayor altura
         positions.push(
           xStart, normalizedY,                    // Inicio
           xStart + volumeWidth, normalizedY,      // Fin
-          xStart, normalizedY + 0.001,            // Inicio superior
-          xStart + volumeWidth, normalizedY + 0.001 // Fin superior
+          xStart, normalizedY + 0.003,            // Inicio superior (altura triplicada)
+          xStart + volumeWidth, normalizedY + 0.003 // Fin superior
         );
 
         // Side y volumen para cada vértice
@@ -190,8 +190,8 @@ export const VolumeProfileGL = ({
         },
         uniforms: {
           aspectRatio: width / height,
-          scale: [2.0, 1.0],    // Escala horizontal aumentada
-          translate: [0.8, 0],   // Mover a la izquierda (0.8 en lugar de -0.8 porque invertimos en el shader)
+          scale: [3.0, 1.0],    // Escala horizontal aumentada (de 2.0 a 3.0)
+          translate: [0.95, 0],   // Mover más cerca del borde (de 0.8 a 0.95)
           yScale: height,
           yOffset: 0,
           viewportHeight: height,
