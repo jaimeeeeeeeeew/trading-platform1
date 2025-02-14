@@ -53,21 +53,17 @@ const vertexShader = `
     vSide = side;
     vVolume = volume;
 
-    // Mantener coordenada X invertida (derecha a izquierda)
     float x = -position.x;
-
-    // Transformación de coordenadas de precio a coordenadas de pantalla
     float y = position.y;
-    float priceRange = priceMax - priceMin;
 
-    // Normalizar el precio al rango [0,1]
-    float normalizedPrice = (y - priceMin) / priceRange;
+    // Normalizar el precio al rango [0, 1]
+    float normalizedPrice = (y - priceMin) / (priceMax - priceMin);
 
-    // Convertir a coordenadas de pantalla usando el mismo sistema que el gráfico principal
-    float screenY = mix(maxY, minY, normalizedPrice);
+    // Mapear al rango de coordenadas de pantalla
+    float screenY = minY + (normalizedPrice * (maxY - minY));
 
-    // Convertir a coordenadas NDC (Normalized Device Coordinates)
-    y = (screenY / viewportHeight) * 2.0 - 1.0;
+    // Convertir a coordenadas NDC
+    y = ((viewportHeight - screenY) / viewportHeight) * 2.0 - 1.0;
 
     // Aplicar escala y traslación
     x = x * scale.x + translate.x;
@@ -112,7 +108,6 @@ export const VolumeProfileGL = ({
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
     );
 
-    // Agrupar datos por precio
     const groupedData = new Map();
     filteredData.forEach(item => {
       const key = Math.floor(item.price / groupSize) * groupSize;
@@ -154,27 +149,25 @@ export const VolumeProfileGL = ({
       }
 
       const regl = reglRef.current;
-
       const positions: number[] = [];
       const sides: number[] = [];
       const volumes: number[] = [];
-
       const barWidth = 0.2;
+      const groupSize = parseInt(grouping);
 
       processedData.forEach((bar) => {
         const xStart = 0;
         const volumeWidth = bar.normalizedVolume * barWidth * 2;
         const yPos = bar.price;
+        const barHeight = groupSize;
 
-        // Vertices para cada barra (usando triangle strip)
         positions.push(
           xStart, yPos,
           xStart + volumeWidth, yPos,
-          xStart, yPos + (bar.side === 'ask' ? 1 : -1) * groupSize,
-          xStart + volumeWidth, yPos + (bar.side === 'ask' ? 1 : -1) * groupSize
+          xStart, yPos + barHeight,
+          xStart + volumeWidth, yPos + barHeight
         );
 
-        // Información de lado y volumen para cada vértice
         const sideValue = bar.side === 'ask' ? 1 : 0;
         for (let i = 0; i < 4; i++) {
           sides.push(sideValue);
@@ -228,7 +221,6 @@ export const VolumeProfileGL = ({
           color: [0, 0, 0, 0],
           depth: 1
         });
-
         drawBars();
       });
 
@@ -247,12 +239,12 @@ export const VolumeProfileGL = ({
     <div
       style={{
         position: 'absolute',
-        left: 0,
+        right: 0,
         top: 0,
         width: `${width}px`,
         height: '100%',
         background: 'transparent',
-        borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+        borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
