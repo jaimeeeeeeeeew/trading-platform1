@@ -33,6 +33,7 @@ interface SecondaryIndicators {
   deltaCvd: number[];
   rsi: number[];
   timestamps: number[];
+  openInterest: number[]; // Added open interest
 }
 
 interface OHLCVData {
@@ -73,7 +74,7 @@ const INTERVALS = {
 } as const;
 
 type IntervalKey = keyof typeof INTERVALS;
-type ActiveIndicator = 'none' | 'rsi' | 'funding' | 'longShort' | 'deltaCvd';
+type ActiveIndicator = 'none' | 'rsi' | 'funding' | 'longShort' | 'deltaCvd' | 'oi';
 
 interface UseSocketIOOptions {
   onProfileData?: (data: Array<{ price: number; volume: number; side: 'bid' | 'ask' }>) => void;
@@ -114,7 +115,8 @@ export default function Chart() {
     longShortRatio: [],
     deltaCvd: [],
     rsi: [],
-    timestamps: []
+    timestamps: [],
+    openInterest: [] // Added open interest
   });
   const [activeIndicator, setActiveIndicator] = useState<ActiveIndicator>('none');
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
@@ -779,6 +781,7 @@ export default function Chart() {
             <SelectItem value="none">Ninguno</SelectItem>
             <SelectItem value="rsi">RSI</SelectItem>
             <SelectItem value="funding">Funding Rate</SelectItem>
+            <SelectItem value="oi">Open Interest</SelectItem>
             <SelectItem value="longShort">Long/Short Ratio</SelectItem>
             <SelectItem value="deltaCvd">Delta CVD</SelectItem>
           </SelectContent>
@@ -857,6 +860,16 @@ export default function Chart() {
                 timestamps={secondaryIndicators.timestamps}
                 height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
                 color="#26a69a"
+                type="histogram"
+              />
+            )}
+            {activeIndicator === 'oi' && secondaryIndicators.openInterest.length > 0 && ( // Added check for data
+              <SecondaryIndicator
+                data={secondaryIndicators.openInterest}
+                timestamps={secondaryIndicators.timestamps}
+                height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
+                color="#42a5f5"
+                type="candles"
               />
             )}
             {activeIndicator === 'longShort' && (
