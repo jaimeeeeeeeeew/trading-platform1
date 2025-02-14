@@ -23,7 +23,7 @@ export default function SecondaryIndicator({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    console.log('Creating secondary indicator chart:', { type, data, timestamps });
+    console.log('🎨 Creating secondary indicator chart:', { type, dataPoints: data.length });
 
     const chart = createChart(containerRef.current, {
       layout: {
@@ -48,6 +48,7 @@ export default function SecondaryIndicator({
 
     let series;
     if (type === 'histogram') {
+      console.log('📊 Creating histogram series');
       series = chart.addHistogramSeries({
         color: color,
         priceFormat: {
@@ -56,22 +57,15 @@ export default function SecondaryIndicator({
           minMove: 0.000001,
         },
       });
-    } else if (type === 'candles') {
-      series = chart.addCandlestickSeries({
-        upColor: '#26a69a',
-        downColor: '#ef5350',
-        borderVisible: false,
-        wickUpColor: '#26a69a',
-        wickDownColor: '#ef5350',
-      });
     } else {
+      console.log('📈 Creating line series');
       series = chart.addLineSeries({
         color: color,
         lineWidth: 2,
         priceFormat: {
           type: 'price',
-          precision: 2,
-          minMove: 0.01,
+          precision: 6,
+          minMove: 0.000001,
         },
       });
     }
@@ -79,30 +73,22 @@ export default function SecondaryIndicator({
     seriesRef.current = series;
 
     if (data && data.length > 0 && timestamps && timestamps.length > 0) {
-      console.log('Setting chart data:', { dataLength: data.length, timestampsLength: timestamps.length });
-
-      const chartData = data.map((value, index) => {
-        const time = Math.floor(timestamps[index] / 1000) as Time;
-
-        if (type === 'candles') {
-          return {
-            time,
-            open: value * 0.998,
-            high: value * 1.002,
-            low: value * 0.997,
-            close: value
-          };
-        } else {
-          return {
-            time,
-            value: value
-          };
-        }
+      console.log('📊 Setting chart data:', { 
+        dataPoints: data.length, 
+        timestampPoints: timestamps.length,
+        firstValue: data[0],
+        firstTimestamp: timestamps[0]
       });
+
+      const chartData = data.map((value, index) => ({
+        time: Math.floor(timestamps[index] / 1000) as Time,
+        value: value,
+        color: value >= 0 ? '#26a69a' : '#ef5350' // Verde para positivo, rojo para negativo
+      }));
 
       series.setData(chartData);
     } else {
-      console.warn('No data available for secondary indicator');
+      console.warn('⚠️ No data available for secondary indicator');
     }
 
     const handleResize = () => {

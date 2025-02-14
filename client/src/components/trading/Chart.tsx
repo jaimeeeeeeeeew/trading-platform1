@@ -15,8 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import SecondaryIndicator from './SecondaryIndicator';
-import { Input } from "@/components/ui/input";
-import { useState as useState2, useEffect as useEffect2, useRef as useRef2 } from 'react';
 
 interface PriceCoordinates {
   currentPrice: number;
@@ -33,7 +31,7 @@ interface SecondaryIndicators {
   deltaCvd: number[];
   rsi: number[];
   timestamps: number[];
-  openInterest: number[]; // Added open interest
+  openInterest: number[];
 }
 
 interface OHLCVData {
@@ -116,13 +114,12 @@ const Chart = () => {
     deltaCvd: [],
     rsi: [],
     timestamps: [],
-    openInterest: [] // Added open interest
+    openInterest: []
   });
   const [activeIndicator, setActiveIndicator] = useState<ActiveIndicator>('none');
   const [crosshairData, setCrosshairData] = useState<OHLCVData | null>(null);
   const [crosshairPrice, setCrosshairPrice] = useState<number | null>(null);
-  const [dominancePercentage, setDominancePercentage] = useState<number>(5); // 5% default
-
+  const [dominancePercentage, setDominancePercentage] = useState<number>(5);
 
   const { socket } = useSocketIO({
     onProfileData: (profileData) => {
@@ -678,7 +675,6 @@ const Chart = () => {
     if (!candlestickSeriesRef.current || !historicalDataRef.current) return;
 
     try {
-      // Solo actualizar el toast de notificación
       toast({
         title: 'Grouping Updated',
         description: `Changed grouping to ${grouping === '1' ? 'none' : `${grouping}x`}`,
@@ -704,7 +700,6 @@ const Chart = () => {
       };
     }
 
-    // Calcular el rango de precios basado en el porcentaje
     const currentMidPrice = (
       parseFloat(marketData.orderbook.bids[0]?.Price || '0') + 
       parseFloat(marketData.orderbook.asks[0]?.Price || '0')
@@ -714,7 +709,6 @@ const Chart = () => {
     const rangeMinPrice = currentMidPrice - rangePriceDistance;
     const rangeMaxPrice = currentMidPrice + rangePriceDistance;
 
-    // Sumar volúmenes en el rango
     const bidsInRange = marketData.orderbook.bids
       .filter(bid => parseFloat(bid.Price) >= rangeMinPrice)
       .reduce((sum, bid) => sum + parseFloat(bid.Quantity), 0);
@@ -739,14 +733,24 @@ const Chart = () => {
 
     console.log('Setting up socket listeners for indicators...');
 
-    socket.on('funding_rate', (data) => {
+    const handleFundingRate = (data: any) => {
       console.log('Received funding rate data:', data);
-      setSecondaryIndicators(prev => ({
-        ...prev,
-        fundingRate: data.rates,
-        timestamps: data.timestamps
-      }));
-    });
+      if (data && Array.isArray(data.rates) && Array.isArray(data.timestamps)) {
+        setSecondaryIndicators(prev => ({
+          ...prev,
+          fundingRate: data.rates,
+          timestamps: data.timestamps
+        }));
+        console.log('Updated funding rate state:', {
+          rates: data.rates.length,
+          timestamps: data.timestamps.length
+        });
+      } else {
+        console.warn('Invalid funding rate data format:', data);
+      }
+    };
+
+    socket.on('funding_rate', handleFundingRate);
 
     socket.on('open_interest', (data) => {
       console.log('Received open interest data:', data);
@@ -758,7 +762,7 @@ const Chart = () => {
     });
 
     return () => {
-      socket.off('funding_rate');
+      socket.off('funding_rate', handleFundingRate);
       socket.off('open_interest');
     };
   }, [socket]);
@@ -802,7 +806,7 @@ const Chart = () => {
           onValueChange={(value) => setActiveIndicator(value as ActiveIndicator)}
         >
           <SelectTrigger className="w-32 bg-background">
-            <SelectValue placeholder="Indicadores" defaultValue="Indicadores">Indicadores</SelectValue>
+            <SelectValue placeholder="Indicadores">Indicadores</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">Ninguno</SelectItem>
@@ -883,10 +887,6 @@ const Chart = () => {
             )}
             {activeIndicator === 'funding' && (
               <div>
-                {console.log('Rendering funding indicator:', {
-                  data: secondaryIndicators.fundingRate,
-                  timestamps: secondaryIndicators.timestamps
-                })}
                 <SecondaryIndicator
                   data={secondaryIndicators.fundingRate}
                   timestamps={secondaryIndicators.timestamps}
@@ -898,10 +898,6 @@ const Chart = () => {
             )}
             {activeIndicator === 'oi' && (
               <div>
-                {console.log('Rendering OI indicator:', {
-                  data: secondaryIndicators.openInterest,
-                  timestamps: secondaryIndicators.timestamps
-                })}
                 <SecondaryIndicator
                   data={secondaryIndicators.openInterest}
                   timestamps={secondaryIndicators.timestamps}
