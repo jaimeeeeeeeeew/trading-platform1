@@ -91,7 +91,8 @@ export const VolumeProfileGL = ({
   visiblePriceRange,
   currentPrice,
   priceCoordinates,
-  grouping
+  grouping,
+  maxVisibleBars
 }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const reglRef = useRef<Regl | null>(null);
@@ -111,7 +112,7 @@ export const VolumeProfileGL = ({
       d => d.price >= visiblePriceRange.min && d.price <= visiblePriceRange.max
     );
 
-    // Agrupar datos
+    // Agrupar datos para reducir barras
     const groupedData = new Map();
     filteredData.forEach(item => {
       const key = Math.floor(item.price / groupSize) * groupSize;
@@ -144,8 +145,8 @@ export const VolumeProfileGL = ({
       if (!reglRef.current) {
         reglRef.current = REGL({
           canvas: canvasRef.current,
-          attributes: { 
-            alpha: true, 
+          attributes: {
+            alpha: true,
             antialias: true,
             depth: true,
             stencil: true
@@ -155,29 +156,26 @@ export const VolumeProfileGL = ({
 
       const regl = reglRef.current;
 
-      // Preparar datos de vértices
+      // Preparar vértices
       const positions: number[] = [];
       const sides: number[] = [];
       const volumes: number[] = [];
 
-      // Ajustar el ancho de las barras
-      const barWidth = 0.2; // Ancho base
-      const barSpacing = barWidth * 0.1; // 10% del ancho como espacio
+      // Configurar tamaño de barras
+      const barWidth = 0.2;
+      const barSpacing = barWidth * 0.1;
 
       processedData.forEach((bar) => {
-        // Usar el precio directamente para la posición Y
-        const y = bar.price;
-
-        // Posicionar barras desde la izquierda
+        // Usar precio directamente
         const xStart = 0;
         const volumeWidth = bar.normalizedVolume * barWidth * 2;
 
-        // Crear vértices para la barra
+        // Crear vértices
         positions.push(
-          xStart, y,                    // Inicio
-          xStart + volumeWidth, y,      // Fin
-          xStart, y + (bar.price * 0.0001), // Inicio superior con altura proporcional
-          xStart + volumeWidth, y + (bar.price * 0.0001)  // Fin superior
+          xStart, bar.price,                    // Inicio
+          xStart + volumeWidth, bar.price,      // Fin
+          xStart, bar.price + (bar.price * 0.00005), // Inicio superior
+          xStart + volumeWidth, bar.price + (bar.price * 0.00005)  // Fin superior
         );
 
         // Side y volumen para cada vértice
@@ -230,7 +228,7 @@ export const VolumeProfileGL = ({
         }
       });
 
-      // Renderizar frame
+      // Renderizar
       regl.frame(() => {
         regl.clear({
           color: [0, 0, 0, 0],
