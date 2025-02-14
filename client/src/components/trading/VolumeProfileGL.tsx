@@ -61,9 +61,9 @@ const vertexShader = `
     float priceRange = priceMax - priceMin;
     float coordRange = maxY - minY;
 
-    // Sincronizar con la dirección del gráfico principal
+    // Corregir la dirección del mapeo de coordenadas
     float normalizedPrice = (y - priceMin) / priceRange;
-    y = minY + ((1.0 - normalizedPrice) * coordRange);
+    y = maxY - (normalizedPrice * coordRange);
 
     // Normalizar al espacio de coordenadas de WebGL
     y = (y / viewportHeight) * 2.0 - 1.0;
