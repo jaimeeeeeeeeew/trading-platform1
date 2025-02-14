@@ -61,8 +61,8 @@ const vertexShader = `
     float priceRange = priceMax - priceMin;
     float coordRange = maxY - minY;
 
-    // Mapear al rango de coordenadas Y del gráfico
-    y = minY + (((y - priceMin) / priceRange) * coordRange);
+    // Invertir el mapeo para que coincida con la dirección del gráfico
+    y = maxY - (((y - priceMin) / priceRange) * coordRange);
 
     // Normalizar al espacio de coordenadas de WebGL
     y = (y / viewportHeight) * 2.0 - 1.0;
@@ -164,10 +164,9 @@ export const VolumeProfileGL = ({
         const volumeWidth = bar.normalizedVolume * barWidth * 2;
 
         // Altura de barra basada en el lado (ask/bid)
-        // Asks crecen hacia arriba, bids hacia abajo
-        const barHeight = bar.side === 'ask' ? 
-          (bar.price * 0.0001) : // Hacia arriba para asks
-          (-bar.price * 0.0001); // Hacia abajo para bids
+        // Asks crecen hacia arriba, bids hacia abajo desde el punto central
+        const direction = bar.side === 'ask' ? 1 : -1;
+        const barHeight = direction * (bar.price * 0.0001);
 
         positions.push(
           xStart, bar.price,
