@@ -30,7 +30,7 @@ interface PriceCoordinates {
   maxY: number;
 }
 
-// WebGL shaders optimizados para renderizado horizontal
+// Shaders optimizados para renderizado horizontal
 const vertexShader = `
   precision mediump float;
   attribute vec2 position;
@@ -41,6 +41,7 @@ const vertexShader = `
   uniform vec2 translate;
   uniform float yScale;
   uniform float yOffset;
+  uniform float viewportHeight;
 
   varying float vSide;
   varying float vVolume;
@@ -49,16 +50,13 @@ const vertexShader = `
     vSide = side;
     vVolume = volume;
 
-    // Rotar 90 grados y ajustar posición
-    vec2 pos = vec2(
-      position.y * scale.x + translate.x,
-      position.x * yScale + yOffset
-    );
+    // Transformar coordenadas del precio
+    float y = (position.y * yScale + yOffset) / viewportHeight * 2.0 - 1.0;
 
-    // Ajustar por aspect ratio
-    pos.x = pos.x * aspectRatio;
+    // Posicionar las barras horizontalmente a la derecha
+    float x = (position.x * scale.x + translate.x) * aspectRatio;
 
-    gl_Position = vec4(pos, 0, 1);
+    gl_Position = vec4(x, y, 0, 1);
   }
 `;
 
@@ -72,7 +70,8 @@ const fragmentShader = `
 
   void main() {
     vec3 color = vSide > 0.5 ? askColor : bidColor;
-    gl_FragColor = vec4(color, opacity * vVolume);
+    float alpha = opacity * vVolume;
+    gl_FragColor = vec4(color, alpha);
   }
 `;
 
@@ -118,16 +117,15 @@ export const VolumeProfileGL = ({
     const volumes: number[] = [];
 
     processedData.forEach(bar => {
-      // Normalizar precio para el eje Y
-      const normalizedPrice = (bar.price - visiblePriceRange.min) / 
-        (visiblePriceRange.max - visiblePriceRange.min) * 2 - 1;
+      const y = priceCoordinates ? (bar.price - visiblePriceRange.min) / 
+        (visiblePriceRange.max - visiblePriceRange.min) : 0;
 
       // Crear rectángulo horizontal
       positions.push(
-        -1, normalizedPrice,
-        bar.normalizedVolume * 2 - 1, normalizedPrice,
-        -1, normalizedPrice + 0.002,
-        bar.normalizedVolume * 2 - 1, normalizedPrice + 0.002
+        0, y,                            // Inicio de la barra
+        bar.normalizedVolume, y,         // Fin de la barra
+        0, y + 0.001,                    // Inicio de la barra (superior)
+        bar.normalizedVolume, y + 0.001  // Fin de la barra (superior)
       );
 
       // Side (0 for bid, 1 for ask)
@@ -150,6 +148,7 @@ export const VolumeProfileGL = ({
       translate: [number, number];
       yScale: number;
       yOffset: number;
+      viewportHeight: number;
       bidColor: [number, number, number];
       askColor: [number, number, number];
       opacity: number;
@@ -167,12 +166,22 @@ export const VolumeProfileGL = ({
         translate: regl.prop<'translate'>('translate'),
         yScale: regl.prop<'yScale'>('yScale'),
         yOffset: regl.prop<'yOffset'>('yOffset'),
+        viewportHeight: regl.prop<'viewportHeight'>('viewportHeight'),
         bidColor: regl.prop<'bidColor'>('bidColor'),
         askColor: regl.prop<'askColor'>('askColor'),
         opacity: regl.prop<'opacity'>('opacity')
       },
       count: positions.length / 2,
-      primitive: 'triangle strip'
+      primitive: 'triangle strip',
+      blend: {
+        enable: true,
+        func: {
+          srcRGB: 'src alpha',
+          srcAlpha: 1,
+          dstRGB: 'one minus src alpha',
+          dstAlpha: 1
+        }
+      }
     });
 
     // Render frame
@@ -183,10 +192,8 @@ export const VolumeProfileGL = ({
       });
 
       // Calcular escalas y offsets basados en las coordenadas de precio
-      const priceRange = visiblePriceRange.max - visiblePriceRange.min;
       const yScale = height / (priceCoordinates.maxY - priceCoordinates.minY);
-      const yOffset = -priceCoordinates.minY / yScale;
-
+      const yOffset = priceCoordinates.currentY - (currentPrice - visiblePriceRange.min) * yScale;
 
       drawBars({
         aspectRatio: width / height,
@@ -194,6 +201,7 @@ export const VolumeProfileGL = ({
         translate: [0.2, 0],
         yScale,
         yOffset,
+        viewportHeight: height,
         bidColor: [0.149, 0.65, 0.604], // #26a69a
         askColor: [0.937, 0.325, 0.314], // #ef5350
         opacity: 0.9
@@ -206,7 +214,7 @@ export const VolumeProfileGL = ({
         reglRef.current = null;
       }
     };
-  }, [processedData, width, height, visiblePriceRange, priceCoordinates]);
+  }, [processedData, width, height, visiblePriceRange, priceCoordinates, currentPrice]);
 
   return (
     <div
