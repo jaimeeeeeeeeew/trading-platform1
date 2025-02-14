@@ -734,36 +734,61 @@ const Chart = () => {
     console.log('Setting up socket listeners for indicators...');
 
     const handleFundingRate = (data: any) => {
-      console.log('Received funding rate data:', data);
-      if (data && Array.isArray(data.rates) && Array.isArray(data.timestamps)) {
-        setSecondaryIndicators(prev => ({
-          ...prev,
-          fundingRate: data.rates,
-          timestamps: data.timestamps
-        }));
-        console.log('Updated funding rate state:', {
-          rates: data.rates.length,
-          timestamps: data.timestamps.length
-        });
-      } else {
-        console.warn('Invalid funding rate data format:', data);
+      console.log('Received orderbook data with funding and OI:', data);
+
+      if (data && data.funding_df) {
+        try {
+          // Procesar funding_df
+          const funding_data = data.funding_df;
+          const fundingRates = funding_data.map((item: any) => parseFloat(item.rate) * 100); // Convertir a porcentaje
+          const fundingTimestamps = funding_data.map((item: any) => new Date(item.timestamp).getTime());
+
+          setSecondaryIndicators(prev => ({
+            ...prev,
+            fundingRate: fundingRates,
+            timestamps: fundingTimestamps
+          }));
+
+          console.log('Processed funding rate data:', {
+            rates: fundingRates.length,
+            timestamps: fundingTimestamps.length,
+            firstRate: fundingRates[0],
+            lastRate: fundingRates[fundingRates.length - 1]
+          });
+        } catch (error) {
+          console.error('Error processing funding rate data:', error);
+        }
+      }
+
+      if (data && data.oi_df) {
+        try {
+          // Procesar oi_df
+          const oi_data = data.oi_df;
+          const oiValues = oi_data.map((item: any) => parseFloat(item.openInterest));
+          const oiTimestamps = oi_data.map((item: any) => new Date(item.timestamp).getTime());
+
+          setSecondaryIndicators(prev => ({
+            ...prev,
+            openInterest: oiValues,
+            timestamps: oiTimestamps
+          }));
+
+          console.log('Processed open interest data:', {
+            values: oiValues.length,
+            timestamps: oiTimestamps.length,
+            firstOI: oiValues[0],
+            lastOI: oiValues[oiValues.length - 1]
+          });
+        } catch (error) {
+          console.error('Error processing open interest data:', error);
+        }
       }
     };
 
-    socket.on('funding_rate', handleFundingRate);
-
-    socket.on('open_interest', (data) => {
-      console.log('Received open interest data:', data);
-      setSecondaryIndicators(prev => ({
-        ...prev,
-        openInterest: data.values,
-        timestamps: data.timestamps
-      }));
-    });
+    socket.on('orderbook_update', handleFundingRate);
 
     return () => {
-      socket.off('funding_rate', handleFundingRate);
-      socket.off('open_interest');
+      socket.off('orderbook_update', handleFundingRate);
     };
   }, [socket]);
 
