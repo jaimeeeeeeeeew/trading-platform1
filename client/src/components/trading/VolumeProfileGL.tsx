@@ -61,8 +61,8 @@ const vertexShader = `
     float priceRange = priceMax - priceMin;
     float coordRange = maxY - minY;
 
-    // Convertir el precio a coordenada Y usando la misma escala que el gráfico principal
-    y = minY + (((y - priceMin) / priceRange) * coordRange);
+    // Invertir la dirección de las coordenadas Y para que coincida con el gráfico
+    y = maxY - (((y - priceMin) / priceRange) * coordRange);
     y = y / viewportHeight;
 
     // Escalar y trasladar manteniendo proporciones
