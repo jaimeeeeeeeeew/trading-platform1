@@ -48,7 +48,7 @@ export const DominanceControl = ({
       {/* Barra de dominancia - Ahora más prominente */}
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
-          <span className="font-medium">Dominio de mercado</span>
+          <span className="font-medium">Dominancia</span>
           <span className="font-bold">{dominancePercentage.toFixed(1)}%</span>
         </div>
         <div className="h-4"> {/* Aumentado altura de la barra */}
