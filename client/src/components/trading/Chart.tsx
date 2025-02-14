@@ -81,7 +81,7 @@ interface UseSocketIOOptions {
   onPriceUpdate?: (price: number) => void;
 }
 
-export default function Chart() {
+const Chart = () => {
   const container = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -150,7 +150,6 @@ export default function Chart() {
       wsRef.current = null;
     }
   };
-
 
   const handleIntervalChange = async (newInterval: IntervalKey) => {
     try {
@@ -735,6 +734,34 @@ export default function Chart() {
     };
   }, [marketData.orderbook, dominancePercentage]);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    console.log('Setting up socket listeners for indicators...');
+
+    socket.on('funding_rate', (data) => {
+      console.log('Received funding rate data:', data);
+      setSecondaryIndicators(prev => ({
+        ...prev,
+        fundingRate: data.rates,
+        timestamps: data.timestamps
+      }));
+    });
+
+    socket.on('open_interest', (data) => {
+      console.log('Received open interest data:', data);
+      setSecondaryIndicators(prev => ({
+        ...prev,
+        openInterest: data.values,
+        timestamps: data.timestamps
+      }));
+    });
+
+    return () => {
+      socket.off('funding_rate');
+      socket.off('open_interest');
+    };
+  }, [socket]);
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
@@ -855,22 +882,34 @@ export default function Chart() {
               />
             )}
             {activeIndicator === 'funding' && (
-              <SecondaryIndicator
-                data={secondaryIndicators.fundingRate}
-                timestamps={secondaryIndicators.timestamps}
-                height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
-                color="#26a69a"
-                type="histogram"
-              />
+              <div>
+                {console.log('Rendering funding indicator:', {
+                  data: secondaryIndicators.fundingRate,
+                  timestamps: secondaryIndicators.timestamps
+                })}
+                <SecondaryIndicator
+                  data={secondaryIndicators.fundingRate}
+                  timestamps={secondaryIndicators.timestamps}
+                  height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
+                  color="#26a69a"
+                  type="histogram"
+                />
+              </div>
             )}
-            {activeIndicator === 'oi' && secondaryIndicators.openInterest.length > 0 && ( // Added check for data
-              <SecondaryIndicator
-                data={secondaryIndicators.openInterest}
-                timestamps={secondaryIndicators.timestamps}
-                height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
-                color="#42a5f5"
-                type="candles"
-              />
+            {activeIndicator === 'oi' && (
+              <div>
+                {console.log('Rendering OI indicator:', {
+                  data: secondaryIndicators.openInterest,
+                  timestamps: secondaryIndicators.timestamps
+                })}
+                <SecondaryIndicator
+                  data={secondaryIndicators.openInterest}
+                  timestamps={secondaryIndicators.timestamps}
+                  height={container.current?.clientHeight ? container.current.clientHeight * 0.2 : 100}
+                  color="#42a5f5"
+                  type="candles"
+                />
+              </div>
             )}
             {activeIndicator === 'longShort' && (
               <SecondaryIndicator
@@ -904,4 +943,6 @@ export default function Chart() {
       </div>
     </div>
   );
-}
+};
+
+export default Chart;

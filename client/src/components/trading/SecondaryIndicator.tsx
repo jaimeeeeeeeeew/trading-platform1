@@ -23,9 +23,11 @@ export default function SecondaryIndicator({
   useEffect(() => {
     if (!containerRef.current) return;
 
+    console.log('Creating secondary indicator chart:', { type, data, timestamps });
+
     const chart = createChart(containerRef.current, {
       layout: {
-        background: { type: 'solid', color: 'transparent' },
+        background: { color: 'transparent' },
         textColor: '#DDD',
       },
       grid: {
@@ -76,28 +78,32 @@ export default function SecondaryIndicator({
 
     seriesRef.current = series;
 
-    const chartData = data.map((value, index) => {
-      const time = Math.floor(timestamps[index] / 1000) as Time;
+    if (data && data.length > 0 && timestamps && timestamps.length > 0) {
+      console.log('Setting chart data:', { dataLength: data.length, timestampsLength: timestamps.length });
 
-      if (type === 'candles') {
-        // Para las velas de OI, usamos el valor como precio de cierre
-        // y generamos valores sintéticos para open/high/low
-        return {
-          time,
-          open: value * 0.998,
-          high: value * 1.002,
-          low: value * 0.997,
-          close: value
-        };
-      } else {
-        return {
-          time,
-          value: value
-        };
-      }
-    });
+      const chartData = data.map((value, index) => {
+        const time = Math.floor(timestamps[index] / 1000) as Time;
 
-    series.setData(chartData);
+        if (type === 'candles') {
+          return {
+            time,
+            open: value * 0.998,
+            high: value * 1.002,
+            low: value * 0.997,
+            close: value
+          };
+        } else {
+          return {
+            time,
+            value: value
+          };
+        }
+      });
+
+      series.setData(chartData);
+    } else {
+      console.warn('No data available for secondary indicator');
+    }
 
     const handleResize = () => {
       if (!containerRef.current || !chart) return;
