@@ -911,7 +911,7 @@ const Chart = () => {
               width: '350px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'flex-start',
+              justifyContent: 'center',
               zIndex: 100
             }}
           >
@@ -962,7 +962,8 @@ const Chart = () => {
                   color="#42a5f5"
                   type="candles"
                 />
-              </div>            )}
+              </div>
+            )}
             {activeIndicator === 'longShort' &&(
               <SecondaryIndicator
                 data={secondaryIndicators.longShortRatio}

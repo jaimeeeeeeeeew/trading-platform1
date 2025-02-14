@@ -164,7 +164,7 @@ export const VolumeProfile = ({
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
 
-      const margin = { top: 20, right: 0, bottom: 20, left: 0 }; // Ajustado right a 0
+      const margin = { top: 20, right: -65, bottom: 20, left: 0 };
       const innerWidth = width - margin.left - margin.right;
       const innerHeight = height - margin.top - margin.bottom;
 
@@ -174,10 +174,10 @@ export const VolumeProfile = ({
         .append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-      const maxBarWidth = innerWidth * 0.8; // Ajustado el ancho máximo
+      const maxBarWidth = innerWidth * 0.7;
       const xScale = d3.scaleLinear()
         .domain([0, 1])
-        .range([0, maxBarWidth]); // Invertido el rango para que las barras comiencen desde la izquierda
+        .range([maxBarWidth, 0]);
 
       const priceToY = (price: number) => {
         if (!priceCoordinates) return 0;
