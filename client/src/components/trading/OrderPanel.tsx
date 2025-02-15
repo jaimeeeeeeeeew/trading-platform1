@@ -67,7 +67,7 @@ export default function OrderPanel() {
   };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2 bg-[#151924] p-4 rounded-lg">
       <div className="flex gap-2 mb-2">
         <Button
           type="button"

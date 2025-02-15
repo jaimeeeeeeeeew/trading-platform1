@@ -170,7 +170,7 @@ export default function TradingAnalytics() {
         </TabsList>
 
         <TabsContent value="apis">
-          <Card className="p-4">
+          <Card className="p-4 bg-[#151924]">
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-4">
                 <Key className="h-4 w-4" />
@@ -201,7 +201,7 @@ export default function TradingAnalytics() {
                   />
                   <p className="text-[10px] text-muted-foreground">El API Secret de tu cuenta de BingX</p>
                 </div>
-                <Button 
+                <Button
                   onClick={handleSaveApiKey}
                   className="w-full"
                   disabled={isLoading}
@@ -272,7 +272,7 @@ export default function TradingAnalytics() {
         </TabsContent>
 
         <TabsContent value="analysis">
-          <div className="space-y-2">
+          <div className="space-y-2 bg-[#151924] p-4 rounded-lg">
             <div className="flex items-center gap-1">
               <Activity className="h-3 w-3" />
               <h3 className="text-[10px] font-medium">Análisis de Riesgo</h3>
@@ -309,7 +309,7 @@ export default function TradingAnalytics() {
         </TabsContent>
 
         <TabsContent value="suggestions">
-          <div className="space-y-2">
+          <div className="space-y-2 bg-[#151924] p-4 rounded-lg">
             <div className="flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
               <h3 className="text-[10px] font-medium">Sugerencias</h3>
@@ -389,7 +389,7 @@ interface MetricCardProps {
 
 function MetricCard({ title, value, trend, icon }: MetricCardProps) {
   return (
-    <div className="bg-card-foreground/5 rounded p-2 space-y-1">
+    <div className="bg-[#151924] rounded p-2 space-y-1">
       <div className="flex items-center justify-between">
         <p className="text-[10px] text-muted-foreground">{title}</p>
         {icon}
@@ -397,9 +397,9 @@ function MetricCard({ title, value, trend, icon }: MetricCardProps) {
       <div className="flex items-center gap-1">
         <span className="text-sm font-semibold">{value}</span>
         <TrendingUp className={`h-3 w-3 ${
-          trend === 'up' ? 'text-primary' : 
-          trend === 'down' ? 'text-destructive' : 
-          'text-muted-foreground'
+          trend === 'up' ? 'text-primary' :
+            trend === 'down' ? 'text-destructive' :
+              'text-muted-foreground'
         }`} />
       </div>
     </div>

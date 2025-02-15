@@ -6,23 +6,23 @@ import { DominanceControl } from './DominanceControl';
 
 // Lista de criptomonedas disponibles
 const CRYPTOCURRENCIES = [
-  { value: 'BINANCE:BTCUSDT', label: 'Bitcoin (BTC)' },
-  { value: 'BINANCE:ETHUSDT', label: 'Ethereum (ETH)' },
-  { value: 'BINANCE:ADAUSDT', label: 'Cardano (ADA)' },
-  { value: 'BINANCE:SOLUSDT', label: 'Solana (SOL)' },
-  { value: 'BINANCE:DOGEUSDT', label: 'Dogecoin (DOGE)' },
+ { value: 'BINANCE:BTCUSDT', label: 'Bitcoin (BTC)' },
+ { value: 'BINANCE:ETHUSDT', label: 'Ethereum (ETH)' },
+ { value: 'BINANCE:ADAUSDT', label: 'Cardano (ADA)' },
+ { value: 'BINANCE:SOLUSDT', label: 'Solana (SOL)' },
+ { value: 'BINANCE:DOGEUSDT', label: 'Dogecoin (DOGE)' },
 ];
 
 interface MetricsPanelProps {
-  className?: string;
-  dominanceData: {
-    bidsTotalInRange: number;
-    asksTotalInRange: number;
-    dominancePercentage: number;
-    btcAmount: number;
-  };
-  onDominancePercentageChange: (value: number) => void;
-  dominancePercentage: number;
+ className?: string;
+ dominanceData: {
+   bidsTotalInRange: number;
+   asksTotalInRange: number;
+   dominancePercentage: number;
+   btcAmount: number;
+ };
+ onDominancePercentageChange: (value: number) => void;
+ dominancePercentage: number;
 }
 
 export default function MetricsPanel({ 
@@ -34,7 +34,7 @@ export default function MetricsPanel({
   const { currentSymbol, setCurrentSymbol } = useTrading();
 
   return (
-    <Card className={`p-2 flex flex-col bg-[rgb(26,26,26)] ${className}`}>
+    <Card className={`p-2 flex flex-col bg-[#151924] ${className}`}>
       <div className="flex items-center gap-1 mb-2">
         <Activity className="h-3 w-3" />
         <span className="text-xs font-medium">Panel Trading</span>
