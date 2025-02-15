@@ -74,7 +74,7 @@ export default function Trading() {
           <Chart />
         </div>
         <div className="flex-1 flex flex-col gap-4">
-          <div className="flex-1">
+          <div className="flex-1 bg-[#151924]">
             <MetricsPanel
               className="h-full"
               dominanceData={dominanceData}
@@ -82,7 +82,7 @@ export default function Trading() {
               onDominancePercentageChange={setDominancePercentage}
             />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 bg-[#151924]">
             <RiskCalculator />
           </div>
         </div>
