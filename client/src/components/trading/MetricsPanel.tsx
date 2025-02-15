@@ -4,7 +4,6 @@ import { Activity } from 'lucide-react';
 import { useTrading } from '@/lib/trading-context';
 import { DominanceControl } from './DominanceControl';
 
-// Lista de criptomonedas disponibles
 const CRYPTOCURRENCIES = [
   { value: 'BINANCE:BTCUSDT', label: 'Bitcoin (BTC)' },
   { value: 'BINANCE:ETHUSDT', label: 'Ethereum (ETH)' },
@@ -34,7 +33,7 @@ export default function MetricsPanel({
   const { currentSymbol, setCurrentSymbol } = useTrading();
 
   return (
-    <Card className={`p-2 flex flex-col bg-[#151924] border border-black ${className}`}>
+    <Card className={`p-2 flex flex-col border border-black ${className}`}>
       <div className="flex items-center gap-1 mb-2">
         <Activity className="h-3 w-3" />
         <span className="text-xs font-medium">Panel Trading</span>
@@ -48,7 +47,7 @@ export default function MetricsPanel({
           <SelectTrigger className="w-full h-7 text-xs bg-[#151924] border-black">
             <SelectValue placeholder="Selecciona una criptomoneda" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-[#151924]">
             {CRYPTOCURRENCIES.map((crypto) => (
               <SelectItem key={crypto.value} value={crypto.value} className="text-xs">
                 {crypto.label}
