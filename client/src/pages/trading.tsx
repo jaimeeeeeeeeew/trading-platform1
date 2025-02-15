@@ -70,7 +70,7 @@ export default function Trading() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <div className="bg-black p-2 flex justify-end items-center">
+      <div className="bg-black p-2 flex justify-start items-center">
         <TutorialsDrawer />
       </div>
       <div className="flex-1 p-4 flex gap-4">
