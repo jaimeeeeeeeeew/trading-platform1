@@ -34,12 +34,12 @@ export default function MetricsPanel({
 
   return (
     <Card className={`p-2 flex flex-col border border-black ${className}`}>
-      <div className="flex items-center gap-1 mb-2">
+      <div className="flex items-center gap-1 mb-2 bg-[#151924]">
         <Activity className="h-3 w-3" />
         <span className="text-xs font-medium">Panel Trading</span>
       </div>
 
-      <div className="space-y-2 flex-1">
+      <div className="space-y-2 flex-1 bg-[#151924]">
         <Select
           value={currentSymbol}
           onValueChange={setCurrentSymbol}

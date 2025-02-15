@@ -371,7 +371,7 @@ interface MetricCardProps {
 
 function MetricCard({ title, value, trend, icon }: MetricCardProps) {
   return (
-    <div className="rounded p-2 space-y-1 border border-black">
+    <div className="rounded p-2 space-y-1 border border-black bg-[#151924]">
       <div className="flex items-center justify-between">
         <p className="text-[10px] text-muted-foreground">{title}</p>
         {icon}
