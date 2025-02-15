@@ -34,7 +34,7 @@ export default function MetricsPanel({
   const { currentSymbol, setCurrentSymbol } = useTrading();
 
   return (
-    <Card className={`p-2 flex flex-col bg-[rgb(26,26,26)] ${className}`}>
+    <Card className={`p-2 flex flex-col bg-[#151924] ${className}`}>
       <div className="flex items-center gap-1 mb-2">
         <Activity className="h-3 w-3" />
         <span className="text-xs font-medium">Panel Trading</span>
