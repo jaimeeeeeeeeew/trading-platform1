@@ -183,7 +183,7 @@ export default function RiskCalculator() {
   };
 
   return (
-    <Card className="p-2 h-full bg-card flex flex-col">
+    <Card className="p-2 h-full bg-[#151924] flex flex-col">
       <div className="flex items-center justify-between mb-2 h-6">
         <div className="flex items-center gap-1">
           <Calculator className="h-3 w-3 text-muted-foreground" />
@@ -298,7 +298,7 @@ export default function RiskCalculator() {
               Calcular
             </Button>
 
-            <div className="bg-muted p-2 rounded text-[10px]">
+            <div className="bg-[#151924] p-2 rounded text-[10px]">
               <p className="font-medium mb-1">Resultado:</p>
               <p className="font-semibold">
                 {calculationType === 'sl' 
