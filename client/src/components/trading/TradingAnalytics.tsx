@@ -162,7 +162,7 @@ export default function TradingAnalytics() {
   return (
     <div className="space-y-2">
       <Tabs defaultValue="performance" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-6">
+        <TabsList className="grid w-full grid-cols-4 h-6 bg-[#151924] border border-black">
           <TabsTrigger value="performance" className="text-[10px]">Rendimiento</TabsTrigger>
           <TabsTrigger value="analysis" className="text-[10px]">Análisis</TabsTrigger>
           <TabsTrigger value="suggestions" className="text-[10px]">Sugerencias</TabsTrigger>
@@ -170,7 +170,7 @@ export default function TradingAnalytics() {
         </TabsList>
 
         <TabsContent value="apis">
-          <Card className="p-4 bg-[#151924]">
+          <Card className="p-4 bg-[#151924] border border-black">
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-4">
                 <Key className="h-4 w-4" />
@@ -185,7 +185,7 @@ export default function TradingAnalytics() {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="Ingresa tu BingX API Key"
-                    className="h-8"
+                    className="h-8 bg-[#151924]"
                   />
                   <p className="text-[10px] text-muted-foreground">La API Key de tu cuenta de BingX</p>
                 </div>
@@ -197,7 +197,7 @@ export default function TradingAnalytics() {
                     value={apiSecret}
                     onChange={(e) => setApiSecret(e.target.value)}
                     placeholder="Ingresa tu BingX API Secret"
-                    className="h-8"
+                    className="h-8 bg-[#151924]"
                   />
                   <p className="text-[10px] text-muted-foreground">El API Secret de tu cuenta de BingX</p>
                 </div>
@@ -244,7 +244,7 @@ export default function TradingAnalytics() {
             />
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1 bg-[#151924] p-2 border border-black rounded">
             <h4 className="text-[10px] font-medium">Estadísticas Detalladas</h4>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
               <div className="flex justify-between">
@@ -272,7 +272,7 @@ export default function TradingAnalytics() {
         </TabsContent>
 
         <TabsContent value="analysis">
-          <div className="space-y-2">
+          <div className="space-y-2 bg-[#151924] p-2 border border-black rounded">
             <div className="flex items-center gap-1">
               <Activity className="h-3 w-3" />
               <h3 className="text-[10px] font-medium">Análisis de Riesgo</h3>
@@ -309,7 +309,7 @@ export default function TradingAnalytics() {
         </TabsContent>
 
         <TabsContent value="suggestions">
-          <div className="space-y-2">
+          <div className="space-y-2 bg-[#151924] p-2 border border-black rounded">
             <div className="flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />
               <h3 className="text-[10px] font-medium">Sugerencias</h3>
@@ -345,7 +345,7 @@ export default function TradingAnalytics() {
             <Button
               variant={"outline"}
               className={cn(
-                "justify-start text-left font-normal h-6",
+                "justify-start text-left font-normal h-6 bg-[#151924] border-black",
                 !date && "text-muted-foreground"
               )}
             >
@@ -389,7 +389,7 @@ interface MetricCardProps {
 
 function MetricCard({ title, value, trend, icon }: MetricCardProps) {
   return (
-    <div className="bg-card-foreground/5 rounded p-2 space-y-1">
+    <div className="bg-[#151924] rounded p-2 space-y-1 border border-black">
       <div className="flex items-center justify-between">
         <p className="text-[10px] text-muted-foreground">{title}</p>
         {icon}

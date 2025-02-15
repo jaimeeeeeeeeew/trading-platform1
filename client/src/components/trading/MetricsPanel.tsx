@@ -34,7 +34,7 @@ export default function MetricsPanel({
   const { currentSymbol, setCurrentSymbol } = useTrading();
 
   return (
-    <Card className={`p-2 flex flex-col bg-[#151924] ${className}`}>
+    <Card className={`p-2 flex flex-col bg-[#151924] border border-black ${className}`}>
       <div className="flex items-center gap-1 mb-2">
         <Activity className="h-3 w-3" />
         <span className="text-xs font-medium">Panel Trading</span>
@@ -45,7 +45,7 @@ export default function MetricsPanel({
           value={currentSymbol}
           onValueChange={setCurrentSymbol}
         >
-          <SelectTrigger className="w-full h-7 text-xs">
+          <SelectTrigger className="w-full h-7 text-xs bg-[#151924] border-black">
             <SelectValue placeholder="Selecciona una criptomoneda" />
           </SelectTrigger>
           <SelectContent>
