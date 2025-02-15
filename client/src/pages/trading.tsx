@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useMarketData } from '@/hooks/use-market-data';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
+import { TutorialsDrawer } from '@/components/TutorialsDrawer';
 
 export default function Trading() {
   const { user } = useAuth();
@@ -68,7 +69,10 @@ export default function Trading() {
   const dominanceData = calculateDominanceData();
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background">
+      <div className="bg-black p-2 flex justify-end items-center">
+        <TutorialsDrawer />
+      </div>
       <div className="flex-1 p-4 flex gap-4">
         <div className="flex-[3]">
           <Chart />
