@@ -13,11 +13,11 @@ export default function Trading() {
 
   if (!user || connectionError) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black">
+      <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">
-            {connectionError
+            {connectionError 
               ? "Error de conexión. Intentando reconectar..."
               : "Conectando al servidor de datos..."}
           </p>
@@ -38,7 +38,7 @@ export default function Trading() {
     }
 
     const currentMidPrice = (
-      parseFloat(marketData.orderbook.bids[0]?.Price || '0') +
+      parseFloat(marketData.orderbook.bids[0]?.Price || '0') + 
       parseFloat(marketData.orderbook.asks[0]?.Price || '0')
     ) / 2;
 
@@ -68,13 +68,13 @@ export default function Trading() {
   const dominanceData = calculateDominanceData();
 
   return (
-    <div className="flex h-screen bg-black">
+    <div className="flex h-screen bg-background">
       <div className="flex-1 p-4 flex gap-4">
-        <div className="flex-[3] bg-[#151924] rounded">
+        <div className="flex-[3]">
           <Chart />
         </div>
         <div className="flex-1 flex flex-col gap-4">
-          <div className="flex-1 bg-[#151924]">
+          <div className="flex-1">
             <MetricsPanel
               className="h-full"
               dominanceData={dominanceData}
@@ -82,7 +82,7 @@ export default function Trading() {
               onDominancePercentageChange={setDominancePercentage}
             />
           </div>
-          <div className="flex-1 bg-[#151924]">
+          <div className="flex-1">
             <RiskCalculator />
           </div>
         </div>
