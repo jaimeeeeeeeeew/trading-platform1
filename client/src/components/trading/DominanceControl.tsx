@@ -25,15 +25,12 @@ export const DominanceControl = ({
 
   // Efecto para actualizar la tendencia basada en la dominancia
   useEffect(() => {
-    // Verificar si hay el doble o más de compras que de ventas
     if (bidsTotalInRange >= asksTotalInRange * 2) {
       setTrend('BAJISTA');
     } 
-    // Verificar si hay el doble o más de ventas que de compras
     else if (asksTotalInRange >= bidsTotalInRange * 2) {
       setTrend('ALCISTA');
     } 
-    // Si no se cumple ninguna condición, no mostrar tendencia
     else {
       setTrend(null);
     }
@@ -63,7 +60,7 @@ export const DominanceControl = ({
   return (
     <>
       <TrendAlert trend={trend} />
-      <Card className="p-4 space-y-4">
+      <Card className="p-4 space-y-4 bg-[#151924]">
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="font-medium">Dominancia</span>
