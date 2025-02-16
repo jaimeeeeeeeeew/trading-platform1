@@ -3,7 +3,7 @@ import MetricsPanel from '@/components/trading/MetricsPanel';
 import RiskCalculator from '@/components/trading/RiskCalculator';
 import { useAuth } from '@/hooks/use-auth';
 import { useMarketData } from '@/hooks/use-market-data';
-import { Loader2, TrendingUp } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { TutorialsDrawer } from '@/components/TutorialsDrawer';
 
@@ -71,8 +71,12 @@ export default function Trading() {
   return (
     <div className="flex flex-col h-screen bg-background">
       <div className="bg-black p-2 flex justify-between items-center">
-        <div className="flex items-center">
-          <TrendingUp className="h-6 w-6 text-primary mr-2" />
+        <div className="flex items-center gap-2">
+          <img 
+            src="/attached_assets/logo_gon1.png" 
+            alt="Trading Platform Logo" 
+            className="h-8 w-8 object-contain"
+          />
           <span className="text-primary font-semibold">Trading Platform</span>
         </div>
         <TutorialsDrawer />
