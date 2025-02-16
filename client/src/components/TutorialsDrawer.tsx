@@ -11,16 +11,8 @@ import {
 } from "@/components/ui/drawer"
 import { VideoIcon } from "lucide-react"
 
-interface Video {
-  id: string
-  title: string
-}
-
-const tutorials: Video[] = [
-  { id: "video1", title: "Tutorial básico de trading" },
-  { id: "video2", title: "Análisis técnico avanzado" },
-  { id: "video3", title: "Uso de indicadores" },
-]
+// Lista de reproducción de YouTube con tutoriales
+const PLAYLIST_ID = "PLKEs2g-Oles3ys5-Gf4_mjuGxOnECV7fR";
 
 export function TutorialsDrawer() {
   return (
@@ -35,7 +27,7 @@ export function TutorialsDrawer() {
           Ver tutoriales
         </Button>
       </DrawerTrigger>
-      <DrawerContent>
+      <DrawerContent className="h-[80vh]">
         <div className="mx-auto w-full max-w-4xl">
           <DrawerHeader>
             <DrawerTitle>Tutoriales</DrawerTitle>
@@ -43,20 +35,21 @@ export function TutorialsDrawer() {
               Videos explicativos sobre el uso de la plataforma
             </DrawerDescription>
           </DrawerHeader>
-          <div className="p-4 grid gap-4">
-            {tutorials.map((video) => (
-              <div key={video.id} className="aspect-video">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src={`https://www.youtube.com/embed/${video.id}`}
-                  title={video.title}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
-              </div>
-            ))}
+          <div className="p-4 pb-0">
+            <p className="text-sm text-muted-foreground mb-4">
+              Aquí encontrarás una serie de tutoriales sobre trading y el uso de la plataforma
+            </p>
+            <div className="aspect-video">
+              <iframe
+                width="100%"
+                height="100%"
+                src={`https://www.youtube.com/embed/videoseries?list=${PLAYLIST_ID}`}
+                title="Tutoriales de Trading"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            </div>
           </div>
           <DrawerFooter>
             <DrawerClose asChild>
