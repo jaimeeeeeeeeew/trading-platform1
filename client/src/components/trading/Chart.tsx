@@ -835,7 +835,7 @@ const Chart = () => {
             backgroundImage: "url('/logo_gon1.png')",
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
-            backgroundSize: 'contain',
+            backgroundSize: '50%', 
             opacity: 0.15,
             zIndex: 1
           }} 
@@ -971,10 +971,8 @@ const Chart = () => {
       </div>
 
       {crosshairData && (
-                <div className="absolute top-14 left-2 z-10 bg-background/90 p-2 rounded-mdborder border-border shadow-lg text-xs flex itemscenter gap-2">
-          <div className={`flex items-center gap-2 ${calculateChange(crosshairData.open, crosshairData.close) >= 0
-            ? 'text-green-500'
-            : 'text-red-500'}`}>
+        <div className="absolute top-14 left-2 z-10 bg-background/90 p-2 rounded-mdborder border-border shadow-lg text-xs flex items-center gap-2">
+          <div className={`flex items-center gap-2 ${calculateChange(crosshairData.open, crosshairData.close) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
             <span className="font-mono text-xs">
               {crosshairData.open?.toFixed(2) || '0.00'}
             </span>
