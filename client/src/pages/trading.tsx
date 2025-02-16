@@ -77,7 +77,6 @@ export default function Trading() {
             alt="Trading Platform Logo" 
             className="h-6 w-6 object-contain"
           />
-          <span className="text-primary-foreground text-sm font-medium">Trading Platform</span>
         </div>
         <TutorialsDrawer />
       </div>
