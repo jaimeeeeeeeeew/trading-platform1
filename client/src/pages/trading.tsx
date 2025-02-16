@@ -75,7 +75,7 @@ export default function Trading() {
           <img 
             src="/logo_gon1.png" 
             alt="Trading Platform Logo" 
-            className="h-20 w-18 object-contain"
+            className="h-[50px] w-[50px] mt-[10px] ml-[10px] object-contain"
           />
         </div>
         <TutorialsDrawer />
