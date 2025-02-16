@@ -28,7 +28,7 @@ export function TutorialsDrawer() {
       <DrawerTrigger asChild>
         <Button 
           variant="ghost" 
-          size="xs" 
+          size="sm"
           className="h-6 px-2 text-xs text-primary-foreground hover:bg-primary/10"
         >
           <VideoIcon className="h-3 w-3 mr-1" />

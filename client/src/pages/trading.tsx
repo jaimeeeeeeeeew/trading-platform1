@@ -70,14 +70,14 @@ export default function Trading() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <div className="bg-black p-2 flex justify-between items-center">
+      <div className="bg-black h-10 px-3 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <img 
             src="/attached_assets/logo_gon1.png" 
             alt="Trading Platform Logo" 
-            className="h-8 w-8 object-contain"
+            className="h-6 w-6 object-contain"
           />
-          <span className="text-primary font-semibold">Trading Platform</span>
+          <span className="text-primary-foreground text-sm font-medium">Trading Platform</span>
         </div>
         <TutorialsDrawer />
       </div>
