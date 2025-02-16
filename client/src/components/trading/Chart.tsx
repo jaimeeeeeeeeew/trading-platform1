@@ -826,12 +826,13 @@ const Chart = () => {
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-0" style={{
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{
         backgroundImage: "url('/logo_gon1.png')",
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'center',
         backgroundSize: 'contain',
-        opacity: 0.03,
+        opacity: 0.15,
+        zIndex: 1
       }} />
 
       <div className="absolute top-2 left-2 z-10 flex items-center gap-2">
