@@ -587,11 +587,11 @@ const Chart = () => {
     chartRef.current = chart;
 
     const candlestickSeries = chart.addCandlestickSeries({
-      upColor: '#26a69a',
-      downColor: '#ef5350',
+      upColor: '#089981',
+      downColor: '#F23645',
       borderVisible: false,
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350',
+      wickUpColor: '#089981',
+      wickDownColor: '#F23645',
     });
 
     candlestickSeriesRef.current = candlestickSeries;
