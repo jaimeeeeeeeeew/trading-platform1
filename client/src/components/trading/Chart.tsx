@@ -826,92 +826,17 @@ const Chart = () => {
 
   return (
     <div className="w-full h-full rounded-lg overflow-hidden border border-border bg-card relative">
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{
-        backgroundImage: "url('/logo_gon1.png')",
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'center',
-        backgroundSize: 'contain',
-        opacity: 0.15,
-        zIndex: 1
-      }} />
-
-      <div className="absolute top-2 left-2 z-10 flex items-center gap-2">
-        <Select
-          value={interval}
-          onValueChange={handleIntervalChange}
-          disabled={isLoading}
-        >
-          <SelectTrigger className="w-20 bg-background">
-            <SelectValue placeholder="Interval" />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(INTERVALS).map(([key, { label }]) => (
-              <SelectItem key={key} value={key}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={grouping}
-          onValueChange={(value) => setGrouping(value as '1' | '5' | '10')}
-        >
-          <SelectTrigger className="w-28 bg-background">
-            <SelectValue placeholder="Group" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">No Group</SelectItem>
-            <SelectItem value="5">Group x5</SelectItem>
-            <SelectItem value="10">Group x10</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={activeIndicator}
-          onValueChange={(value) => setActiveIndicator(value as ActiveIndicator)}
-        >
-          <SelectTrigger className="w-32 bg-background">
-            <SelectValue placeholder="Indicadores">Indicadores</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Ninguno</SelectItem>
-            <SelectItem value="rsi">RSI</SelectItem>
-            <SelectItem value="funding">Funding Rate</SelectItem>
-            <SelectItem value="oi">Open Interest</SelectItem>
-            <SelectItem value="longShort">Long/Short Ratio</SelectItem>
-            <SelectItem value="deltaCvd">Delta CVD</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {crosshairData && (
-        <div className="absolute top-14 left-2 z-10 bg-background/90 p-2 rounded-md border border-border shadow-lg text-xs flex items-center gap-2">
-          <div className={`flex items-center gap-2 ${calculateChange(crosshairData.open, crosshairData.close) >= 0
-            ? 'text-green-500'
-            : 'text-red-500'}`}>
-            <span className="font-mono text-xs">
-              {crosshairData.open?.toFixed(2) || '0.00'}
-            </span>
-            <span className="font-mono text-xs">
-              {crosshairData.high?.toFixed(2) || '0.00'}
-            </span>
-            <span className="font-mono text-xs">
-              {crosshairData.low?.toFixed(2) || '0.00'}
-            </span>
-            <span className="font-mono text-xs">
-              {crosshairData.close?.toFixed(2) || '0.00'}
-            </span>
-            <span className="font-mono text-xs">
-              {calculateChange(crosshairData.open, crosshairData.close).toFixed(2)}%
-            </span>
-          </div>
-        </div>
-      )}
-
-
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
+
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{
+          backgroundImage: "url('/logo_gon1.png')",
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'center',
+          backgroundSize: 'contain',
+          opacity: 0.15,
+          zIndex: 1
+        }} />
 
         {container.current && orderbookVolumeProfile.length > 0 && currentChartPrice && (
           <div
@@ -991,6 +916,81 @@ const Chart = () => {
           </div>
         )}
       </div>
+
+      <div className="absolute top-2 left-2 z-10 flex items-center gap-2">
+        <Select
+          value={interval}
+          onValueChange={handleIntervalChange}
+          disabled={isLoading}
+        >
+          <SelectTrigger className="w-20 bg-background">
+            <SelectValue placeholder="Interval" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(INTERVALS).map(([key, { label }]) => (
+              <SelectItem key={key} value={key}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={grouping}
+          onValueChange={(value) => setGrouping(value as '1' | '5' | '10')}
+        >
+          <SelectTrigger className="w-28 bg-background">
+            <SelectValue placeholder="Group" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">No Group</SelectItem>
+            <SelectItem value="5">Group x5</SelectItem>
+            <SelectItem value="10">Group x10</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={activeIndicator}
+          onValueChange={(value) => setActiveIndicator(value as ActiveIndicator)}
+        >
+          <SelectTrigger className="w-32 bg-background">
+            <SelectValue placeholder="Indicadores">Indicadores</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Ninguno</SelectItem>
+            <SelectItem value="rsi">RSI</SelectItem>
+            <SelectItem value="funding">Funding Rate</SelectItem>
+            <SelectItem value="oi">Open Interest</SelectItem>
+            <SelectItem value="longShort">Long/Short Ratio</SelectItem>
+            <SelectItem value="deltaCvd">Delta CVD</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {crosshairData && (
+        <div className="absolute top-14 left-2 z-10 bg-background/90 p-2 rounded-md border border-border shadow-lg text-xs flex items-center gap-2">
+          <div className={`flex items-center gap-2 ${calculateChange(crosshairData.open, crosshairData.close) >= 0
+            ? 'text-green-500'
+            : 'text-red-500'}`}>
+            <span className="font-mono text-xs">
+              {crosshairData.open?.toFixed(2) || '0.00'}
+            </span>
+            <span className="font-mono text-xs">
+              {crosshairData.high?.toFixed(2) || '0.00'}
+            </span>
+            <span className="font-mono text-xs">
+              {crosshairData.low?.toFixed(2) || '0.00'}
+            </span>
+            <span className="font-mono text-xs">
+              {crosshairData.close?.toFixed(2) || '0.00'}
+            </span>
+            <span className="font-mono text-xs">
+              {calculateChange(crosshairData.open, crosshairData.close).toFixed(2)}%
+            </span>
+          </div>
+        </div>
+      )}
+
 
       <div className="absolute top-2 right-2 z-10">
         <Button
