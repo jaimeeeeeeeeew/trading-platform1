@@ -832,11 +832,11 @@ const Chart = () => {
         <div 
           className="absolute top-0 left-0 w-full h-full pointer-events-none" 
           style={{
-            backgroundImage: "url('/assets/logo_gon1.png')",
+            backgroundImage: "url('client/public/logo_gon1.png)",
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
-            backgroundSize: '300px',
-            opacity: 0.1,
+            backgroundSize: '1300px',
+            opacity: 0.9,
             zIndex: 1
           }} 
         />
