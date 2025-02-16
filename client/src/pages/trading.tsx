@@ -71,13 +71,15 @@ export default function Trading() {
   return (
     <div className="flex flex-col h-screen bg-background">
       <div className="bg-black h-[60px] px-3 flex justify-between items-center">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center">
           <img 
             src="/logo_gon1.png" 
             alt="Trading Platform Logo" 
             className="h-[90px] w-[90px] mt-[20px] ml-[10px] object-contain"
           />
-          <TutorialsDrawer />
+          <div className="ml-4 mt-[20px]">
+            <TutorialsDrawer />
+          </div>
         </div>
         <div>{/* espacio para futuros elementos de la derecha */}</div>
       </div>
