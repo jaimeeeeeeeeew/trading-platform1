@@ -835,8 +835,8 @@ const Chart = () => {
             backgroundImage: "url('/logo_gon1.png')",
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
-            backgroundSize: '1300px',
-            opacity: 0.9,
+            backgroundSize: 'contain',
+            opacity: 0.05,
             zIndex: 1
           }} 
         />
@@ -993,8 +993,6 @@ const Chart = () => {
           </div>
         </div>
       )}
-
-
       <div className="absolute top-2 right-2 z-10">
         <Button
           onClick={handleAutoFit}
