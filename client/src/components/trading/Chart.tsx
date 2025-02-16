@@ -836,7 +836,7 @@ const Chart = () => {
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
             backgroundSize: '50%', 
-            opacity: 0.15,
+            opacity: 0.025,
             zIndex: 1
           }} 
         />
