@@ -829,14 +829,17 @@ const Chart = () => {
       <div className="w-full h-full relative" style={{ minHeight: '400px' }}>
         <div ref={container} className="w-full h-full" />
 
-        <div className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{
-          backgroundImage: "url('/assets/logo_gon1.png')",
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'center',
-          backgroundSize: '300px',
-          opacity: 0.1,
-          zIndex: 1
-        }} />
+        <div 
+          className="absolute top-0 left-0 w-full h-full pointer-events-none" 
+          style={{
+            backgroundImage: "url('/assets/logo_gon1.png')",
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            backgroundSize: '300px',
+            opacity: 0.1,
+            zIndex: 1
+          }} 
+        />
 
         {container.current && orderbookVolumeProfile.length > 0 && currentChartPrice && (
           <div
@@ -968,7 +971,7 @@ const Chart = () => {
       </div>
 
       {crosshairData && (
-        <div className="absolute top-14 left-2 z-10 bg-background/90 p-2 rounded-md border border-border shadow-lg text-xs flex items-center gap-2">
+        <div className="absolute top-14 left-2 z-10 bg-background/90 p-2 rounded-mdborder border-border shadow-lg text-xs flex items-center gap-2">
           <div className={`flex items-center gap-2 ${calculateChange(crosshairData.open, crosshairData.close) >= 0
             ? 'text-green-500'
             : 'text-red-500'}`}>
