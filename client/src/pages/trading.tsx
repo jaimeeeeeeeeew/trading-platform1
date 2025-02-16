@@ -73,7 +73,7 @@ export default function Trading() {
       <div className="bg-black h-10 px-3 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <img 
-            src="/attached_assets/logo_gon1.png" 
+            src="/logo_gon1.png" 
             alt="Trading Platform Logo" 
             className="h-6 w-6 object-contain"
           />
