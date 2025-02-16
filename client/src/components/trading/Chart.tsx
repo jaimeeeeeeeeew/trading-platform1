@@ -830,11 +830,11 @@ const Chart = () => {
         <div ref={container} className="w-full h-full" />
 
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none" style={{
-          backgroundImage: "url('/logo_gon1.png')",
+          backgroundImage: "url('/assets/logo_gon1.png')",
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center',
-          backgroundSize: 'contain',
-          opacity: 0.15,
+          backgroundSize: '300px',
+          opacity: 0.1,
           zIndex: 1
         }} />
 
