@@ -70,7 +70,7 @@ export default function Trading() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <div className="bg-black h-10 px-3 flex justify-between items-center">
+      <div className="bg-black h-[60px] px-3 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <img 
             src="/logo_gon1.png" 
