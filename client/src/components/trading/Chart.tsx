@@ -836,8 +836,8 @@ const Chart = () => {
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
             backgroundSize: 'contain',
-            opacity: 5,
-            zIndex: 1
+            opacity: 0.5,
+            zIndex: 10
           }} 
         />
 
@@ -971,7 +971,7 @@ const Chart = () => {
       </div>
 
       {crosshairData && (
-        <div className="absolute top-14 left-2 z-10 bg-background/90 p-2 rounded-mdborder border-border shadow-lg text-xs flex items-center gap-2">
+                <div className="absolute top-14 left-2 z-10 bg-background/90 p-2 rounded-mdborder border-border shadow-lg text-xs flex items-center gap-2">
           <div className={`flex items-center gap-2 ${calculateChange(crosshairData.open, crosshairData.close) >= 0
             ? 'text-green-500'
             : 'text-red-500'}`}>
